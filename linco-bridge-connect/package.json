@@ -1,0 +1,29 @@
+{
+  "name": "linco-connect",
+  "version": "1.2.25",
+  "description": "自研 IM 桥接多 Agent 服务",
+  "main": "server.js",
+  "bin": {
+    "linco-connect": "./bin/linco-connect.js"
+  },
+  "files": [
+    "bin",
+    "packages",
+    "src",
+    "public",
+    "server.js",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/**/*.test.js\" \"packages/**/*.test.js\""
+  },
+  "engines": {
+    "node": "20.x || 22.x || 23.x || 24.x || 25.x || 26.x"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.11.1",
+    "ws": "^8.16.0",
+    "yaml": "^2.9.0"
+  }
+}
