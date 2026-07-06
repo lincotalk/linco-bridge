@@ -9,7 +9,10 @@
   "files": [
     "bin",
     "docs",
-    "packages",
+    "packages/connector-sdk/package.json",
+    "packages/connector-sdk/src",
+    "packages/protocol/package.json",
+    "packages/protocol/src",
     "src",
     "public",
     "server.js",
