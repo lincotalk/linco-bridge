@@ -1,0 +1,63 @@
+{
+  "pages": [
+    {
+      "path": "pages/messages/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/bridge/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/bridge/import-local",
+      "style": {
+        "navigationBarTitleText": "连接 Agent",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/bridge/import-openclaw",
+      "style": {
+        "navigationBarTitleText": "从 OpenClaw 导入",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/chat/index",
+      "style": {
+        "navigationBarTitleText": "聊天",
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Linco Bridge",
+    "navigationBarBackgroundColor": "#f5f5f5",
+    "backgroundColor": "#f5f5f5"
+  },
+  "tabBar": {
+    "color": "#8c8c8c",
+    "selectedColor": "#1a1a1a",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/messages/index",
+        "text": "消息",
+        "iconPath": "static/tabbar/messages.png",
+        "selectedIconPath": "static/tabbar/messages-active.png"
+      },
+      {
+        "pagePath": "pages/bridge/index",
+        "text": "桥接",
+        "iconPath": "static/tabbar/bridge.png",
+        "selectedIconPath": "static/tabbar/bridge-active.png"
+      }
+    ]
+  }
+}

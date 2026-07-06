@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+data/*.db
+.env
+.env.*
+src/**/*.js
+src/**/*.js.map

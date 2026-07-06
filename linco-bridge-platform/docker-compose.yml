@@ -1,0 +1,16 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - '3300:3300'
+    environment:
+      PORT: '3300'
+      PUBLIC_HOST: '127.0.0.1'
+      SQLITE_PATH: /app/data/linco-bridge.db
+    volumes:
+      - bridge-data:/app/data
+
+volumes:
+  bridge-data:
