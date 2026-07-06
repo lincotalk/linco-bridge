@@ -1,60 +1,108 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
-import AppNavBar from '@/components/AppNavBar.vue'
+import { watch } from 'vue'
+import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
-import { useSessionStore } from '@/stores'
+import ChatInputArea from '@/components/ChatInputArea.vue'
+import { useChatSession } from '@/composables/useChatSession'
+import { showToast } from '@/utils/format'
 
-const sessionStore = useSessionStore()
-const sessionId = ref('')
-const draft = ref('')
-const sending = ref(false)
-
-const messages = computed(() => sessionStore.getMessages(sessionId.value))
+const chat = useChatSession()
+const {
+  draft,
+  sending,
+  loading,
+  header,
+  messages,
+  scrollAnchor,
+  loadSession,
+  sendMessage,
+  scrollToBottom,
+} = chat
 
 onLoad((query) => {
-  sessionId.value = String(query?.sessionId ?? '')
-  if (sessionId.value) {
-    void sessionStore.loadMessages(sessionId.value)
+  const id = String(query?.sessionId ?? '')
+  const initialDraft = query?.draft ? decodeURIComponent(String(query.draft)) : undefined
+  if (id) {
+    void loadSession(id, initialDraft)
   }
 })
 
-async function handleSend() {
-  const content = draft.value.trim()
-  if (!content || !sessionId.value || sending.value) return
+watch(
+  () => messages.value.length,
+  () => {
+    scrollToBottom()
+  },
+)
 
-  sending.value = true
-  draft.value = ''
-  try {
-    await sessionStore.sendMessage(sessionId.value, content)
-  } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : '发送失败',
-      icon: 'none',
-    })
-  } finally {
-    sending.value = false
-  }
+function handleWorkspace() {
+  showToast('工作区选择待插件接入')
+}
+
+function handleMore() {
+  showToast('Agent 侧栏待 SDK 接入')
+}
+
+function handleAdd() {
+  showToast('附件选择待 SDK 接入')
+}
+
+function handleSend() {
+  void sendMessage()
+}
+
+function handleVoice() {
+  showToast('语音输入待 SDK 接入')
+}
+
+function handleStop() {
+  showToast('停止生成待 SDK 接入')
 }
 </script>
 
 <template>
   <view class="page-container chat-page">
-    <AppNavBar show-back />
-    <scroll-view class="chat-page__messages" scroll-y :scroll-with-animation="true">
-      <ChatBubble v-for="item in messages" :key="item.id" :message="item" />
+    <AgentLandingAppBar
+      v-if="header"
+      :title="header.title"
+      :subtitle="header.subtitle"
+      :avatar="header.avatar"
+      show-workspace
+      @workspace="handleWorkspace"
+      @more="handleMore"
+    />
+
+    <scroll-view
+      class="chat-page__messages"
+      scroll-y
+      :scroll-with-animation="true"
+      :scroll-into-view="scrollAnchor"
+    >
+      <view v-if="loading" class="chat-page__state">
+        <text class="chat-page__state-text">加载中…</text>
+      </view>
+
+      <view v-else-if="messages.length === 0" class="chat-page__state">
+        <text class="chat-page__state-text">发送消息开始对话</text>
+      </view>
+
+      <view v-else class="chat-page__list">
+        <ChatBubble v-for="item in messages" :key="item.id" :message="item" />
+      </view>
+
+      <view id="chat-bottom" class="chat-page__bottom-spacer" />
     </scroll-view>
-    <view class="chat-page__composer">
-      <input
-        v-model="draft"
-        class="chat-page__input"
-        type="text"
-        confirm-type="send"
-        placeholder="输入消息…"
-        @confirm="handleSend"
-      />
-      <view class="chat-page__send" @tap="handleSend">发送</view>
-    </view>
+
+    <ChatInputArea
+      v-model="draft"
+      :disabled="loading"
+      :sending="sending"
+      :is-send-disabled="loading"
+      @send="handleSend"
+      @stop="handleStop"
+      @add="handleAdd"
+      @voice="handleVoice"
+    />
   </view>
 </template>
 
@@ -63,37 +111,32 @@ async function handleSend() {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  background: #ffffff;
 }
 
 .chat-page__messages {
   flex: 1;
-  padding: 24rpx 24rpx 16rpx;
-  box-sizing: border-box;
+  min-height: 0;
+  background: #ffffff;
 }
 
-.chat-page__composer {
+.chat-page__list {
+  padding: 24rpx 24rpx 16rpx;
+}
+
+.chat-page__state {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
-  background: #ffffff;
-  border-top: 1rpx solid #ebebeb;
+  justify-content: center;
+  min-height: 480rpx;
 }
 
-.chat-page__input {
-  flex: 1;
-  height: 72rpx;
-  padding: 0 24rpx;
-  border-radius: 999rpx;
-  background: #f5f5f5;
+.chat-page__state-text {
   font-size: 28rpx;
+  color: rgba(0, 0, 0, 0.45);
 }
 
-.chat-page__send {
-  padding: 16rpx 28rpx;
-  border-radius: 999rpx;
-  background: #1677ff;
-  color: #ffffff;
-  font-size: 28rpx;
+.chat-page__bottom-spacer {
+  height: 24rpx;
 }
 </style>

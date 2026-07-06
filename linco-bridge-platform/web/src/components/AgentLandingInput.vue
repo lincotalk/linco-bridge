@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { CHAT_ICON } from '@/constants/chat-icons'
 
 const props = withDefaults(
   defineProps<{
@@ -62,7 +63,7 @@ function handleSend() {
       />
       <view class="landing-input__toolbar">
         <view class="landing-input__tool" @tap="emit('add')">
-          <image class="landing-input__icon" src="/static/icons/chat/home_input_add.png" mode="aspectFit" />
+          <image class="landing-input__icon" :src="CHAT_ICON.add" mode="aspectFit" />
         </view>
         <view
           class="landing-input__pill"
@@ -72,7 +73,7 @@ function handleSend() {
           <text class="landing-input__pill-text">临时会话</text>
         </view>
         <view class="landing-input__tool landing-input__tool--right" @tap="emit('voice')">
-          <image class="landing-input__icon" src="/static/icons/chat/home_input_voice.png" mode="aspectFit" />
+          <image class="landing-input__icon" :src="CHAT_ICON.voice" mode="aspectFit" />
         </view>
       </view>
     </view>

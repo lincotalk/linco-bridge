@@ -148,7 +148,7 @@ const emit = defineEmits<{
 .connect-page__retry {
   margin-top: 24rpx;
   font-size: 28rpx;
-  color: #1677ff;
+  color: #00754a;
 }
 
 .connect-page__tip {
@@ -173,7 +173,7 @@ const emit = defineEmits<{
 .connect-page__refresh {
   flex-shrink: 0;
   font-size: 24rpx;
-  color: #1677ff;
+  color: #00754a;
 }
 
 .connect-page__refresh--disabled {
@@ -209,8 +209,8 @@ const emit = defineEmits<{
 }
 
 .context__item--active {
-  background: #e6f4ff;
-  border-color: #1677ff;
+  background: rgba(0, 117, 74, 0.12);
+  border-color: #00754a;
 }
 
 .context__label {
@@ -236,7 +236,7 @@ const emit = defineEmits<{
   text-align: center;
   font-size: 28rpx;
   color: #ffffff;
-  background: #1677ff;
+  background: #00754a;
 }
 
 .connect-page__status-pill--online {
@@ -244,7 +244,7 @@ const emit = defineEmits<{
 }
 
 .connect-page__status-pill--offline {
-  background: #1677ff;
+  background: #00754a;
 }
 
 .connect-page__status-hint {
@@ -277,7 +277,7 @@ const emit = defineEmits<{
 }
 
 .btn--primary {
-  background: #1677ff;
+  background: #00754a;
   color: #ffffff;
 }
 

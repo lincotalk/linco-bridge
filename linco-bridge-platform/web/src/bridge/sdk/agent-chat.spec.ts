@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createMockAgentChatSdk, buildLandingSubtitle } from '@/bridge/sdk/agent-chat'
+import {
+  createMockAgentChatSdk,
+  buildLandingSubtitle,
+  findMockHistoryItem,
+  parseAgentTypeFromSessionId,
+} from '@/bridge/sdk/agent-chat'
 
 describe('createMockAgentChatSdk', () => {
   it('returns codex landing header with device id and offline status', async () => {
@@ -29,5 +34,16 @@ describe('createMockAgentChatSdk', () => {
     })
 
     expect(result.sessionId).toMatch(/^codex-temp-/)
+  })
+
+  it('finds mock history by id', () => {
+    const item = findMockHistoryItem('hist-codex-admin')
+    expect(item?.title).toBe('AIChat-Admin')
+  })
+
+  it('parses agent type from session id', () => {
+    expect(parseAgentTypeFromSessionId('hist-codex-admin')).toBe('codex')
+    expect(parseAgentTypeFromSessionId('codex-new')).toBe('codex')
+    expect(parseAgentTypeFromSessionId('unknown')).toBeNull()
   })
 })

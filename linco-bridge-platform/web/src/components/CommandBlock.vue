@@ -55,7 +55,7 @@ async function handleCopy() {
   border-radius: 999rpx;
   background: #f0f0f0;
   font-size: 24rpx;
-  color: #1677ff;
+  color: #00754a;
 }
 
 .command-block__content {

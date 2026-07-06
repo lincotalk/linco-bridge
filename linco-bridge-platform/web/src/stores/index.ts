@@ -104,6 +104,38 @@ export const useSessionStore = defineStore('session', () => {
     return reply
   }
 
+  function appendDemoExchange(sessionId: string, content: string) {
+    const current = messagesBySession.value[sessionId] ?? []
+    const now = Date.now()
+    messagesBySession.value = {
+      ...messagesBySession.value,
+      [sessionId]: [
+        ...current,
+        {
+          id: `local-user-${now}`,
+          sessionId,
+          role: 'user',
+          content,
+          createdAt: now,
+        },
+        {
+          id: `local-assistant-${now + 1}`,
+          sessionId,
+          role: 'assistant',
+          content: `[Demo] 已收到：${content}`,
+          createdAt: now + 1,
+        },
+      ],
+    }
+  }
+
+  function setMessages(sessionId: string, messages: ChatMessage[]) {
+    messagesBySession.value = {
+      ...messagesBySession.value,
+      [sessionId]: messages,
+    }
+  }
+
   return {
     sessions,
     messagesBySession,
@@ -114,5 +146,7 @@ export const useSessionStore = defineStore('session', () => {
     loadSessions,
     loadMessages,
     sendMessage,
+    appendDemoExchange,
+    setMessages,
   }
 })
