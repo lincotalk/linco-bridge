@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { CHAT_ICON } from '@/constants/chat-icons'
+
 defineProps<{
   title: string
   subtitle?: string
@@ -36,12 +38,8 @@ function handleBack() {
       </view>
 
       <view class="landing-bar__actions">
-        <view
-          v-if="showWorkspace"
-          class="landing-bar__action"
-          @tap="emit('workspace')"
-        >
-          <image class="landing-bar__folder" src="/static/icons/chat/folder.png" mode="aspectFit" />
+        <view v-if="showWorkspace" class="landing-bar__action" @tap="emit('workspace')">
+          <image class="landing-bar__folder" :src="CHAT_ICON.folder" mode="aspectFit" />
         </view>
         <view class="landing-bar__action" @tap="emit('more')">
           <text class="landing-bar__more">···</text>

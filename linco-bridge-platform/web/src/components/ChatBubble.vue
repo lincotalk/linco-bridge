@@ -37,7 +37,7 @@ defineProps<{
 }
 
 .bubble--user {
-  background: #1677ff;
+  background: #00754a;
 }
 
 .bubble--assistant,
@@ -64,6 +64,6 @@ defineProps<{
 
 .bubble__streaming {
   margin-left: 4rpx;
-  color: #1677ff;
+  color: #00754a;
 }
 </style>

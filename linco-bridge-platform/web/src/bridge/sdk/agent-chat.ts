@@ -147,3 +147,26 @@ export function buildLandingSubtitle(header: AgentLandingHeader): string {
   parts.push(header.status === 'online' ? '在线' : '离线')
   return parts.join(' · ')
 }
+
+export function getAgentAvatar(agentType: AgentBridgeType): string {
+  return BRIDGE_AVATAR[agentType]
+}
+
+/** Resolve mock landing history row by id (hist-* sessions from landing page). */
+export function findMockHistoryItem(sessionId: string): AgentHistoryItem | undefined {
+  for (const items of Object.values(MOCK_HISTORY)) {
+    const found = items.find((item) => item.id === sessionId)
+    if (found) return found
+  }
+  return undefined
+}
+
+export function parseAgentTypeFromSessionId(sessionId: string): AgentBridgeType | null {
+  const histMatch = sessionId.match(/^hist-(codex|claude|hermes|openclaw)-/)
+  if (histMatch?.[1]) return histMatch[1] as AgentBridgeType
+
+  for (const type of Object.keys(BRIDGE_AVATAR) as AgentBridgeType[]) {
+    if (sessionId.startsWith(`${type}-`)) return type
+  }
+  return null
+}

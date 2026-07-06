@@ -67,7 +67,7 @@ function goBridge() {
   margin-top: 40rpx;
   padding: 18rpx 48rpx;
   border-radius: 999rpx;
-  background: #1677ff;
+  background: #00754a;
   color: #ffffff;
   font-size: 28rpx;
 }
