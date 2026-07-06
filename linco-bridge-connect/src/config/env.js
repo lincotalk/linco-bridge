@@ -335,6 +335,7 @@ function loadConfig(rootDir) {
     maxMessageQueue: numberFromEnv('MAX_MESSAGE_QUEUE', userConfig.maxMessageQueue || 10),
     attachmentsDirName: stringFromEnv('ATTACHMENTS_DIR_NAME', userConfig.attachmentsDirName || 'attachments'),
     maxOutgoingAttachmentBytes: numberFromEnv('MAX_OUTGOING_ATTACHMENT_BYTES', userConfig.maxOutgoingAttachmentBytes || 50 * 1024 * 1024),
+    allowHiddenGetFiles: process.env.ALLOW_HIDDEN_GET_FILES === '1' || userConfig.allowHiddenGetFiles === true,
     allowUnsafeAttachments: process.env.ALLOW_UNSAFE_ATTACHMENTS === '1' || userConfig.allowUnsafeAttachments === true,
     unsafeAttachmentExtensions: listFromEnv('UNSAFE_ATTACHMENT_EXTENSIONS', userConfig.unsafeAttachmentExtensions || DEFAULT_UNSAFE_ATTACHMENT_EXTENSIONS),
     gracefulShutdownMs: numberFromEnv('CLAUDE_GRACEFUL_SHUTDOWN_MS', userConfig.gracefulShutdownMs || 3000),

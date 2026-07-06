@@ -16,7 +16,7 @@
 | `/update` / `/upgrade` | 查看、升级或降级 Linco Connect。 |
 | `/remove-account` / `/delete-account` | 删除当前或指定 Agent 下的账号配置。 |
 | `/base` | 显示 Linco 运行目录、会话运行目录和附件目录。 |
-| `/get <路径>` | 读取允许目录内的文件并返回给远端 IM。 |
+| `/get <路径>` | 读取允许目录内的非隐藏文件并返回给远端 IM。 |
 | `/approve` | 显示当前审批模式。 |
 | `/approve manual` | 后续权限请求和危险操作由用户手动确认。 |
 | `/approve auto` | 自动确认权限请求和危险操作，保留默认权限边界。 |
