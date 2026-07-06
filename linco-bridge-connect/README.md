@@ -1,116 +1,178 @@
-# linco-bridge
+# Linco Connect
 
-Local connector package for Linco Bridge compatible platforms.
+Linco Connect 是运行在用户电脑上的本机 Agent 连接器，用于把 Linco IM 消息转发给本机 Agent CLI，并把回复、工具调用、权限确认、附件和生成文件回传到 IM。
 
-This package runs on the user's PC and connects local Agent CLIs such as Claude Code and Codex to a bridge gateway over WebSocket. The default protocol mode is `linco`, so current Linco IM frame names and envelope fields remain compatible.
+它不是鉴权服务，也不是托管式多租户服务。用户凭证保存在本机配置文件中，连接地址默认由程序内置；普通用户不需要在 README 或配置中手动填写服务端地址。
 
-Built-in agents:
+## 功能
 
-- `codex`
-- `claude`
-- `hermes`
-- `openclaw`
+- 支持 Claude Code、Codex、Hermes、OpenClaw 等 Agent。
+- 支持远端 IM 连接，也支持本地测试页调试。
+- 支持文本、图片和常见文档附件上传。
+- 支持 Agent 生成文件路径引用：远端 IM 点击引用后通过 `/get <路径>` 按需取回文件。
+- 支持远端 IM 按路径取回文件：前端拿到本机路径后可发送 `/get <路径>`，连接器校验后返回文件 base64。
+- 支持工具/命令权限确认和危险操作确认，默认 auto 审批模式，可在会话内切换 manual/auto/yolo。
+- 支持会话历史查看、切换、删除和 Token 用量查看。
 
-## Commands
+## 前置条件
+
+- Node.js 20+；推荐 Node.js 22 LTS。`better-sqlite3` 用于加速本地 Codex session 查询，当前支持 Node.js 20/22/23/24/25/26。
+- 已安装需要使用的 Agent CLI，并完成对应登录或配置：
+  - `claude`
+  - `codex`
+  - `hermes`
+  - `openclaw`
+- Windows 用户建议安装 Git for Windows。
+
+只需要安装实际启用的 Agent。
+
+升级 Node.js 主版本后，如遇 `better-sqlite3` native module 或 `NODE_MODULE_VERSION` 报错，请在连接器安装目录重新执行 `npm install` 或 `npm rebuild better-sqlite3`。
+
+当前 Agent 适配验证版本：
+
+| Agent | 已验证版本 | 适配说明 |
+| --- | --- | --- |
+| Claude Code | `2.1.159 (Claude Code)` | 使用 stream-json 输入/输出、stdio 权限确认和 `--append-system-prompt`；配置统一走 `agents.claude.*`，会话 ID 统一保存为 `agentSessionId`。 |
+| Codex CLI | `codex-cli 0.128.0` | 默认使用 `codex app-server --listen stdio://`；工作区沙箱为 `workspace-write`，默认允许网络访问，可用 `LINCO_CODEX_NETWORK_ACCESS=0` 关闭。 |
+| OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | 支持 Gateway agent session、`openclaw agents list --json` / `openclaw gateway call --json agents.list`；Linco 会话内可用 `/agent` 查看/绑定后续 OpenClaw Agent。 |
+| Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | 支持 Hermes Gateway `/v1/runs` 和 `hermes profile list`；Linco 会话内可用 `/profile` 查看/绑定后续 Hermes Profile。 |
+
+## 安装
+
+源码运行：
 
 ```bash
-linco-bridge init --ws-url ws://127.0.0.1:3000/bridge/ws --token appId:appSecret --agent codex --channel linco
-linco-bridge start
-linco-bridge doctor
-linco-bridge status
-linco-bridge version
+npm install
+npm start
 ```
 
-The connector runs one active turn per session. Additional messages for the same session are queued and drained in order. A platform can cancel the active local process by sending a `stop_turn` frame with the same `sessionKey`.
+作为 CLI 使用：
 
-The connector also supports permission and danger confirmation frames. In Linco-compatible mode, `permission_response` and `danger_confirm` are normalized internally and routed back to the active agent session.
+```bash
+npm install -g linco-connect
+```
 
-Codex defaults to `app-server` mode for persistent threads. Set `"mode": "exec"` under the Codex agent options to use the simpler one-shot fallback.
+本地源码也可以直接运行 CLI：
 
-Agent adapters emit `agent_session` when a native session is established or resumed. Codex image generation items are sent as Linco-compatible `outbound_message.files`.
+```bash
+node bin/linco-connect.js --help
+```
 
-Hermes and OpenClaw can use an existing gateway URL or auto-start a local gateway on their default loopback ports. Set `autoStartGateway: false` to require an external gateway. Runtime model commands support listing and numeric selection when the agent gateway exposes model metadata.
+## 初始化
 
-Built-in connector commands:
+推荐使用 token 初始化：
 
-- `/help`
-- `/status`
-- `/session`
-- `/pwd`, `/cd <path>`, `/project [--select <path>]`
-- `/sessions`, `/history`, `/history-reload`, `/sync-history`, `/chats`, `/bind <agentSessionId>`
-- `/agent [--list|--select <id>|--bind <id>]` for OpenClaw
-- `/profile [--list|--select <name>|--bind <name>]` for Hermes
-- `/stop`, `/reload`
-- `/pc` for Claude/Codex resume commands
-- `/base`
-- `/get <file-path>`
-- `/remove-account [--agent <agent>] [--account <account>] [--channel <channel>]`
-- `/update [check|list|status|latest|<version>]`
-- `/approve [status|manual|auto|yolo]`
-- `/model [status|list|clear|<model>|switch <number>]`
-- `/reasoning [status|clear|low|medium|high|xhigh|max]`
-- `/settings [apply --model <model> --reasoning <effort>]`
-- `/usage`
-- `/compact` for agent context compaction where supported.
+```bash
+linco-connect init --token "<appId>:<appSecret>" --agent claude
+```
 
-## Agent Options
+也可以分别传入：
 
-Config is stored at `~/.linco-bridge/config.json`.
+```bash
+linco-connect init --app-id "<appId>" --app-secret "<appSecret>" --agent codex
+```
+
+常用参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `--agent <类型>` | 启用指定 Agent，如 `claude`、`codex`、`hermes`、`openclaw` |
+| `--account <名称>` | 指定账号名，默认 `default` |
+| `--force` | 覆盖已有配置 |
+
+如需启用多个 Agent，可多次执行 `init`，每次传入不同的 `--agent`。
+
+删除某个账号配置：
+
+```bash
+linco-connect remove-account --agent claude --account default
+```
+
+`delete-account` 是 `remove-account` 的同义命令。若删除的是当前 Agent 的默认账号，连接器会自动切换到剩余账号；若该 Agent 已无账号，会移除该 Agent 的 channel 配置。
+
+运行中的远端 IM 会话也可以用本地斜杠命令删除账号配置：
+
+```text
+/remove-account
+/remove-account --agent claude --account default
+```
+
+`/delete-account` 是 `/remove-account` 的同义命令。无参数时会删除当前 IM 会话对应的账号。
+
+## 启动和停止
+
+前台启动：
+
+```bash
+linco-connect start
+```
+
+后台启动：
+
+```bash
+linco-connect start --daemon
+```
+
+停止后台服务：
+
+```bash
+linco-connect stop
+```
+
+手动重载运行中服务的配置：
+
+```bash
+linco-connect reload
+```
+
+检查本机环境：
+
+```bash
+linco-connect doctor
+```
+
+手机端远程升降级运行中的连接器：
+
+```text
+/update check
+/update list
+/update latest
+/update 1.2.8
+/update status
+```
+
+`/update latest` 或 `/update <版本>` 会安装 npm 上的对应版本。安装完成后，无论原来是前台还是后台启动，都会自动以后台服务方式重新启动；手机端等待重新上线即可继续使用。
+
+本地测试页默认不连接模拟 IM。需要本地联调时显式开启：
+
+```bash
+linco-connect start --local-im
+```
+
+启动后终端会输出带访问 token 的本地测试页地址。不要把该地址或 token 发给不可信的人。
+
+## 配置
+
+配置默认保存在用户目录下的 `.linco/config.json`。初始化命令会自动写入凭证和本地测试 token，一般不需要手动编辑。
+
+运行中的连接器会监听 `config.json` 变化，也可以用 `linco-connect reload` 手动触发。账号新增、删除、凭证更新、Agent 启停和远端 IM 连接参数会自动重载，并只重启受影响的远端 IM 连接。`host`、`port`、`lincoHome`、`sessionsDir` 和本地测试页开关等服务级配置仍需重启进程后生效。配置重载失败时会保留旧配置继续运行。
+
+最小配置结构示例：
 
 ```json
 {
+  "defaultChannel": "linco",
   "channels": {
     "linco": {
       "agents": {
-        "codex": {
-          "enabled": true,
-          "accounts": {
-            "default": {
-              "appId": "app",
-              "appSecret": "secret"
-            }
-          },
-          "options": {
-            "mode": "app-server",
-            "model": "gpt-5"
-          }
-        },
         "claude": {
-          "enabled": true,
+          "defaultAccount": "default",
           "accounts": {
             "default": {
-              "appId": "app",
-              "appSecret": "secret"
+              "appId": "<appId>",
+              "appSecret": "<appSecret>",
+              "enabled": true
             }
-          },
-          "options": {
-            "model": "sonnet"
-          }
-        },
-        "hermes": {
-          "enabled": true,
-          "accounts": {
-            "default": {
-              "appId": "app",
-              "appSecret": "secret"
-            }
-          },
-          "options": {
-            "gatewayUrl": "http://127.0.0.1:8642",
-            "autoStartGateway": true
-          }
-        },
-        "openclaw": {
-          "enabled": true,
-          "accounts": {
-            "default": {
-              "appId": "app",
-              "appSecret": "secret"
-            }
-          },
-          "options": {
-            "gatewayUrl": "ws://127.0.0.1:18789",
-            "autoStartGateway": true
           }
         }
       }
@@ -119,58 +181,117 @@ Config is stored at `~/.linco-bridge/config.json`.
 }
 ```
 
-## Environment
+常用环境变量：
 
-Runtime environment variables follow the existing Linco connector behavior:
+| 变量 | 说明 |
+| --- | --- |
+| `LINCO_TOKEN` | `<appId>:<appSecret>` 简写形式 |
+| `LINCO_AGENT` | 当前默认 Agent 类型 |
+| `LINCO_ACCOUNT` | 当前账号名 |
+| `LINCO_HOME` | 运行数据目录 |
+| `LINCO_LOCAL_AGENT` | 本地测试页默认 Agent |
+| `LINCO_CLAUDE_ENABLED` | 是否启用 Claude |
+| `LINCO_CODEX_ENABLED` | 是否启用 Codex |
+| `LINCO_HERMES_ENABLED` | 是否启用 Hermes |
+| `LINCO_OPENCLAW_ENABLED` | 是否启用 OpenClaw |
+| `LINCO_<AGENT>_BIN` | 覆盖对应 Agent CLI 命令或路径 |
+| `LINCO_<AGENT>_WS_URL` | 私有化部署时覆盖对应 Agent 的连接地址 |
+| `LINCO_CLAUDE_INSTRUCTIONS` | 覆盖 Claude 适配器追加的默认回复风格指令 |
+| `LINCO_CLAUDE_ADD_RUNTIME_DIR` | 设为 `0` 时不向 Claude CLI 传入会话运行目录 `--add-dir` |
+| `LINCO_CODEX_NETWORK_ACCESS` | 设为 `0` 时关闭 Codex app-server 工作区沙箱的网络访问 |
 
-- `LINCO_CHANNEL`, `LINCO_AGENT`, `LINCO_ACCOUNT` select which configured connector accounts start.
-- `LINCO_TOKEN` or `LINCO_APP_ID` plus `LINCO_APP_SECRET` override credentials when `LINCO_ACCOUNT` is selected.
-- `LINCO_<AGENT>_BIN`, `LINCO_<AGENT>_MODEL`, `LINCO_<AGENT>_GATEWAY_URL`, `LINCO_<AGENT>_API_KEY`, `LINCO_<AGENT>_INSTRUCTIONS` override agent runtime options.
-- `LINCO_CLAUDE_ADD_RUNTIME_DIR=0` disables Claude `--add-dir`.
-- `LINCO_CODEX_MODE=exec` switches Codex to one-shot exec mode.
-- `LINCO_CODEX_NETWORK_ACCESS=0` disables Codex app-server workspace network access.
-- `LINCO_HERMES_PROFILE`, `LINCO_HERMES_HOME`, `LINCO_HERMES_BIN`, `LINCO_HERMES_AUTO_START_GATEWAY`, `LINCO_HERMES_PROFILE_SCOPED_GATEWAY` configure Hermes runtime and gateway behavior.
-- `LINCO_OPENCLAW_AGENT_ID`, `LINCO_OPENCLAW_BIN`, `LINCO_OPENCLAW_AUTO_START_GATEWAY`, `LINCO_OPENCLAW_TURN_TIMEOUT_MS` configure OpenClaw runtime and gateway behavior.
+## 附件和文件下发
 
-Claude and Codex child processes inherit `process.env`. On Windows, missing Anthropic/OpenAI/Codex credentials are also read from User/Machine environment variables before spawning, matching the existing connector behavior.
+默认支持常见图片、文本、表格、文档、PDF、压缩包等附件。高风险可执行文件和脚本扩展名默认会被拦截。
 
-## Layout
+默认限制：
 
-```text
-bin/
-src/
-  capabilities/
-    claude.js
-    codex.js
-    hermes.js
-    openclaw.js
-    profiles.js
-  support/
-    agentEnv.js
-    claudeTranscript.js
-  agents/
-    claude.js
-    codex.js
-    hermes.js
-    openclaw.js
-  core/
-    agentRegistry.js
-  diagnostics/
-    agentDoctor.js
-  connector/
-  security/
-    dangerDetector.js
-  protocol/
-  sessions/
-  attachments/
-  commands/
-    account.js
-    agentSelection.js
-    files.js
-    model.js
-    project.js
-    settings.js
-  config/
-  cli/
-test/
+| 项目 | 限制 |
+| --- | --- |
+| 单次附件数量 | 50 |
+| 单文件大小 | 50 MB |
+| 单次附件总大小 | 250 MB |
+
+Agent 需要把文件发给用户时，应将文件保存到当前工作目录或会话运行目录，并且必须在回复中返回 Markdown 文件引用，链接目标必须是绝对路径，例如 `[report.md](D:\path\report.md)`，不要只返回裸文件路径或相对路径。远端 IM 点击引用后会发送 `/get <路径>`，连接器校验后返回文件 base64。
+
+连接器会判断路径是绝对路径还是相对当前工作目录的路径，并校验文件位于当前工作目录、运行目录或附件目录内，且满足普通文件、大小限制和危险扩展名规则；校验通过后，远端 IM 会收到带 `mediaName`、`mediaType`、`mediaBase64`、`size` 和 `references` 的 `outbound_message`。
+
+## Linco 消息元数据
+
+远端 IM 下发的 `inbound_message` 会被连接器转换成本地 Agent 输入。为了在回复、流式消息、权限确认和会话路由时能关联原始 IM 消息，连接器会保留一份内部元数据，例如：
+
+```json
+{
+  "type": "meta",
+  "agentId": "<agentId>",
+  "_lincoMeta": {
+    "accountId": "default",
+    "messageId": "m-...",
+    "agentId": "<agentId>"
+  }
+}
+```
+
+这段数据是桥接层内部使用的路由信息，不是用户正文，也不应该显示给 Agent 或回显给用户。各 Agent 适配器需要在把输入转成 prompt 时过滤 `type: "meta"` 块；如果在 Codex 对话正文里看到类似 `{"type":"meta",...}` 的 JSON，通常表示 Codex 适配器没有正确过滤内部元数据，或 IM 前端把元数据拼进了文本字段。排查时优先确认前端发送的用户正文只放在 `text` 字段，`agentId`、`messageId`、`accountId` 等只作为消息字段传递。
+
+## 斜杠命令
+
+详细的前端适配说明见 [docs/slash-commands.md](docs/slash-commands.md)。
+
+| 命令 | 说明 |
+| --- | --- |
+| `/help` | 按当前模式显示可用本地命令 |
+| `/status` | 显示当前会话状态 |
+| `/pwd` | 显示当前项目目录；仅 Claude/Codex |
+| `/cd <路径>` | 将指定目录绑定为当前项目并开启新 Agent 会话；仅 Claude/Codex |
+| `/project` | 从 Claude/Codex 本地记录中列出已知项目，远端 IM 可渲染按钮选择；仅 Claude/Codex |
+| `/project --select <路径>` | 将指定目录绑定为当前项目并开启新 Agent 会话；仅 Claude/Codex |
+| `/sessions [limit]` | List recent local Agent sessions for the current project; Claude/Codex only |
+| `/chats [limit]` | List Codex Desktop sidebar Chats; Codex only |
+| `/bind <Session ID>` | Bind an unbound IM session to an existing local Agent session in the current project; Claude/Codex only |
+| `/bind --chat <Chat ID>` | Bind an unbound IM session to an existing Codex Desktop Chat; Codex only |
+| `/history [limit]` | 显示当前已绑定 Agent session 最近聊天内容，默认 10 轮；仅 Claude/Codex |
+| `/history --chat <Chat ID> [limit]` | Preview Codex Desktop Chat history without binding; Codex only |
+| `/history-reload [limit]` | ?? turn ?????????????? Agent ????????? |
+| `/agent` | 查看 OpenClaw Agent，并可用 `/agent --bind <id>` 给当前 IM 账号绑定后续新会话默认 Agent；当前会话 Agent 不可切换；仅 OpenClaw |
+| `/profile` | 查看 Hermes Profile，并可用 `/profile --bind <name>` 给当前 IM 账号绑定后续新会话默认 Profile；当前会话 Profile 不可切换；仅 Hermes |
+| `/stop` | 停止当前 Agent 进程，保留可恢复会话 ID |
+| `/reload` | 刷新当前 Agent 记忆，下次消息重新加载本地历史，并尝试预启动进程 |
+| `/pc` | 显示 PC 端打开当前 Agent 会话的命令；支持 Claude 和 Codex |
+| `/base` | 显示运行目录和附件目录 |
+| `/get <路径>` | 按需读取当前工作目录、运行目录或附件目录内的文件，并返回给前端 |
+| `/approve` | 显示当前审批模式 |
+| `/approve manual` | 手动确认权限请求和危险操作 |
+| `/approve auto` | 自动确认权限请求和危险操作，保留默认权限边界 |
+| `/approve yolo` | 启用 Agent 原生跳过权限/沙箱模式 |
+| `/model` | 显示当前模式可选模型列表 |
+| `/model status` | 显示当前模型覆盖和默认模型 |
+| `/model --list` | 展示 Agent 原生/Provider 支持的模型列表（若支持）；也可手动输入任意 Agent 支持的模型名 |
+| `/model <序号>` / `/model switch <序号>` | 按 `/model` 列表序号切换模型 |
+| `/model <名称>` | 切换当前 Agent 模型，不清除 Agent session；Claude 会重启 print 进程并用 `--resume` 接回同一会话 |
+| `/model --clear` | 清除运行时模型覆盖（若当前 Agent 支持） |
+| `/usage` | 显示 Token 用量统计；部分 Agent 可能暂不提供 |
+| `/remove-account` | 删除当前 IM 会话对应的账号配置 |
+| `/remove-account --agent <agent> --account <account>` | 删除指定 Agent 下的账号配置；可附加 `--channel <channel>` |
+| `/delete-account` | `/remove-account` 的同义命令 |
+
+前端展示命令时应按当前 `agentType` 过滤：Claude 展示 `/pwd`、`/cd`、`/project`、`/sessions`、`/bind`、`/history`、`/pc`；Codex 额外展示 `/chats`、`/bind --chat`、`/history --chat`；OpenClaw 展示 `/agent`；Hermes 展示 `/profile`；`/model`、`/compact`、`/remove-account` 等通用命令在各模式下都可展示。`/commands`、`/refresh` 已移除，不应再展示。除本地命令外，其他 `/xxx` 会透传给当前 Agent。部分 Agent 原生命令只适合交互式 CLI/TUI，在桥接模式下可能没有输出。
+
+`/help`、`/project`、`/sessions`、`/chats`、`/history`、`/agent`、`/profile` 这类列表/历史命令会直接返回 `slash_command_result` 结构化事件，远端 IM 可按 `command` 和 `data` 渲染；命令回合仍以 `turn_end` 结束。
+
+例如 `/help` 返回 `command: "help"`、`data.items[].command` 和 `data.items[].description`；`/history` 返回 `type: "slash_command_result"`、`command: "history"`、`data.rounds`；`/sessions` 返回 `command: "sessions"`、`data.items[].bindCommand`；`/chats` 返回 `command: "chats"`、`data.items[].historyCommand` 和 `data.items[].bindCommand`。
+
+## 安全注意
+
+- 不要公开配置文件、访问 token、`appSecret` 或带 token 的本地测试页地址。
+- 本地测试页只用于开发和自测。
+- `/approve auto` 会允许后续工具/命令权限请求和危险操作确认；如需人工确认，请在会话内执行 `/approve manual`。`/approve yolo` 会尝试使用 Agent 原生跳过权限/沙箱模式，仅应在可信环境中使用。
+- 附件会保存到本机，请避免上传不应落盘的敏感文件。
+
+## 开发命令
+
+```bash
+npm install
+npm start
+node bin/linco-connect.js doctor
 ```

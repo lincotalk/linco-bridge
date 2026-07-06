@@ -1,0 +1,2577 @@
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+const { isDangerousCommand } = require('../core/danger');
+const { buildCodexEnv } = require('../runtime/agentEnv');
+const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../core/protocol');
+const { persistAgentSessionId, stopAgentProcess: stopSessionProcess, updateAgentSessionHistory } = require('../core/session');
+const { buildFileReferenceHint, buildImageGenerationDeliveryHint, _internal: fileReferenceInternals } = require('../core/fileReferences');
+const {
+  appendProgressiveAnswerText,
+  promotePendingProgress,
+  resetProgressiveAnswer,
+} = require('../core/progressiveAnswer');
+const { createTextStreamBuffer, appendTextStream, flushTextStream, resetTextStream } = require('../core/streamBuffer');
+const { captureAssistantReplyText, startAssistantReplyLog } = require('../core/conversationLog');
+const { GET_MODELS_AND_REASONS_COMMAND } = require('../commands/settings');
+const {
+  clearPendingPermissions,
+  getPendingPermission,
+  pendingPermissionIds,
+  removePendingPermission,
+  setPendingPermission,
+} = require('../core/permissionState');
+
+const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
+const CODEX_COMPACTION_STALE_MS = 90_000;
+const DEFAULT_CODEX_COMPACTION_TIMEOUT_MS = 300_000;
+const DEFAULT_CODEX_REASONING_EFFORT = 'high';
+
+function execute(input, ws, session, config) {
+  const textForCheck = stringifyInput(input);
+  if (isDangerousCommand(textForCheck) && session.autoApprove !== true) {
+    const preview = textForCheck.slice(0, 200);
+    session.pendingDanger = { input };
+    send(ws, 'danger_warning', {
+      text: `⚠️ 检测到可能的危险操作，请确认是否继续执行：
+
+"${preview}${textForCheck.length > 200 ? '...' : ''}"`,
+    });
+    return;
+  }
+
+  if (session.isTurnActive) {
+    if (session.messageQueue.length >= config.maxMessageQueue) {
+      sendError(ws, '消息队列已满，请稍后再试');
+      return;
+    }
+    session.messageQueue.push({ input, ws });
+    sendSystem(ws, `Codex 正在处理上一条消息，已加入队列（${session.messageQueue.length}）`);
+    return;
+  }
+
+  const agentConfig = config.agents?.codex || {};
+  const mode = agentConfig.mode === 'exec' ? 'exec' : 'app-server';
+  if (mode === 'exec') {
+    runExecTurn(input, ws, session, config);
+  } else {
+    runAppServerTurn(input, ws, session, config);
+  }
+}
+
+// ─── app-server persistent mode ────────────────────────────────────────
+
+function runAppServerTurn(input, ws, session, config) {
+  session.isTurnActive = true;
+  session.currentInputForNoOutput = input;
+  session.sawPartialAssistantText = false;
+  session.codexAssistantEnded = false;
+  session.codexUseProgressiveAnswer = true;
+  session.codexEmittedAgentMessageIds = new Set();
+  session.codexToolStates = new Map();
+  resetCodexAssistantText(session);
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+  startAssistantReplyLog(session, config, { agentType: 'codex' });
+
+  const inputWithFileReferenceHint = buildCodexDeliveryInput(input, session);
+
+  const agentConfig = config.agents?.codex || {};
+  const log = config.logger;
+  log?.info('codex turn start', { mode: 'app-server', bin: agentConfig.bin, agentSessionId: session.agentSessionId });
+
+  ensureAppServer(session, config)
+    .then(() => {
+      session._log?.info('codex app-server ready, ensuring thread');
+      return ensureThread(session);
+    })
+    .then(threadId => {
+      session._log?.info('codex thread ensured', { threadId });
+      const modelOverride = codexTurnModelOverride(session);
+      const reasoningOverride = codexTurnReasoningOverride(session, agentConfig, {
+        includeDefault: Object.prototype.hasOwnProperty.call(modelOverride, 'model'),
+      });
+      sendJsonRpc(session.codexAppServer, {
+        jsonrpc: '2.0',
+        id: nextRpcId(session),
+        method: 'turn/start',
+        params: {
+          threadId,
+          input: buildCodexInput(inputWithFileReferenceHint, session.workspace),
+          cwd: session.workspace,
+          ...modelOverride,
+          ...reasoningOverride,
+        },
+      });
+    })
+    .catch(err => {
+      session._log?.error('codex turn error', { message: err.message });
+      if (session.isTurnActive) {
+        sendError(ws, `Codex app-server 错误: ${err.message}`);
+        finishCodexTurn(ws, session, config, 'error', { error: err.message });
+      }
+    });
+}
+
+function buildCodexDeliveryInput(input, session) {
+  const text = stringifyInput(input);
+  if (fileReferenceInternals.isImageGenerationRequest(text)) {
+    return buildImageGenerationDeliveryHint(input, session);
+  }
+  return buildFileReferenceHint(input, session);
+}
+
+async function warmup(ws, session, config) {
+  const agentConfig = config.agents?.codex || {};
+  const mode = agentConfig.mode === 'exec' ? 'exec' : 'app-server';
+  if (mode === 'exec') return { supported: false };
+
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+  await ensureAppServer(session, config);
+  const threadId = await ensureThread(session);
+  return { supported: true, process: 'codex app-server', threadId };
+}
+
+function compactCodexContext(ws, session, config, options = {}) {
+  const agentConfig = config.agents?.codex || {};
+  const mode = agentConfig.mode === 'exec' ? 'exec' : 'app-server';
+  if (mode === 'exec') return false;
+
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+
+  const trigger = options.trigger || 'manual';
+  if (session.isTurnActive || session.codexCompaction || session.pendingCodexManualCompaction) {
+    if (session.messageQueue.length >= config.maxMessageQueue) {
+      sendError(ws, 'Message queue is full. Please try again later.');
+      return true;
+    }
+    session.messageQueue.push({ input: '/compact', ws, config, compact: true, trigger });
+    sendSystem(ws, `Codex is busy. Queued native /compact (${session.messageQueue.length}).`);
+    return true;
+  }
+
+  sendCodexCompactCommand(ws, session, config, { trigger });
+  return true;
+}
+
+function applySettingsCodexContext(ws, session, config, options = {}) {
+  const agentConfig = config.agents?.codex || {};
+  const mode = agentConfig.mode === 'exec' ? 'exec' : 'app-server';
+  if (mode === 'exec') {
+    sendError(ws, 'Codex exec mode does not support runtime /settings apply. Use app-server mode.');
+    sendTurnEnd(ws, session, 'error', { error: 'runtime_settings_unsupported_in_exec_mode' });
+    return true;
+  }
+
+  if (session.isTurnActive || session.codexCompaction || session.pendingCodexManualCompaction) {
+    if (session.messageQueue.length >= config.maxMessageQueue) {
+      sendError(ws, 'Message queue is full. Please try again later.');
+      return true;
+    }
+    session.messageQueue.push({
+      input: options.nativeCommand || '/settings apply',
+      ws,
+      config,
+      settingsApplyCommand: true,
+      settingsApplyOptions: options,
+    });
+    sendSystem(ws, `Codex is busy. Queued /settings apply (${session.messageQueue.length}).`);
+    return true;
+  }
+
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+
+  applyCodexRuntimeSettings(ws, session, config, options).catch(err => {
+    sendError(ws, `Codex settings apply failed: ${err.message}`);
+    sendTurnEnd(ws, session, 'error', { error: err.message });
+  });
+  return true;
+}
+
+async function applyCodexRuntimeSettings(ws, session, config, options = {}) {
+  const effortInput = String(options.reasoningEffort || options.effort || '').trim();
+  const modelInput = String(options.modelId || options.model || '').trim();
+  if (!effortInput && !modelInput) {
+    sendError(ws, 'Please specify at least one of --reasoning or --model.');
+    sendTurnEnd(ws, session, 'error', { error: 'missing_settings' });
+    return;
+  }
+
+  let effort = effortInput;
+  let model = modelInput;
+  if (modelInput && codexModelInputNeedsLookup(modelInput)) {
+    model = await resolveCodexModelInput(session, config, modelInput);
+  }
+  if (effortInput && codexReasoningInputNeedsLookup(effortInput)) {
+    effort = await resolveCodexReasoningInput(session, config, effortInput);
+  }
+
+  const previousModel = session.codexModelOverride || config?.agents?.codex?.model || '(default)';
+  const previousEffort = session.codexReasoningEffortOverride || '(model default)';
+  const notes = [];
+
+  if (model) {
+    session.codexModelOverride = model;
+    session.codexModelOverrideDirty = true;
+    notes.push(`model: ${previousModel} -> ${model}`);
+  }
+  if (effort) {
+    const normalized = normalizeCodexReasoningEffort(effort);
+    if (!normalized || !isSupportedCodexReasoningEffort(normalized)) {
+      throw new Error(`Unsupported Codex reasoning effort: ${effort}`);
+    }
+    session.codexReasoningEffortOverride = normalized;
+    session.codexReasoningEffortDirty = true;
+    notes.push(`effort: ${formatCodexReasoningEffortLabel(previousEffort)} -> ${formatCodexReasoningEffortLabel(normalized)}`);
+  }
+
+  sendCodexSettingsApplyResult(ws, session, config, {
+    status: 'set',
+    previousModel,
+    previousEffort,
+    modelId: model || session.codexModelOverride || config?.agents?.codex?.model || '',
+    reasoningEffort: effort || currentCodexReasoningEffort(session),
+  });
+  sendSystem(ws, [
+    'Codex settings updated for the next turn.',
+    ...notes,
+  ].join('\n'));
+  sendTurnEnd(ws, session);
+}
+
+function sendCodexSettingsApplyResult(ws, session, config, options = {}) {
+  send(ws, 'slash_command_result', {
+    command: GET_MODELS_AND_REASONS_COMMAND,
+    version: 1,
+    data: {
+      agentType: 'codex',
+      status: options.status || 'set',
+      reasoning: {
+        current: String(options.reasoningEffort || currentCodexReasoningEffort(session) || '').trim(),
+        previous: String(options.previousEffort || '').trim(),
+      },
+      model: {
+        current: String(options.modelId || session.codexModelOverride || config?.agents?.codex?.model || '').trim(),
+        previous: String(options.previousModel || '').trim(),
+      },
+    },
+  });
+}
+
+function modelCodexContext(ws, session, config, options = {}) {
+  const agentConfig = config.agents?.codex || {};
+  const mode = agentConfig.mode === 'exec' ? 'exec' : 'app-server';
+  if (mode === 'exec') {
+    sendError(ws, 'Codex exec mode does not support runtime /model switching. Use app-server mode for persistent model changes.');
+    sendTurnEnd(ws, session, 'error', { error: 'runtime_model_unsupported_in_exec_mode' });
+    return true;
+  }
+
+  if (session.isTurnActive || session.codexCompaction || session.pendingCodexManualCompaction) {
+    if (session.messageQueue.length >= config.maxMessageQueue) {
+      sendError(ws, 'Message queue is full. Please try again later.');
+      return true;
+    }
+    session.messageQueue.push({
+      input: options.nativeCommand || '/model',
+      ws,
+      config,
+      modelCommand: true,
+      modelOptions: options,
+    });
+    sendSystem(ws, `Codex is busy. Queued native /model (${session.messageQueue.length}).`);
+    return true;
+  }
+
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+
+  const command = options.command || 'show';
+  if (command === 'list') {
+    listCodexModels(ws, session, config);
+    return true;
+  }
+
+  if (command === 'show') {
+    sendCodexModelResult(ws, session, config, { status: 'status' });
+    const lines = [`Codex model override: ${session.codexModelOverride || '(none)'}`];
+    if (agentConfig.model) lines.push(`Configured default: ${agentConfig.model}`);
+    lines.push('Use /model <name> to apply a model to the next Codex turn and subsequent turns.');
+    sendSystem(ws, lines.join('\n'));
+    sendTurnEnd(ws, session);
+    return true;
+  }
+
+  if (command === 'clear') {
+    const previous = session.codexModelOverride || '(none)';
+    session.codexModelOverride = null;
+    session.codexModelOverrideDirty = true;
+    sendCodexModelResult(ws, session, config, { status: 'cleared', previous });
+    sendSystem(ws, `Codex model override cleared (was ${previous}). Next turn will use ${session.codexModelOverride || 'the provider default model'}.`);
+    sendTurnEnd(ws, session);
+    return true;
+  }
+
+  const modelInput = String(options.model || '').trim();
+  if (modelInput && codexModelInputNeedsLookup(modelInput)) {
+    resolveCodexModelInput(session, config, modelInput)
+      .then(model => setCodexModelOverride(ws, session, config, model))
+      .catch(err => {
+        sendError(ws, `Codex model selection failed: ${err.message}`);
+        sendTurnEnd(ws, session, 'error', { error: err.message });
+      });
+    return true;
+  }
+
+  setCodexModelOverride(ws, session, config, modelInput);
+  return true;
+}
+
+function reasoningCodexContext(ws, session, config, options = {}) {
+  const agentConfig = config.agents?.codex || {};
+  const mode = agentConfig.mode === 'exec' ? 'exec' : 'app-server';
+  if (mode === 'exec') {
+    sendError(ws, 'Codex exec mode does not support runtime /reasoning switching. Use app-server mode for persistent reasoning changes.');
+    sendTurnEnd(ws, session, 'error', { error: 'runtime_reasoning_unsupported_in_exec_mode' });
+    return true;
+  }
+
+  if (session.isTurnActive || session.codexCompaction || session.pendingCodexManualCompaction) {
+    if (session.messageQueue.length >= config.maxMessageQueue) {
+      sendError(ws, 'Message queue is full. Please try again later.');
+      return true;
+    }
+    session.messageQueue.push({
+      input: options.nativeCommand || '/reasoning',
+      ws,
+      config,
+      reasoningCommand: true,
+      reasoningOptions: options,
+    });
+    sendSystem(ws, `Codex is busy. Queued native /reasoning (${session.messageQueue.length}).`);
+    return true;
+  }
+
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+
+  const command = options.command || 'show';
+  if (command === 'list') {
+    listCodexReasoningEfforts(ws, session, config);
+    return true;
+  }
+
+  if (command === 'show') {
+    sendCodexReasoningStatus(ws, session, config);
+    return true;
+  }
+
+  if (command === 'clear') {
+    const previous = session.codexReasoningEffortOverride || '(none)';
+    session.codexReasoningEffortOverride = null;
+    session.codexReasoningEffortDirty = true;
+    sendCodexReasoningResult(ws, session, config, {
+      status: 'cleared',
+      previous,
+    });
+    sendSystem(ws, `Codex reasoning effort override cleared (was ${formatCodexReasoningEffortLabel(previous)}). Next turn will use the model default reasoning effort.`);
+    sendTurnEnd(ws, session);
+    return true;
+  }
+
+  const effortInput = String(options.effort || '').trim();
+  if (effortInput && codexReasoningInputNeedsLookup(effortInput)) {
+    resolveCodexReasoningInput(session, config, effortInput)
+      .then(effort => setCodexReasoningEffort(ws, session, config, effort))
+      .catch(err => {
+        sendError(ws, `Codex reasoning selection failed: ${err.message}`);
+        sendTurnEnd(ws, session, 'error', { error: err.message });
+      });
+    return true;
+  }
+
+  setCodexReasoningEffort(ws, session, config, effortInput);
+  return true;
+}
+
+function setCodexModelOverride(ws, session, config, model) {
+  const agentConfig = config.agents?.codex || {};
+  if (!model) {
+    sendError(ws, 'Please specify a model.');
+    sendTurnEnd(ws, session, 'error', { error: 'missing_model' });
+    return;
+  }
+
+  const previous = session.codexModelOverride || agentConfig.model || '(default)';
+  session.codexModelOverride = model;
+  session.codexModelOverrideDirty = true;
+  sendCodexModelResult(ws, session, config, { status: 'set', previous });
+  sendSystem(ws, `Codex model set for the next turn: ${previous} -> ${model}`);
+  sendTurnEnd(ws, session);
+}
+
+function sendCodexModelResult(ws, session, config, options = {}) {
+  const defaultModel = String(config?.agents?.codex?.model || '').trim();
+  const current = String(session.codexModelOverride || defaultModel || '').trim();
+  const models = withCodexFallbackModels([current, defaultModel]);
+  send(ws, 'slash_command_result', {
+    command: 'model',
+    version: 1,
+    data: {
+      agentType: 'codex',
+      status: options.status || 'status',
+      current,
+      previous: ['(none)', '(default)'].includes(options.previous) ? '' : String(options.previous || '').trim(),
+      defaultModel,
+      items: models.map(model => ({
+        id: model,
+        label: model,
+        command: `/model ${model}`,
+      })),
+    },
+  });
+}
+
+function setCodexReasoningEffort(ws, session, config, effort) {
+  const normalized = normalizeCodexReasoningEffort(effort);
+  if (!normalized) {
+    sendError(ws, 'Please specify a reasoning effort.');
+    sendTurnEnd(ws, session, 'error', { error: 'missing_reasoning_effort' });
+    return;
+  }
+
+  if (!isSupportedCodexReasoningEffort(normalized)) {
+    sendError(ws, `Unsupported Codex reasoning effort: ${effort}. Use one of: ${codexReasoningEffortValues().join(', ')}.`);
+    sendTurnEnd(ws, session, 'error', { error: 'unsupported_reasoning_effort' });
+    return;
+  }
+
+  const previous = session.codexReasoningEffortOverride || '(model default)';
+  session.codexReasoningEffortOverride = normalized;
+  session.codexReasoningEffortDirty = true;
+  sendCodexReasoningResult(ws, session, config, {
+    status: 'set',
+    previous,
+  });
+  sendSystem(ws, `Codex reasoning effort set for the next turn: ${formatCodexReasoningEffortLabel(previous)} -> ${formatCodexReasoningEffortLabel(normalized)}`);
+  sendTurnEnd(ws, session);
+}
+
+function listCodexModels(ws, session, config) {
+  ensureAppServer(session, config)
+    .then(() => rpcRequest(session, nextRpcId(session), 'model/list', { includeHidden: true, limit: 100 }))
+    .then(result => {
+      const models = withCodexFallbackModels(normalizeCodexModelList(result));
+      const current = session.codexModelOverride || config.agents?.codex?.model || '';
+      const actions = models.map(model => ({
+        label: model === current ? `✓ ${model}` : model,
+        text: `/model switch ${models.indexOf(model) + 1}`,
+        command: `/model switch ${models.indexOf(model) + 1}`,
+        type: 'command',
+        action: 'select',
+        model,
+      }));
+      send(ws, 'system', {
+        text: formatCodexModelList(models, current),
+        actions,
+        quickActions: actions,
+        quickReplies: actions,
+      });
+      sendTurnEnd(ws, session);
+    })
+    .catch(err => {
+      const models = codexFallbackModels();
+      const current = session.codexModelOverride || config.agents?.codex?.model || '';
+      const actions = models.map((model, index) => ({
+        label: model === current ? `* ${model}` : model,
+        text: `/model switch ${index + 1}`,
+        command: `/model switch ${index + 1}`,
+        type: 'command',
+        action: 'select',
+        model,
+      }));
+      send(ws, 'system', {
+        text: [
+          `Current model: ${current || '(default)'}`,
+          `Codex model/list failed; showing fallback models. ${err.message}`,
+          '',
+          ...models.map((model, index) => `${index + 1}. ${model}${model === current ? ' (current)' : ''}`),
+        ].join('\n'),
+        actions,
+        quickActions: actions,
+        quickReplies: actions,
+      });
+      sendTurnEnd(ws, session);
+    });
+}
+
+function listCodexReasoningEfforts(ws, session, config) {
+  loadCodexReasoningChoices(session, config)
+    .then(({ efforts, defaultEffort, model }) => {
+      const current = currentCodexReasoningEffort(session);
+      const actions = efforts.map((effort, index) => ({
+        label: effort === current ? `* ${formatCodexReasoningEffortLabel(effort)}` : formatCodexReasoningEffortLabel(effort),
+        text: `/reasoning switch ${index + 1}`,
+        command: `/reasoning switch ${index + 1}`,
+        type: 'command',
+        action: 'select',
+        effort,
+      }));
+      sendCodexReasoningResult(ws, session, config, {
+        status: 'list',
+        efforts,
+        defaultEffort,
+        model,
+      });
+      send(ws, 'system', {
+        text: formatCodexReasoningList(efforts, current, { defaultEffort, model }),
+        actions,
+        quickActions: actions,
+        quickReplies: actions,
+      });
+      sendTurnEnd(ws, session);
+    })
+    .catch(err => {
+      const efforts = codexFallbackReasoningEfforts();
+      const current = session.codexReasoningEffortOverride || '';
+      const actions = efforts.map((effort, index) => ({
+        label: effort === current ? `* ${formatCodexReasoningEffortLabel(effort)}` : formatCodexReasoningEffortLabel(effort),
+        text: `/reasoning switch ${index + 1}`,
+        command: `/reasoning switch ${index + 1}`,
+        type: 'command',
+        action: 'select',
+        effort,
+      }));
+      sendCodexReasoningResult(ws, session, config, {
+        status: 'list',
+        efforts,
+        listError: err.message,
+      });
+      send(ws, 'system', {
+        text: [
+          `Current reasoning effort: ${current ? formatCodexReasoningEffortLabel(current) : '(model default)'}`,
+          `Codex model/list failed; showing fallback reasoning efforts. ${err.message}`,
+          '',
+          ...efforts.map((effort, index) => `${index + 1}. ${formatCodexReasoningEffortLabel(effort)}${effort === current ? ' (current)' : ''}`),
+        ].join('\n'),
+        actions,
+        quickActions: actions,
+        quickReplies: actions,
+      });
+      sendTurnEnd(ws, session);
+    });
+}
+
+function sendCodexReasoningStatus(ws, session, config) {
+  loadCodexReasoningChoices(session, config)
+    .then(({ defaultEffort, model }) => {
+      sendCodexReasoningResult(ws, session, config, {
+        status: 'status',
+        defaultEffort,
+        model,
+      });
+      const lines = [`Codex reasoning effort override: ${session.codexReasoningEffortOverride ? formatCodexReasoningEffortLabel(session.codexReasoningEffortOverride) : '(none)'}`];
+      if (defaultEffort) lines.push(`Model default: ${formatCodexReasoningEffortLabel(defaultEffort)}${model ? ` (${model})` : ''}`);
+      lines.push('Use /reasoning <low|medium|high|xhigh> to apply an effort to the next Codex turn and subsequent turns.');
+      sendSystem(ws, lines.join('\n'));
+      sendTurnEnd(ws, session);
+    })
+    .catch(() => {
+      sendCodexReasoningResult(ws, session, config, {
+        status: 'status',
+      });
+      const lines = [`Codex reasoning effort override: ${session.codexReasoningEffortOverride ? formatCodexReasoningEffortLabel(session.codexReasoningEffortOverride) : '(none)'}`];
+      lines.push('Use /reasoning <low|medium|high|xhigh> to apply an effort to the next Codex turn and subsequent turns.');
+      sendSystem(ws, lines.join('\n'));
+      sendTurnEnd(ws, session);
+    });
+}
+
+function sendCodexReasoningResult(ws, session, config, options = {}) {
+  const current = currentCodexReasoningEffort(session);
+  const defaultEffort = normalizeCodexReasoningEffort(options.defaultEffort || codexDefaultReasoningEffort(config?.agents?.codex));
+  const efforts = uniqueReasoningEfforts(options.efforts || codexFallbackReasoningEfforts());
+  send(ws, 'slash_command_result', {
+    command: 'reasoning',
+    version: 1,
+    data: {
+      agentType: 'codex',
+      status: options.status || 'status',
+      current,
+      previous: normalizeCodexReasoningEffort(options.previous === '(model default)' ? '' : options.previous || ''),
+      defaultEffort,
+      model: options.model || session.codexModelOverride || config?.agents?.codex?.model || '',
+      options: efforts.map(effort => ({
+        id: effort,
+        label: formatCodexReasoningEffortLabel(effort),
+        command: `/reasoning ${effort}`,
+        isCurrent: effort === current,
+        isDefault: !current && defaultEffort ? effort === defaultEffort : effort === defaultEffort,
+      })),
+      ...(options.listError ? { error: options.listError } : {}),
+    },
+  });
+}
+
+function codexTurnModelOverride(session) {
+  if (!session.codexModelOverrideDirty) return {};
+  const model = String(session.codexModelOverride || '').trim();
+  session.codexModelOverrideDirty = false;
+  return { model: model || null };
+}
+
+function codexTurnReasoningOverride(session, agentConfig = {}, options = {}) {
+  if (!session.codexReasoningEffortDirty && !options.includeDefault) return {};
+  const effort = normalizeCodexReasoningEffort(session.codexReasoningEffortOverride || '')
+    || (options.includeDefault ? codexDefaultReasoningEffort(agentConfig) : '');
+  session.codexReasoningEffortDirty = false;
+  session.codexActiveReasoningEffort = effort || '';
+  return { effort: effort || null };
+}
+
+function codexDefaultReasoningEffort(agentConfig = {}) {
+  const configured = normalizeCodexReasoningEffort(
+    agentConfig.reasoningEffort || agentConfig.defaultReasoningEffort || agentConfig.effort || DEFAULT_CODEX_REASONING_EFFORT
+  );
+  return isSupportedCodexReasoningEffort(configured) ? configured : DEFAULT_CODEX_REASONING_EFFORT;
+}
+
+function currentCodexReasoningEffort(session) {
+  return normalizeCodexReasoningEffort(
+    session?.codexReasoningEffortOverride || session?.codexActiveReasoningEffort || ''
+  );
+}
+
+function codexModelInputNeedsLookup(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return false;
+  if (/^\d+$/.test(raw)) return true;
+  return !raw.includes('/') && !raw.includes('-') && !raw.includes('.');
+}
+
+function codexReasoningInputNeedsLookup(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return false;
+  return /^\d+$/.test(raw);
+}
+
+async function resolveCodexModelInput(session, config, input) {
+  const raw = String(input || '').trim();
+  const models = await loadCodexModelNames(session, config);
+  return resolveModelNameFromList(raw, models);
+}
+
+async function loadCodexModelNames(session, config) {
+  try {
+    const models = await loadCodexActualModelNames(session, config);
+    return withCodexFallbackModels(models);
+  } catch {
+    return codexFallbackModels();
+  }
+}
+
+async function loadCodexActualModelNames(session, config) {
+  await ensureAppServer(session, config);
+  const result = await rpcRequest(session, nextRpcId(session), 'model/list', { includeHidden: true, limit: 100 });
+  return normalizeCodexModelList(result);
+}
+
+async function resolveCodexReasoningInput(session, config, input) {
+  const raw = String(input || '').trim();
+  const { efforts } = await loadCodexReasoningChoices(session, config);
+  return resolveModelNameFromList(raw, efforts);
+}
+
+async function loadCodexReasoningChoices(session, config) {
+  await ensureAppServer(session, config);
+  const result = await rpcRequest(session, nextRpcId(session), 'model/list', { includeHidden: true, limit: 100 });
+  const entries = normalizeCodexModelEntries(result);
+  const currentModel = String(session.codexModelOverride || config?.agents?.codex?.model || '').trim();
+  const selected = findCodexModelEntry(entries, currentModel) || entries.find(entry => entry.isDefault) || entries[0] || null;
+  const efforts = selected?.supportedReasoningEfforts?.length
+    ? selected.supportedReasoningEfforts
+    : codexFallbackReasoningEfforts();
+  return {
+    efforts: uniqueReasoningEfforts(efforts),
+    defaultEffort: codexDefaultReasoningEffort(config?.agents?.codex),
+    modelDefaultEffort: selected?.defaultReasoningEffort || null,
+    model: selected?.name || currentModel || '',
+  };
+}
+
+function resolveModelNameFromList(input, models) {
+  const raw = String(input || '').trim();
+  if (!raw) return '';
+  const index = Number.parseInt(raw, 10);
+  if (String(index) === raw && index >= 1 && index <= models.length) return models[index - 1];
+  const exact = models.find(model => model.toLowerCase() === raw.toLowerCase());
+  return exact || raw;
+}
+
+function normalizeCodexModelList(result) {
+  const source = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.data)
+      ? result.data
+      : Array.isArray(result?.models)
+        ? result.models
+        : Array.isArray(result?.items)
+          ? result.items
+          : [];
+  return source
+    .map(item => String(item?.id || item?.model || item?.displayName || item?.name || item || '').trim())
+    .filter(Boolean);
+}
+
+function normalizeCodexModelEntries(result) {
+  const source = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.data)
+      ? result.data
+      : Array.isArray(result?.models)
+        ? result.models
+        : Array.isArray(result?.items)
+          ? result.items
+          : [];
+  return source.map(item => {
+    const name = String(item?.id || item?.model || item?.displayName || item?.name || item || '').trim();
+    const supportedReasoningEfforts = Array.isArray(item?.supportedReasoningEfforts)
+      ? item.supportedReasoningEfforts
+          .map(option => normalizeCodexReasoningEffort(option?.reasoningEffort || option?.effort || option))
+          .filter(Boolean)
+      : [];
+    return {
+      name,
+      supportedReasoningEfforts,
+      defaultReasoningEffort: normalizeCodexReasoningEffort(item?.defaultReasoningEffort || item?.defaultEffort || ''),
+      isDefault: Boolean(item?.isDefault),
+    };
+  }).filter(entry => entry.name);
+}
+
+function findCodexModelEntry(entries, model) {
+  const raw = String(model || '').trim().toLowerCase();
+  if (!raw) return null;
+  return entries.find(entry => entry.name.toLowerCase() === raw) || null;
+}
+
+function withCodexFallbackModels(models) {
+  return uniqueModelNames([...(models || []), ...codexFallbackModels()]);
+}
+
+function codexFallbackModels() {
+  return [
+    'gpt-5.5',
+    'gpt-5.4',
+    'gpt-5.4-mini',
+    'gpt-5.3-codex',
+    'gpt-5.2',
+    'codex-mini-latest',
+    'gpt-4.1',
+    'gpt-4.1-mini',
+    'o4-mini',
+    'o3',
+  ];
+}
+
+function uniqueModelNames(models) {
+  const seen = new Set();
+  const result = [];
+  for (const model of models) {
+    const name = String(model || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+function formatCodexModelList(models, current) {
+  if (!models.length) return `Current model: ${current || '(default)'}\nCodex returned no model entries.`;
+  return [
+    `Current model: ${current || '(default)'}`,
+    '',
+    ...models.map((model, index) => `${index + 1}. ${model}${model === current ? ' (current)' : ''}`),
+  ].join('\n');
+}
+
+function codexReasoningEffortValues() {
+  return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+}
+
+function codexFallbackReasoningEfforts() {
+  return ['low', 'medium', 'high', 'xhigh'];
+}
+
+function normalizeCodexReasoningEffort(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const normalized = raw.replace(/[\s_]+/g, '-');
+  if (normalized === 'extra-high' || normalized === 'extra' || normalized === 'x-high') return 'xhigh';
+  return normalized;
+}
+
+function isSupportedCodexReasoningEffort(effort) {
+  return codexReasoningEffortValues().includes(normalizeCodexReasoningEffort(effort));
+}
+
+function uniqueReasoningEfforts(efforts) {
+  const allowed = new Set(codexReasoningEffortValues());
+  const seen = new Set();
+  const result = [];
+  for (const effort of efforts || []) {
+    const normalized = normalizeCodexReasoningEffort(effort);
+    if (!allowed.has(normalized) || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result.length ? result : codexFallbackReasoningEfforts();
+}
+
+function formatCodexReasoningEffortLabel(effort) {
+  const normalized = normalizeCodexReasoningEffort(effort);
+  if (normalized === 'xhigh') return 'Extra High';
+  if (normalized === 'minimal') return 'Minimal';
+  if (normalized === 'none') return 'None';
+  if (normalized === 'low') return 'Low';
+  if (normalized === 'medium') return 'Medium';
+  if (normalized === 'high') return 'High';
+  return String(effort || '');
+}
+
+function formatCodexReasoningList(efforts, current, options = {}) {
+  const defaultEffort = options.defaultEffort || '';
+  const model = options.model || '';
+  if (!efforts.length) return `Current reasoning effort: ${current ? formatCodexReasoningEffortLabel(current) : '(model default)'}\nCodex returned no reasoning effort entries.`;
+  const lines = [
+    `Current reasoning effort: ${current ? formatCodexReasoningEffortLabel(current) : '(model default)'}`,
+  ];
+  if (defaultEffort) lines.push(`Model default: ${formatCodexReasoningEffortLabel(defaultEffort)}${model ? ` (${model})` : ''}`);
+  lines.push('');
+  lines.push(...efforts.map((effort, index) => {
+    const tags = [];
+    if (effort === current) tags.push('current');
+    if (!current && defaultEffort && effort === defaultEffort) tags.push('default');
+    return `${index + 1}. ${formatCodexReasoningEffortLabel(effort)}${tags.length ? ` (${tags.join(', ')})` : ''}`;
+  }));
+  return lines.join('\n');
+}
+
+function sendCodexCompactCommand(ws, session, config, options = {}) {
+  session.isTurnActive = true;
+  session.currentInputForNoOutput = '/compact';
+  session.sawPartialAssistantText = false;
+  session.codexAssistantEnded = false;
+  session.codexUseProgressiveAnswer = false;
+  session.codexEmittedAgentMessageIds = new Set();
+  session.codexToolStates = new Map();
+  resetCodexAssistantText(session);
+  session._lastWs = ws;
+  session._lastConfig = config;
+  session._log = config.logger;
+
+  const trigger = options.trigger || 'manual';
+  const startedAt = Date.now();
+  const pending = {
+    id: `codex-compact-${startedAt}`,
+    trigger,
+    startedAt,
+    manualTurn: true,
+    timeoutTimerId: null,
+  };
+  session.pendingCodexManualCompaction = pending;
+  pending.timeoutTimerId = setTimeout(() => {
+    if (session.pendingCodexManualCompaction !== pending) return;
+    failPendingCodexManualCompaction(session, 'timeout', 'Codex context compaction did not start before timeout.');
+  }, codexCompactionTimeoutMs(session));
+  pending.timeoutTimerId.unref?.();
+
+  ensureAppServer(session, config)
+    .then(() => ensureThread(session))
+    .then(threadId => {
+      session._log?.info('codex manual context compaction requested', {
+        sessionId: session.id,
+        threadId,
+        trigger,
+      });
+      const rpcId = nextRpcId(session);
+      return rpcRequest(session, rpcId, 'thread/compact/start', { threadId });
+    })
+    .catch(err => {
+      session._log?.error('codex manual context compaction request failed', {
+        sessionId: session.id,
+        error: err.message,
+      });
+      failPendingCodexManualCompaction(session, 'app_server_error', err.message);
+    });
+}
+
+function ensureAppServer(session, config) {
+  if (session.codexAppServer && session.codexAppServer.stdin && !session.codexAppServer.stdin.destroyed) {
+    session._log?.info('codex reusing existing app-server');
+    return Promise.resolve();
+  }
+
+  session._log?.info('codex spawning new app-server');
+
+  return new Promise((resolve, reject) => {
+    const agentConfig = config.agents?.codex || {};
+    const bin = agentConfig.bin || 'codex';
+    const spawnTarget = resolveCodexSpawnTarget(bin);
+    const child = spawn(spawnTarget.command, [...spawnTarget.argsPrefix, 'app-server', '--listen', 'stdio://'], {
+      cwd: session.workspace,
+      env: buildCodexAppServerEnv(),
+      shell: spawnTarget.shell,
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    session.codexAppServer = child;
+    session.agentProcess = child;
+    session.codexRpcId = 0;
+    session.codexPendingRequests = new Map();
+    session.stdoutBuffer = '';
+    session.stderrBuffer = '';
+    session.turnCompletedTimerId = null;
+
+    let initialized = false;
+    let initResolve;
+    let initReject;
+    const initPromise = new Promise((res, rej) => {
+      initResolve = res;
+      initReject = rej;
+    });
+
+    const timeout = setTimeout(() => {
+      if (!initialized) {
+        initReject(new Error('Codex app-server 初始化超时'));
+        child.kill();
+      }
+    }, 15000);
+
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', chunk => {
+      session.stdoutBuffer += chunk;
+      const lines = session.stdoutBuffer.split(/\r?\n/);
+      session.stdoutBuffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const msg = JSON.parse(trimmed);
+          handleAppServerMessage(msg, session);
+        } catch {
+          // ignore unparseable lines
+        }
+      }
+    });
+
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', chunk => {
+      session.stderrBuffer += chunk;
+    });
+
+    child.on('error', err => {
+      if (!initialized) {
+        clearTimeout(timeout);
+        initReject(err);
+      } else {
+        const errWs = session._lastWs;
+        failPendingCodexManualCompaction(session, 'app_server_error', err.message);
+        failActiveCodexCompaction(session, 'app_server_error', err.message);
+        if (errWs) {
+          sendError(errWs, `Codex app-server 错误: ${err.message}`);
+        }
+      }
+    });
+
+    child.on('close', (code, signal) => {
+      const isCurrentChild = session.codexAppServer === child;
+      const hadActiveTurn = session.isTurnActive;
+      const cfg = session._lastConfig;
+      const errWs = session._lastWs;
+      const errorMessage = `Codex app-server exited, code=${code}, signal=${signal || 'null'}`;
+      if (isCurrentChild) {
+        session.codexAppServer = null;
+        failPendingCodexManualCompaction(session, 'app_server_closed', errorMessage);
+        failActiveCodexCompaction(session, 'app_server_closed', errorMessage);
+        if (hadActiveTurn && errWs) {
+          finishCodexTurn(errWs, session, cfg, 'error', { error: errorMessage });
+        } else {
+          clearTurnState(session);
+        }
+        clearPendingPermissions(session, 'codex');
+        // drain pending requests
+        for (const [, pending] of session.codexPendingRequests) {
+          pending.reject(new Error(`app-server 已退出，code=${code}, signal=${signal || 'null'}`));
+        }
+        session.codexPendingRequests.clear();
+      }
+      if (!initialized) {
+        clearTimeout(timeout);
+        initReject(new Error(`Codex app-server 启动失败，退出码: ${code}, signal=${signal || 'null'}`));
+      } else if (isCurrentChild) {
+        // app-server exited mid-session — drain queue
+        if (!hadActiveTurn && cfg && errWs) drainQueue(errWs, session, cfg);
+      }
+    });
+
+    // send initialize
+    const initId = ++session.codexRpcId;
+    sendJsonRpc(child, {
+      jsonrpc: '2.0',
+      id: initId,
+      method: 'initialize',
+      params: {
+        clientInfo: { name: 'linco', version: '1.0.0' },
+        capabilities: { experimentalApi: true },
+      },
+    });
+
+    session.codexPendingRequests.set(initId, {
+      resolve: (result) => {
+        initialized = true;
+        clearTimeout(timeout);
+        initResolve(result);
+      },
+      reject: (err) => {
+        clearTimeout(timeout);
+        initReject(err);
+      },
+    });
+
+    initPromise.then(resolve, reject);
+  });
+}
+
+function buildCodexAppServerEnv() {
+  const env = buildCodexEnv();
+  if (!env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE) {
+    env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'Codex Desktop';
+  }
+  return env;
+}
+
+function ensureThread(session) {
+  const agentConfig = session._lastConfig?.agents?.codex || {};
+
+  if (session.agentSessionId) {
+    // Resume existing thread after app-server restart
+    const rpcId = nextRpcId(session);
+    return rpcRequest(session, rpcId, 'thread/resume', {
+      threadId: session.agentSessionId,
+      cwd: session.workspace,
+      approvalPolicy: codexApprovalPolicy(session),
+      ...buildCodexThreadSandbox(session),
+    }).then(result => {
+      recordCodexThreadReasoning(session, result);
+      emitCodexAgentSession(session, session.agentSessionId);
+      return session.agentSessionId;
+    }).catch(err => {
+      // If resume fails, start a new thread
+      session._log?.warn('codex thread resume failed, starting new', { message: err.message });
+      return startNewThread(session, agentConfig);
+    });
+  }
+
+  return startNewThread(session, agentConfig);
+}
+
+function startNewThread(session, agentConfig) {
+  const rpcId = nextRpcId(session);
+  return rpcRequest(session, rpcId, 'thread/start', buildCodexThreadStartParams(session, agentConfig)).then(result => {
+    recordCodexThreadReasoning(session, result);
+    const threadId = result?.thread?.id || result?.id || result?.threadId;
+    if (threadId) {
+      persistAgentSessionId(session, threadId);
+      emitCodexAgentSession(session, threadId);
+      return threadId;
+    }
+    // Fallback: wait for thread/started notification
+    return new Promise((resolve, reject) => {
+      const fallback = setTimeout(() => reject(new Error('创建线程超时')), 15000);
+      session._threadStartResolve = (id) => {
+        clearTimeout(fallback);
+        resolve(id);
+      };
+      session._threadStartReject = (err) => {
+        clearTimeout(fallback);
+        reject(err);
+      };
+    });
+  });
+}
+
+function buildCodexThreadStartParams(session, agentConfig = {}) {
+  return {
+    cwd: session.workspace,
+    model: agentConfig.model || null,
+    effort: codexDefaultReasoningEffort(agentConfig),
+    approvalPolicy: codexApprovalPolicy(session),
+    ...buildCodexThreadSandbox(session),
+  };
+}
+
+function codexApprovalPolicy(session) {
+  return session?.approveMode === 'yolo' ? 'never' : 'untrusted';
+}
+
+function recordCodexThreadReasoning(session, payload) {
+  const effort = normalizeCodexReasoningEffort(
+    payload?.reasoningEffort
+      || payload?.reasoning_effort
+      || payload?.thread?.reasoningEffort
+      || payload?.thread?.reasoning_effort
+      || payload?.params?.reasoningEffort
+      || payload?.params?.reasoning_effort
+      || payload?.params?.thread?.reasoningEffort
+      || payload?.params?.thread?.reasoning_effort
+      || ''
+  );
+  if (effort) session.codexActiveReasoningEffort = effort;
+}
+
+function sendCodexAssistantEnd(ws, session) {
+  if (session.codexAssistantEnded) return;
+  session.codexAssistantEnded = true;
+  flushCodexAssistantText(ws, session);
+  send(ws, 'assistant_end', {});
+}
+
+function clearTurnState(session) {
+  flushCodexAssistantText(session._lastWs, session);
+  resetProgressiveAnswer(session);
+  session.isTurnActive = false;
+  session.currentInputForNoOutput = null;
+  if (session.turnCompletedTimerId) {
+    clearTimeout(session.turnCompletedTimerId);
+    session.turnCompletedTimerId = null;
+  }
+}
+
+function finishCodexTurn(ws, session, config, reason = 'completed', payload = {}) {
+  if (!session.isTurnActive) return;
+
+  if (reason !== 'completed') {
+    failActiveCodexCompaction(session, 'turn_failed', payload.error || reason);
+  }
+
+  if (reason === 'completed') {
+    updateCodexSessionStats(session, payload);
+  }
+
+  clearTurnState(session);
+  if (session.sawPartialAssistantText) {
+    sendCodexAssistantEnd(ws, session);
+  }
+  sendTurnEnd(ws, session, reason, payload);
+  if (config) drainQueue(ws, session, config);
+}
+
+function isFinalCodexAssistantItem(params) {
+  const item = params.item || {};
+  return isCodexAssistantMessageType(item.type) && item.phase === 'final_answer';
+}
+
+function armCodexTurnCompletionFallback(ws, session, config) {
+  if (session.turnCompletedTimerId) clearTimeout(session.turnCompletedTimerId);
+  session.turnCompletedTimerId = setTimeout(() => {
+    finishCodexTurn(ws, session, config, 'completed');
+  }, CODEX_TURN_COMPLETION_FALLBACK_MS);
+}
+
+function ensureCodexStreamState(session) {
+  if (!session.codexStreamState) {
+    session.codexStreamState = createTextStreamBuffer();
+  }
+  return session.codexStreamState;
+}
+
+function appendCodexAssistantText(text, ws, session, ensureAssistantStarted) {
+  if (session.codexAssistantEnded) return;
+  if (session.codexUseProgressiveAnswer) {
+    appendProgressiveAnswerText(text, ws, session);
+  }
+  maybeAppendCodexAssistantBreak(ws, session, ensureAssistantStarted);
+  appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted);
+}
+
+function appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted) {
+  if (session.codexAssistantEnded) return;
+  const state = ensureCodexStreamState(session);
+  state.onStart = ensureAssistantStarted;
+  appendTextStream(text, ws, state);
+  rememberCodexAssistantText(session, text);
+  session.sawPartialAssistantText = true;
+}
+
+function flushCodexAssistantText(ws, session) {
+  flushTextStream(ws, session.codexStreamState);
+}
+
+function resetCodexAssistantText(session) {
+  resetTextStream(ensureCodexStreamState(session));
+  resetProgressiveAnswer(session);
+  session.codexNeedsAssistantBreak = false;
+  session.codexAssistantTextTail = '';
+}
+
+function appendCodexProgressAssistantText(text, ws, session) {
+  if (!text || session.codexAssistantEnded) return;
+  maybeAppendCodexAssistantBreak(ws, session, () => send(ws, 'assistant_start', {}));
+  appendCodexAssistantTextNow(text, ws, session, () => send(ws, 'assistant_start', {}));
+}
+
+function maybeAppendCodexAssistantBreak(ws, session, ensureAssistantStarted) {
+  if (!session?.codexNeedsAssistantBreak || !session.sawPartialAssistantText) {
+    if (session) session.codexNeedsAssistantBreak = false;
+    return;
+  }
+  session.codexNeedsAssistantBreak = false;
+  const state = ensureCodexStreamState(session);
+  const tail = `${session.codexAssistantTextTail || ''}${state.pendingText || ''}`;
+  if (tail.endsWith('\n\n')) return;
+  appendCodexAssistantTextNow(tail.endsWith('\n') ? '\n' : '\n\n', ws, session, ensureAssistantStarted);
+}
+
+function markCodexAssistantBreak(session) {
+  if (!session?.sawPartialAssistantText) return;
+  session.codexNeedsAssistantBreak = true;
+}
+
+function rememberCodexAssistantText(session, text) {
+  captureAssistantReplyText(session, text);
+  const next = `${session.codexAssistantTextTail || ''}${text || ''}`;
+  session.codexAssistantTextTail = next.slice(-4000);
+}
+
+function codexAgentMessageId(params) {
+  return String(params.item?.id || params.itemId || params.id || '').trim();
+}
+
+function markCodexAgentMessageEmitted(session, itemId) {
+  const id = String(itemId || '').trim();
+  if (!id) return;
+  if (!(session.codexEmittedAgentMessageIds instanceof Set)) {
+    session.codexEmittedAgentMessageIds = new Set();
+  }
+  session.codexEmittedAgentMessageIds.add(id);
+}
+
+function hasCodexAgentMessageEmitted(session, itemId) {
+  const id = String(itemId || '').trim();
+  return Boolean(id && session.codexEmittedAgentMessageIds?.has(id));
+}
+
+function ensureCodexToolStates(session) {
+  if (!(session.codexToolStates instanceof Map)) {
+    session.codexToolStates = new Map();
+  }
+  return session.codexToolStates;
+}
+
+function codexToolStateFor(session, id) {
+  const toolId = String(id || '').trim();
+  if (!toolId) return null;
+  const states = ensureCodexToolStates(session);
+  return states.get(toolId) || null;
+}
+
+function setCodexToolState(session, id, next) {
+  const toolId = String(id || '').trim();
+  if (!toolId) return;
+  const states = ensureCodexToolStates(session);
+  const previous = states.get(toolId) || {};
+  states.set(toolId, {
+    ...previous,
+    ...next,
+  });
+}
+
+function emitCodexToolCall(ws, session, tool) {
+  if (!ws) return false;
+  const id = String(tool.id || '').trim();
+  const existing = codexToolStateFor(session, id);
+  if (existing?.phase === 'completed' || existing?.phase === 'started') {
+    return false;
+  }
+  promotePendingProgress(ws, session);
+  flushTextStream(ws, session.codexStreamState);
+  const name = String(tool.name || existing?.name || 'tool').trim() || 'tool';
+  const input = tool.input ?? existing?.input ?? '';
+  send(ws, 'tool_call', { id, name, input });
+  setCodexToolState(session, id, { phase: 'started', name, input });
+  markCodexAssistantBreak(session);
+  return true;
+}
+
+function emitCodexToolResult(ws, session, tool) {
+  if (!ws) return false;
+  const id = String(tool.id || '').trim();
+  const existing = codexToolStateFor(session, id);
+  if (existing?.phase === 'completed') return false;
+
+  const name = String(tool.name || existing?.name || 'tool').trim() || 'tool';
+  const input = tool.input ?? existing?.input ?? '';
+  if (id && existing?.phase !== 'started') {
+    emitCodexToolCall(ws, session, { id, name, input });
+  }
+
+  const output = tool.output ?? '';
+  send(ws, 'tool_result', { id, output });
+  setCodexToolState(session, id, {
+    phase: 'completed',
+    name,
+    input,
+    output,
+  });
+  markCodexAssistantBreak(session);
+  return true;
+}
+
+function codexToolOutputFromParams(params = {}) {
+  const item = params.item || {};
+  const candidates = [
+    item.output,
+    item.result,
+    item.results,
+    item.stdout,
+    item.stderr,
+    item.data?.output,
+    item.data?.result,
+    item.data?.stdout,
+    item.data?.stderr,
+    params.output,
+    params.result,
+    params.stdout,
+    params.stderr,
+  ];
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.length > 0) return value;
+    if (value && typeof value !== 'string') return JSON.stringify(value).slice(0, 1000);
+  }
+  return '';
+}
+
+function shouldAppendCompletedAgentMessage(session, params) {
+  const itemId = codexAgentMessageId(params);
+  if (itemId) return !hasCodexAgentMessageEmitted(session, itemId);
+  if (!session.sawPartialAssistantText) return true;
+  return params.item?.phase === 'final_answer';
+}
+
+function nextRpcId(session) {
+  session.codexRpcId = (session.codexRpcId || 0) + 1;
+  return session.codexRpcId;
+}
+
+function rpcRequest(session, id, method, params) {
+  return new Promise((resolve, reject) => {
+    session.codexPendingRequests.set(id, { resolve, reject });
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id,
+      method,
+      params,
+    });
+  });
+}
+
+function sendJsonRpc(child, message) {
+  if (child.stdin && !child.stdin.destroyed) {
+    child.stdin.write(JSON.stringify(message) + '\n');
+  }
+}
+
+function codexAgentConfig(session) {
+  return session?._lastConfig?.agents?.codex || {};
+}
+
+function isRemoteCodexSession(session, ws = session?._lastWs) {
+  return Boolean(ws?.linco || session?.linco);
+}
+
+function numberFromProcessEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function shouldEmitCodexProgress(session, ws = session?._lastWs) {
+  return !session?.codexCompaction;
+}
+
+function shouldEmitCodexReasoning(session, ws = session?._lastWs) {
+  return !session?.codexCompaction;
+}
+
+function codexCompactionTimeoutMs(session) {
+  const configured = Number(codexAgentConfig(session).compactionTimeoutMs);
+  if (Number.isFinite(configured) && configured > 0) return configured;
+  return numberFromProcessEnv('LINCO_CODEX_COMPACTION_TIMEOUT_MS', DEFAULT_CODEX_COMPACTION_TIMEOUT_MS);
+}
+
+function isCodexContextCompactionItem(itemType) {
+  return String(itemType || '') === 'contextCompaction';
+}
+
+function codexCompactionId(params = {}) {
+  return String(params.item?.id || params.itemId || params.id || '').trim();
+}
+
+function clearCodexCompactionTimers(compaction) {
+  if (!compaction) return;
+  if (compaction.staleTimerId) clearTimeout(compaction.staleTimerId);
+  if (compaction.timeoutTimerId) clearTimeout(compaction.timeoutTimerId);
+  compaction.staleTimerId = null;
+  compaction.timeoutTimerId = null;
+}
+
+function clearPendingCodexManualCompaction(session) {
+  const pending = session?.pendingCodexManualCompaction;
+  if (pending?.timeoutTimerId) clearTimeout(pending.timeoutTimerId);
+  if (session) session.pendingCodexManualCompaction = null;
+  return pending || null;
+}
+
+function sendCodexCompactionEvent(session, phase, fields = {}) {
+  const ws = session?._lastWs;
+  if (!ws) return false;
+  const linco = ws.linco || session.linco || {};
+  send(ws, 'context_compaction', {
+    phase,
+    compactionId: fields.compactionId,
+    agentType: 'codex',
+    trigger: fields.trigger,
+    sessionKey: session.id,
+    agentSessionId: session.agentSessionId,
+    streamId: linco.streamId,
+    requestId: linco.messageId,
+    durationMs: fields.durationMs,
+    error: fields.error,
+    text: fields.text,
+    ts: fields.ts || Date.now(),
+  });
+  return true;
+}
+
+function handleCodexCompactionStarted(params, session) {
+  const id = codexCompactionId(params);
+  if (!id) {
+    session._log?.warn?.('codex context compaction without id', {
+      item: summarizeCodexItemForLog(params.item),
+    });
+  }
+
+  if (session.codexCompaction && !session.codexCompaction.completed) {
+    failActiveCodexCompaction(session, 'superseded', 'Another context compaction started before the previous one completed.');
+  }
+
+  const compactionId = id || `codex-compaction-${Date.now()}`;
+  const startedAt = Date.now();
+  const pendingManual = clearPendingCodexManualCompaction(session);
+  const compaction = {
+    id: compactionId,
+    trigger: pendingManual?.trigger || 'auto',
+    manualTurn: pendingManual?.manualTurn === true,
+    startedAt,
+    staleTimerId: null,
+    timeoutTimerId: null,
+    staleNotified: false,
+    completed: false,
+  };
+  session.codexCompaction = compaction;
+
+  sendCodexCompactionEvent(session, 'started', {
+    compactionId,
+    trigger: compaction.trigger,
+    text: '正在整理上下文...',
+    ts: startedAt,
+  });
+
+  compaction.staleTimerId = setTimeout(() => {
+    if (session.codexCompaction !== compaction || compaction.completed) return;
+    compaction.staleNotified = true;
+    sendCodexCompactionEvent(session, 'stale', {
+      compactionId,
+      trigger: compaction.trigger,
+      durationMs: Date.now() - startedAt,
+      text: '上下文仍在整理，请稍候。',
+    });
+  }, CODEX_COMPACTION_STALE_MS);
+  compaction.staleTimerId.unref?.();
+
+  compaction.timeoutTimerId = setTimeout(() => {
+    if (session.codexCompaction !== compaction || compaction.completed) return;
+    failActiveCodexCompaction(session, 'timeout', '上下文整理超时');
+  }, codexCompactionTimeoutMs(session));
+  compaction.timeoutTimerId.unref?.();
+}
+
+function handleCodexCompactionCompleted(params, session) {
+  const id = codexCompactionId(params);
+  const active = session.codexCompaction;
+  if (!active) {
+    session._log?.warn?.('codex context compaction completed without active state', { id });
+    return;
+  }
+  if (id && active.id !== id) {
+    session._log?.warn?.('codex context compaction completed with mismatched id', {
+      activeId: active.id,
+      completedId: id,
+    });
+    return;
+  }
+
+  active.completed = true;
+  clearCodexCompactionTimers(active);
+  sendCodexCompactionEvent(session, 'completed', {
+    compactionId: active.id,
+    trigger: active.trigger,
+    durationMs: Date.now() - active.startedAt,
+    text: '上下文整理完成，继续处理当前问题。',
+  });
+  session.codexCompaction = null;
+  if (active.manualTurn && session.isTurnActive) {
+    finishCodexTurn(session._lastWs, session, session._lastConfig, 'completed');
+  }
+}
+
+function failActiveCodexCompaction(session, code, message) {
+  const active = session?.codexCompaction;
+  if (!active || active.completed) return false;
+
+  clearCodexCompactionTimers(active);
+  sendCodexCompactionEvent(session, 'failed', {
+    compactionId: active.id,
+    trigger: active.trigger,
+    durationMs: Date.now() - active.startedAt,
+    error: { code, message: String(message || code) },
+    text: '上下文整理失败，已继续尝试处理当前问题。',
+  });
+  session.codexCompaction = null;
+  if (active.manualTurn && session.isTurnActive) {
+    finishCodexTurn(session._lastWs, session, session._lastConfig, 'error', { error: String(message || code) });
+  }
+  return true;
+}
+
+function failPendingCodexManualCompaction(session, code, message) {
+  const pending = clearPendingCodexManualCompaction(session);
+  if (!pending) return false;
+
+  sendCodexCompactionEvent(session, 'failed', {
+    compactionId: pending.id,
+    trigger: pending.trigger,
+    durationMs: Date.now() - pending.startedAt,
+    error: { code, message: String(message || code) },
+    text: 'Codex context compaction failed before it started.',
+  });
+  if (session.isTurnActive) {
+    finishCodexTurn(session._lastWs, session, session._lastConfig, 'error', { error: String(message || code) });
+  }
+  return true;
+}
+
+function buildCodexThreadSandbox(session) {
+  const writableRoots = [session.workspace].filter(Boolean);
+  const agentConfig = session._lastConfig?.agents?.codex || {};
+  if (session?.approveMode === 'yolo') {
+    return {
+      sandbox: 'danger-full-access',
+      config: {
+        sandbox_mode: 'danger-full-access',
+      },
+    };
+  }
+  return {
+    sandbox: 'workspace-write',
+    config: {
+      sandbox_mode: 'workspace-write',
+      sandbox_workspace_write: {
+        writable_roots: [...new Set(writableRoots)],
+        network_access: agentConfig.networkAccess !== false,
+        exclude_tmpdir_env_var: false,
+        exclude_slash_tmp: false,
+      },
+    },
+  };
+}
+
+function buildCodexPermissionGrant(session) {
+  const readableRoots = [session.attachmentsDir].filter(Boolean);
+  const writableRoots = [session.workspace].filter(Boolean);
+  const entries = [
+    ...readableRoots.map(root => ({
+      path: { type: 'path', path: root },
+      access: 'read',
+    })),
+    ...writableRoots.map(root => ({
+      path: { type: 'path', path: root },
+      access: 'write',
+    })),
+  ];
+
+  return {
+    fileSystem: {
+      read: readableRoots,
+      write: writableRoots,
+      entries,
+    },
+    network: { enabled: false },
+  };
+}
+
+function handleServerRequest(message, session) {
+  const method = message.method || '';
+  const params = message.params || {};
+  const ws = session._lastWs;
+
+  // File change approval — auto-approve silently
+  if (method === 'item/fileChange/requestApproval') {
+    session._log?.info('codex auto-approving file change');
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { decision: 'accept' },
+    });
+    return;
+  }
+
+  // Command execution approval — auto-approve by default, or ask the user when disabled.
+  if (method === 'item/commandExecution/requestApproval' || method === 'execCommandApproval') {
+    const cmd = params.command || params.tool || '';
+    session._log?.info('codex command execution approval requested', { method, command: cmd, autoApprove: session.autoApprove === true });
+
+    if (getPendingPermission(session, String(message.id), 'codex')) return;
+
+    if (session.autoApprove === true) {
+      sendJsonRpc(session.codexAppServer, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: { decision: 'accept' },
+      });
+      return;
+    }
+
+    setPendingPermission(session, {
+      provider: 'codex',
+      requestId: String(message.id),
+      toolName: 'exec',
+      input: cmd,
+      _codexMethod: method,
+      _rpcId: message.id,
+    });
+
+    if (ws) {
+      send(ws, 'permission_request', {
+        requestId: String(message.id),
+        toolName: 'exec',
+        input: cmd,
+      });
+    }
+    return;
+  }
+
+  // Permissions approval — auto-grant
+  if (method === 'item/permissions/requestApproval') {
+    session._log?.info('codex auto-granting permissions');
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { permissions: buildCodexPermissionGrant(session), scope: 'session' },
+    });
+    return;
+  }
+
+  // Apply patch approval — auto-approve silently
+  if (method === 'applyPatchApproval') {
+    session._log?.info('codex auto-approving patch');
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { decision: 'approved' },
+    });
+    return;
+  }
+
+  // Generic approval fallback
+  if (method.includes('requestApproval') || method.includes('approval')) {
+    session._log?.info('codex auto-approving', { method });
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { decision: 'accept' },
+    });
+    return;
+  }
+
+  // Tool call from server request
+  if (method === 'item/tool/call') {
+    const toolName = params.name || params.tool || '';
+    emitCodexToolCall(ws, session, {
+      id: String(message.id),
+      name: toolName,
+      input: JSON.stringify(params.input || {}).slice(0, 300),
+    });
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { ok: true },
+    });
+    return;
+  }
+
+  // Tool user input
+  if (method === 'item/tool/requestUserInput') {
+    session._log?.info('codex tool requesting user input');
+    sendJsonRpc(session.codexAppServer, {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { continue: true },
+    });
+    return;
+  }
+
+  // Unknown server request — reject
+  session._log?.warn('codex unknown server request', { method, params: JSON.stringify(params).slice(0, 200) });
+  sendJsonRpc(session.codexAppServer, {
+    jsonrpc: '2.0',
+    id: message.id,
+    error: { code: -32601, message: 'method not supported' },
+  });
+}
+
+function handleAppServerMessage(message, session) {
+  const ws = session._lastWs;
+
+  // thread.started notification — resolve ensureThread promise
+  if (message.method === 'thread.started' || message.method === 'thread/start') {
+    recordCodexThreadReasoning(session, message);
+    const threadId = message.params?.thread?.id || message.params?.id || message.result?.thread?.id;
+    if (threadId) {
+      persistAgentSessionId(session, threadId);
+      emitCodexAgentSession(session, threadId);
+      if (session._threadStartResolve) {
+        session._threadStartResolve(threadId);
+        session._threadStartResolve = null;
+        session._threadStartReject = null;
+      }
+    }
+    return;
+  }
+
+  // RPC response (has id field matching our pending request)
+  if (message.id != null && session.codexPendingRequests?.has(message.id)) {
+    const pending = session.codexPendingRequests.get(message.id);
+    session.codexPendingRequests.delete(message.id);
+    if (message.error) {
+      session._log?.error('codex RPC error', { id: message.id, error: JSON.stringify(message.error) });
+      pending.reject(new Error(JSON.stringify(message.error)));
+    } else {
+      session._log?.info('codex RPC response', { id: message.id, keys: Object.keys(message.result || {}) });
+      pending.resolve(message.result || message);
+    }
+    return;
+  }
+
+  // Server request (has id but not our pending) — auto-approve
+  if (message.id != null && message.method) {
+    handleServerRequest(message, session);
+    return;
+  }
+
+  // notification
+  const method = message.method || '';
+  const params = message.params || {};
+
+  if (isCodexReasoningMethod(method)) {
+    const text = extractReasoningText(params);
+    if (text && shouldEmitCodexReasoning(session, ws)) send(ws, 'thinking', { text, mode: 'summary' });
+    return;
+  }
+
+  if (method === 'item/agentMessage/delta' || method.includes('delta')) {
+    const delta = params.delta || '';
+    if (delta) {
+      const itemType = params.item?.type || params.type || '';
+      const phase = String(params.item?.phase || params.phase || '').trim();
+      if (isRemoteCodexSession(session, ws) && isCodexAssistantMessageType(itemType) && phase !== 'final_answer') {
+        if (shouldEmitCodexProgress(session, ws)) {
+          appendCodexProgressAssistantText(delta, ws, session);
+          send(ws, 'thinking', { text: delta, mode: 'progress' });
+        }
+        return;
+      }
+      if (isCodexProgressAssistantItem(params)) {
+        if (shouldEmitCodexProgress(session, ws)) {
+          appendCodexProgressAssistantText(delta, ws, session);
+          send(ws, 'thinking', { text: delta, mode: 'progress' });
+        }
+        markCodexAgentMessageEmitted(session, codexAgentMessageId(params));
+        return;
+      }
+      appendCodexAssistantText(delta, ws, session, () => send(ws, 'assistant_start', {}));
+      markCodexAgentMessageEmitted(session, codexAgentMessageId(params));
+    }
+    return;
+  }
+
+  if (method === 'item/completed') {
+    const itemType = params.item?.type || '';
+    session._log?.info('codex item completed', { itemType, item: summarizeCodexItemForLog(params.item) });
+    if (isCodexContextCompactionItem(itemType)) {
+      handleCodexCompactionCompleted(params, session);
+      return;
+    }
+    if (isCodexReasoningItem(itemType)) {
+      const text = extractReasoningText(params);
+      if (text && shouldEmitCodexReasoning(session, ws)) send(ws, 'thinking', { text, mode: 'summary' });
+      return;
+    }
+    if (itemType === 'imageGeneration') {
+      emitCodexImageGeneration(ws, session, params.item || {});
+      return;
+    }
+    if (isCodexProgressAssistantItem(params)) {
+      const text = extractFinalText(params);
+      const agentMessageId = codexAgentMessageId(params);
+      if (text && !hasCodexAgentMessageEmitted(session, agentMessageId)) {
+        if (shouldEmitCodexProgress(session, ws)) {
+          appendCodexProgressAssistantText(text, ws, session);
+          send(ws, 'thinking', { text, mode: 'progress' });
+        }
+        markCodexAgentMessageEmitted(session, agentMessageId);
+      }
+      return;
+    }
+    if (itemType === 'toolCall' || itemType === 'commandExecution' || itemType === 'webSearch') {
+      const itemId = params.item?.id || params.itemId || '';
+      const isCommand = itemType === 'commandExecution';
+      const isWebSearch = itemType === 'webSearch';
+      const toolName = isCommand ? 'exec' : isWebSearch ? 'webSearch' : (params.item?.name || params.item?.tool || '');
+      const toolInput = isCommand
+        ? (params.item?.command || '')
+        : isWebSearch
+          ? (params.item?.query || params.item?.input || params.item?.arguments || {})
+          : (params.item?.input || params.item?.arguments || {});
+      const output = codexToolOutputFromParams(params);
+      emitCodexToolResult(ws, session, {
+        id: itemId,
+        name: toolName,
+        input: typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput).slice(0, 300),
+        output,
+      });
+      return;
+    }
+
+    // final content fallback if this item did not emit deltas
+    const text = extractFinalText(params);
+    const agentMessageId = codexAgentMessageId(params);
+    if (text && shouldAppendCompletedAgentMessage(session, params)) {
+      if (session.sawPartialAssistantText) appendCodexAssistantText('\n\n', ws, session, () => send(ws, 'assistant_start', {}));
+      appendCodexAssistantText(text, ws, session, () => send(ws, 'assistant_start', {}));
+      markCodexAgentMessageEmitted(session, agentMessageId);
+    }
+    // Safety fallback: some app-server builds emit task completion without a turn/completed notification.
+    // Arm it only after the final assistant message, not after user/tool/reasoning items.
+    if (isFinalCodexAssistantItem(params)) {
+      armCodexTurnCompletionFallback(ws, session, session._lastConfig);
+    }
+    return;
+  }
+
+  if (method === 'turn/completed' || method === 'turn.completed') {
+    finishCodexTurn(ws, session, session._lastConfig, 'completed', params);
+    return;
+  }
+
+  if (method === 'error' || method.includes('error')) {
+    const message = params.message || JSON.stringify(params);
+    failActiveCodexCompaction(session, 'app_server_error', message);
+    sendError(ws, message);
+    finishCodexTurn(ws, session, session._lastConfig, 'error', { error: message });
+    return;
+  }
+
+  // tool call notifications
+  if (method === 'tool/start' || method === 'tool_call') {
+    const toolName = params.name || params.tool || '';
+    if (toolName) {
+      emitCodexToolCall(ws, session, {
+        id: params.id || params.toolId || '',
+        name: toolName,
+        input: params.input || params.arguments || {},
+      });
+    }
+    return;
+  }
+
+  if (method === 'tool/completed' || method === 'tool_result') {
+    emitCodexToolResult(ws, session, {
+      id: params.id || params.toolId || '',
+      output: codexToolOutputFromParams(params),
+    });
+    return;
+  }
+
+  if (method === 'item/started') {
+    const itemType = params.item?.type || '';
+    session._log?.info('codex item started', { itemType, item: summarizeCodexItemForLog(params.item) });
+    if (isCodexContextCompactionItem(itemType)) {
+      handleCodexCompactionStarted(params, session);
+      return;
+    }
+    if (itemType === 'toolCall' || itemType === 'commandExecution' || itemType === 'webSearch') {
+      const isCommand = itemType === 'commandExecution';
+      const isWebSearch = itemType === 'webSearch';
+      const toolName = isCommand ? 'exec' : isWebSearch ? 'webSearch' : (params.item?.name || params.item?.tool || '');
+      const toolInput = isCommand
+        ? (params.item?.command || '')
+        : isWebSearch
+          ? (params.item?.query || params.item?.input || params.item?.arguments || {})
+          : (params.item?.input || params.item?.arguments || {});
+      const itemId = params.item?.id || params.itemId || '';
+      if (toolName) {
+        emitCodexToolCall(ws, session, {
+          id: itemId,
+          name: toolName,
+          input: typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput).slice(0, 300),
+        });
+      }
+    }
+    return;
+  }
+}
+
+function emitCodexAgentSession(session, threadId = session?.agentSessionId) {
+  const agentSessionId = String(threadId || '').trim();
+  if (!agentSessionId) return false;
+  return sendAgentSession(session?._lastWs, session, {
+    agentType: 'codex',
+    agentSessionId,
+  });
+}
+
+function updateCodexSessionStats(session, params = {}) {
+  session.messageCount = (session.messageCount || 0) + 1;
+
+  const usage = params.usage || params.turn?.usage || params.response?.usage;
+  if (usage) {
+    if (!session.usage) {
+      session.usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
+    }
+    session.usage.inputTokens += usage.input_tokens || usage.inputTokens || 0;
+    session.usage.outputTokens += usage.output_tokens || usage.outputTokens || 0;
+    session.usage.cacheReadTokens += usage.cache_read_input_tokens || usage.cacheReadTokens || 0;
+    session.usage.cacheCreationTokens += usage.cache_creation_input_tokens || usage.cacheCreationTokens || 0;
+  }
+
+  updateAgentSessionHistory(session);
+}
+
+function isCodexAssistantMessageType(type) {
+  return ['agentMessage', 'agent_message', 'message'].includes(type);
+}
+
+function emitCodexImageGeneration(ws, session, item = {}) {
+  if (!ws) return false;
+
+  const imageBase64 = extractCodexImageBase64(item);
+  const savedPath = typeof item.savedPath === 'string' ? item.savedPath : '';
+  let mediaBase64 = imageBase64;
+  let mediaName = 'generated-image.png';
+  let size = 0;
+  let referencePath = savedPath;
+
+  if (savedPath) {
+    mediaName = path.basename(savedPath);
+    try {
+      const stat = fs.statSync(savedPath);
+      if (stat.isFile()) size = stat.size;
+      if (!mediaBase64) mediaBase64 = fs.readFileSync(savedPath).toString('base64');
+    } catch {
+      // Fall back to the inline image result when the saved path is unavailable.
+    }
+  }
+
+  if (!mediaBase64) return false;
+  referencePath = ensureCodexImageReferencePath(session, savedPath, mediaName, mediaBase64) || savedPath;
+  if (referencePath) mediaName = path.basename(referencePath);
+  if (!size) {
+    try {
+      size = Buffer.from(mediaBase64, 'base64').length;
+    } catch {
+      size = 0;
+    }
+  }
+
+  promotePendingProgress(ws, session);
+  flushTextStream(ws, session.codexStreamState);
+  send(ws, 'outbound_message', {
+    messageId: `codex-image-${Date.now()}`,
+    text: '图片已生成',
+    mediaName,
+    mediaType: mediaTypeFromImageName(mediaName),
+    mediaBase64,
+    size,
+  });
+  markCodexAssistantBreak(session);
+  return true;
+}
+
+function ensureCodexImageReferencePath(session, savedPath, mediaName, mediaBase64) {
+  const workspace = session?.workspace ? path.resolve(session.workspace) : '';
+  if (!workspace) return savedPath || '';
+
+  if (savedPath) {
+    const resolvedSavedPath = path.resolve(savedPath);
+    if (isInsideOrSamePath(resolvedSavedPath, workspace)) return resolvedSavedPath;
+  }
+
+  try {
+    fs.mkdirSync(workspace, { recursive: true });
+    const target = nextAvailableCodexImagePath(workspace, mediaName);
+    if (savedPath && fs.existsSync(savedPath)) {
+      fs.copyFileSync(savedPath, target);
+    } else {
+      fs.writeFileSync(target, Buffer.from(mediaBase64, 'base64'));
+    }
+    return target;
+  } catch {
+    return savedPath || '';
+  }
+}
+
+function nextAvailableCodexImagePath(dir, name) {
+  const safeName = sanitizeCodexImageFilename(name);
+  const parsed = path.parse(safeName);
+  let candidate = path.join(dir, safeName);
+  let index = 2;
+  while (fs.existsSync(candidate)) {
+    candidate = path.join(dir, `${parsed.name}-${index}${parsed.ext || '.png'}`);
+    index += 1;
+  }
+  return candidate;
+}
+
+function sanitizeCodexImageFilename(name) {
+  const base = path.basename(String(name || 'generated-image.png'))
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/[. ]+$/g, '')
+    .slice(0, 120);
+  if (!base) return 'generated-image.png';
+  return path.extname(base) ? base : `${base}.png`;
+}
+
+function isInsideOrSamePath(filePath, dir) {
+  const relative = path.relative(dir, filePath);
+  return !relative || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function extractCodexImageBase64(item = {}) {
+  const result = item.result;
+  if (typeof result === 'string') return normalizeMaybeDataUrlBase64(result);
+  if (result && typeof result === 'object') {
+    return normalizeMaybeDataUrlBase64(result.b64_json || result.base64 || result.data || result.image || '');
+  }
+  return '';
+}
+
+function normalizeMaybeDataUrlBase64(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const match = text.match(/^data:[^;]+;base64,(.+)$/i);
+  return match ? match[1] : text;
+}
+
+function mediaTypeFromImageName(name) {
+  switch (path.extname(String(name || '')).toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    default:
+      return 'image/png';
+  }
+}
+
+function isCodexProgressAssistantItem(params) {
+  const type = params?.item?.type || params?.type || '';
+  if (!isCodexAssistantMessageType(type)) return false;
+  const phase = String(params?.item?.phase || params?.phase || '').trim();
+  return Boolean(phase && phase !== 'final_answer');
+}
+
+function isCodexReasoningMethod(method) {
+  const normalized = String(method || '').toLowerCase();
+  return normalized.includes('reasoning') || normalized.includes('thinking');
+}
+
+function isCodexReasoningItem(type) {
+  const normalized = String(type || '').toLowerCase();
+  return normalized.includes('reasoning') || normalized.includes('thinking');
+}
+
+function extractReasoningText(params) {
+  if (!params || typeof params !== 'object') return '';
+  if (typeof params.text === 'string') return params.text;
+  if (typeof params.delta === 'string') return params.delta;
+  if (typeof params.summary === 'string') return params.summary;
+  if (typeof params.item?.text === 'string') return params.item.text;
+  if (typeof params.item?.summary === 'string') return params.item.summary;
+  if (Array.isArray(params.item?.summary)) {
+    return params.item.summary.map(part => {
+      if (typeof part === 'string') return part;
+      return part?.text || part?.summary || '';
+    }).filter(Boolean).join('\n');
+  }
+  if (Array.isArray(params.content)) {
+    return params.content.map(item => typeof item === 'string' ? item : item?.text || item?.summary || '').filter(Boolean).join('');
+  }
+  if (Array.isArray(params.item?.content)) {
+    return params.item.content.map(item => typeof item === 'string' ? item : item?.text || item?.summary || '').filter(Boolean).join('');
+  }
+  return '';
+}
+
+function extractFinalText(params) {
+  if (typeof params.text === 'string') return params.text;
+  if (typeof params.delta === 'string') return params.delta;
+  if (Array.isArray(params.content)) {
+    return params.content.map(item => typeof item === 'string' ? item : item?.text || '').join('');
+  }
+  if (isCodexAssistantMessageType(params.item?.type) && typeof params.item.text === 'string') {
+    return params.item.text;
+  }
+  return '';
+}
+
+function summarizeLogValue(value, depth = 0) {
+  if (typeof value === 'string') return value.slice(0, 200);
+  if (!value || typeof value !== 'object') return value;
+
+  if (Array.isArray(value)) {
+    const textParts = [];
+    for (const item of value) {
+      if (typeof item === 'string') {
+        textParts.push(item);
+        continue;
+      }
+      if (!item || typeof item !== 'object') continue;
+      if (typeof item.text === 'string') textParts.push(item.text);
+      else if (typeof item.input_text === 'string') textParts.push(item.input_text);
+      else if (item.type === 'input_text' && typeof item.text === 'string') textParts.push(item.text);
+    }
+    const joined = textParts.map(part => part.trim()).filter(Boolean).join(' ');
+    return joined ? joined.slice(0, 200) : `[array:${value.length}]`;
+  }
+
+  if (depth >= 1) return `[object:${Object.keys(value).slice(0, 10).join(',')}]`;
+
+  const summary = {};
+  for (const [key, child] of Object.entries(value)) {
+    summary[key] = summarizeLogValue(child, depth + 1);
+  }
+  return summary;
+}
+
+function summarizeCodexItemForLog(item) {
+  if (!item || typeof item !== 'object') return {};
+  return summarizeLogValue(item);
+}
+
+function summarizeCodexParams(params) {
+  if (!params || typeof params !== 'object') return '';
+  const input = params.path || params.file || params.filePath || params.command || params.patch || params.diff || params.input || params;
+  return typeof input === 'string' ? input.slice(0, 1000) : JSON.stringify(input).slice(0, 1000);
+}
+
+function buildCodexInput(input, workspace) {
+  if (Array.isArray(input)) {
+    const result = [];
+    for (const block of input) {
+      if (typeof block === 'string') {
+        result.push({ type: 'text', text: block });
+      } else if (block?.type === 'text') {
+        result.push({ type: 'text', text: block.text || '' });
+      } else if (block?.type === 'image' && block.path) {
+        // Codex sandbox can only read from workspace — copy image into workspace
+        const fs = require('fs');
+        const path = require('path');
+        const basename = path.basename(block.path);
+        const copyDir = path.join(workspace, '_linco_attachments');
+        const copyPath = path.join(copyDir, basename);
+        try {
+          fs.mkdirSync(copyDir, { recursive: true });
+          fs.copyFileSync(block.path, copyPath);
+        } catch {
+          // If copy fails, fall back to original path
+        }
+        const mediaType = block.source?.media_type || '';
+        result.push({ type: 'text', text: `用户发送了一张图片（${mediaType}），文件已保存到 ${copyPath}，请按需读取` });
+      } else if (block?.type === 'image') {
+        result.push({ type: 'text', text: '[图片附件]' });
+      } else if (block?.type === 'meta') {
+        continue;
+      } else {
+        result.push({ type: 'text', text: JSON.stringify(block) });
+      }
+    }
+    return result;
+  }
+  return [{ type: 'text', text: String(input || '') }];
+}
+
+// ─── exec fallback mode ────────────────────────────────────────────────
+
+function runExecTurn(input, ws, session, config) {
+  session.isTurnActive = true;
+  session.currentInputForNoOutput = input;
+  session.sawPartialAssistantText = false;
+  session.codexAssistantEnded = false;
+  session.codexUseProgressiveAnswer = false;
+  resetCodexAssistantText(session);
+  startAssistantReplyLog(session, config, { agentType: 'codex' });
+
+  const agentConfig = config.agents?.codex || {};
+  const spawnTarget = resolveCodexSpawnTarget(agentConfig.bin || 'codex');
+  const child = spawn(spawnTarget.command, [...spawnTarget.argsPrefix, ...buildExecArgs(session, agentConfig)], {
+    cwd: session.workspace,
+    env: buildCodexEnv(),
+    shell: spawnTarget.shell,
+    windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  session.agentProcess = child;
+  session.stdoutBuffer = '';
+  let stderr = '';
+  let assistantStarted = false;
+
+  const ensureAssistantStarted = () => {
+    if (assistantStarted) return;
+    assistantStarted = true;
+    send(ws, 'assistant_start', {});
+  };
+
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', chunk => {
+    session.stdoutBuffer += chunk;
+    const lines = session.stdoutBuffer.split(/\r?\n/);
+    session.stdoutBuffer = lines.pop() || '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        handleCodexEvent(JSON.parse(trimmed), ws, session, ensureAssistantStarted);
+      } catch {
+        appendCodexAssistantText(`${trimmed}\n`, ws, session, ensureAssistantStarted);
+      }
+    }
+  });
+
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', chunk => {
+    stderr += chunk;
+  });
+
+  child.on('error', err => {
+    sendError(ws, `Codex 启动失败: ${err.message}`);
+  });
+
+  child.on('close', code => {
+    if (session.agentProcess === child) session.agentProcess = null;
+    session.isTurnActive = false;
+    session.currentInputForNoOutput = null;
+
+    if (session.stdoutBuffer.trim()) {
+      appendCodexAssistantText(`${session.stdoutBuffer.trim()}\n`, ws, session, ensureAssistantStarted);
+      session.stdoutBuffer = '';
+    }
+
+    if (assistantStarted) {
+      flushCodexAssistantText(ws, session);
+      send(ws, 'assistant_end', {});
+    } else if (code !== 0) {
+      sendError(ws, stderr.trim() || `Codex 退出，状态码: ${code}`);
+    }
+
+    if (code === 0) {
+      updateCodexSessionStats(session);
+    }
+    sendTurnEnd(ws, session, code === 0 ? 'completed' : 'error', code === 0 ? {} : { error: stderr.trim() || `Codex 退出，状态码: ${code}` });
+    drainQueue(ws, session, config);
+  });
+
+  child.stdin.end(`${stringifyInput(input)}\n`);
+}
+
+function buildExecArgs(session, agentConfig) {
+  const args = session.agentSessionId
+    ? ['exec', 'resume']
+    : ['exec'];
+  args.push('--json');
+  if (!session.agentSessionId) args.push('--cd', session.workspace);
+  if (agentConfig.model) args.push('--model', agentConfig.model);
+  if (session.approveMode === 'yolo') args.push('--dangerously-bypass-approvals-and-sandbox');
+  if (session.agentSessionId) args.push(session.agentSessionId);
+  args.push('-');
+  return args;
+}
+
+// ─── shared helpers ─────────────────────────────────────────────────────
+
+function resolveCodexSpawnTarget(command) {
+  const fallback = command || 'codex';
+  if (process.platform !== 'win32') {
+    return { command: fallback, argsPrefix: [], shell: false };
+  }
+
+  const normalized = path.normalize(fallback);
+  const lower = normalized.toLowerCase();
+
+  if (lower.endsWith('.cmd') || lower.endsWith('.bat')) {
+    const shimTarget = resolveNpmShimTarget(normalized);
+    if (shimTarget) {
+      return { command: process.execPath, argsPrefix: [shimTarget], shell: false };
+    }
+
+    return {
+      command: process.env.ComSpec || 'cmd.exe',
+      argsPrefix: ['/d', '/s', '/c', quoteCmdArg(normalized)],
+      shell: false,
+    };
+  }
+
+  if (lower.endsWith('.exe') || path.isAbsolute(normalized)) {
+    return { command: normalized, argsPrefix: [], shell: false };
+  }
+
+  return { command: fallback, argsPrefix: [], shell: true };
+}
+
+function resolveNpmShimTarget(command) {
+  try {
+    const source = fs.readFileSync(command, 'utf8');
+    const match = source.match(/"?%(?:~dp0|dp0%)\\([^"\r\n]+?\.(?:c?js|mjs))"?/i);
+    if (!match) return null;
+    const target = path.resolve(path.dirname(command), match[1]);
+    return fs.existsSync(target) ? target : null;
+  } catch {
+    return null;
+  }
+}
+
+function quoteCmdArg(value) {
+  const text = String(value);
+  if (!/[ \t&()^|<>"]/u.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function stringifyInput(input) {
+  if (Array.isArray(input)) {
+    return input.map(block => {
+      if (typeof block === 'string') return block;
+      if (block?.type === 'text') return block.text || '';
+      if (block?.type === 'meta') return '';
+      if (block?.type === 'image') return '[图片附件：Codex 当前适配器暂不直接传入图片内容]';
+      return JSON.stringify(block);
+    }).filter(Boolean).join('\n');
+  }
+  return String(input || '');
+}
+
+function handleCodexEvent(event, ws, session, ensureAssistantStarted) {
+  const type = event.type || event.event || event.kind || '';
+  const threadId = event.thread_id || event.threadId || event.thread?.id;
+  if ((type === 'thread.started' || type === 'thread_started') && threadId) {
+    persistAgentSessionId(session, threadId);
+    emitCodexAgentSession(session, threadId);
+    return;
+  }
+
+  if (event.thread_id && !session.agentSessionId) {
+    persistAgentSessionId(session, event.thread_id);
+    emitCodexAgentSession(session, event.thread_id);
+  }
+
+  const text = extractText(event);
+  if (text) {
+    appendCodexAssistantText(text, ws, session, ensureAssistantStarted);
+    return;
+  }
+
+  if (type.includes('error') || type === 'turn.failed') {
+    sendError(ws, event.message || event.error || JSON.stringify(event));
+  }
+}
+
+function extractText(event) {
+  if (typeof event.text === 'string') return event.text;
+  if (typeof event.delta === 'string') return event.delta;
+  if (typeof event.message === 'string' && /message|agent/.test(String(event.type || ''))) return event.message;
+  if (Array.isArray(event.content)) {
+    return event.content.map(item => typeof item === 'string' ? item : item?.text || '').join('');
+  }
+  if (typeof event.item?.text === 'string' && isCodexAssistantMessageType(event.item.type)) {
+    return event.item.text;
+  }
+  if (event.item?.type === 'message' && Array.isArray(event.item.content)) {
+    return event.item.content.map(item => item?.text || '').join('');
+  }
+  return '';
+}
+
+function resolvePendingDanger(confirmed, ws, session, config) {
+  const pending = session.pendingDanger;
+  if (!pending) return false;
+  session.pendingDanger = null;
+  if (!confirmed) {
+    sendSystem(ws, '已取消危险操作。');
+    return true;
+  }
+  execute(pending.input, ws, session, config);
+  return true;
+}
+
+function resolvePendingPermission(approved, ws, session, config, requestId) {
+  const pending = getPendingPermission(session, requestId, 'codex');
+  if (!pending) {
+    session._log?.warn('codex permission response without pending request', {
+      requestId: requestId || '',
+      pendingRequestIds: pendingPermissionIds(session, 'codex'),
+    });
+    return false;
+  }
+
+  removePendingPermission(session, pending.requestId);
+  session._log?.info('codex permission response', { approved, toolName: pending.toolName, rpcId: pending._rpcId });
+
+  // Respond to Codex RPC
+  if (pending._codexMethod === 'item/commandExecution/requestApproval' || pending._codexMethod === 'execCommandApproval') {
+    if (approved) {
+      sendJsonRpc(session.codexAppServer, {
+        jsonrpc: '2.0',
+        id: pending._rpcId,
+        result: { decision: 'accept' },
+      });
+      sendSystem(ws, '✅ 已批准命令执行。');
+    } else {
+      sendJsonRpc(session.codexAppServer, {
+        jsonrpc: '2.0',
+        id: pending._rpcId,
+        result: { decision: 'reject' },
+      });
+      sendSystem(ws, '🚫 已拒绝命令执行。');
+    }
+  }
+
+  return true;
+}
+
+function stop(session, options = {}) {
+  failActiveCodexCompaction(session, 'turn_cancelled', 'Codex turn was stopped.');
+  if (session.codexAppServer) {
+    try {
+      session.codexAppServer.kill();
+    } catch {
+      // ignore
+    }
+    session.codexAppServer = null;
+  }
+  stopSessionProcess(session, options);
+  clearTurnState(session);
+  clearPendingPermissions(session, 'codex');
+  if (session.codexPendingRequests) {
+    for (const [, pending] of session.codexPendingRequests) {
+      pending.reject(new Error('用户已停止'));
+    }
+    session.codexPendingRequests.clear();
+  }
+  if (session._threadStartResolve) {
+    session._threadStartResolve = null;
+    session._threadStartReject = null;
+  }
+}
+
+function drainQueue(ws, session, config) {
+  const next = session.messageQueue.shift();
+  if (!next) return;
+  const nextInput = next && typeof next === 'object' && Object.prototype.hasOwnProperty.call(next, 'input')
+    ? next.input
+    : next;
+  const nextWs = next && typeof next === 'object' && next.ws ? next.ws : ws;
+  const nextConfig = next && typeof next === 'object' && next.config ? next.config : config;
+  session._lastConfig = nextConfig;
+  if (next && typeof next === 'object' && next.compact) {
+    setImmediate(() => sendCodexCompactCommand(nextWs, session, nextConfig, { trigger: next.trigger || 'manual' }));
+    return;
+  }
+  if (next && typeof next === 'object' && next.modelCommand) {
+    setImmediate(() => modelCodexContext(nextWs, session, nextConfig, next.modelOptions || { command: 'show', nativeCommand: next.input }));
+    return;
+  }
+  if (next && typeof next === 'object' && next.settingsApplyCommand) {
+    setImmediate(() => applySettingsCodexContext(
+      nextWs,
+      session,
+      nextConfig,
+      next.settingsApplyOptions || { nativeCommand: next.input },
+    ));
+    return;
+  }
+  if (next && typeof next === 'object' && next.reasoningCommand) {
+    setImmediate(() => reasoningCodexContext(nextWs, session, nextConfig, next.reasoningOptions || { command: 'show', nativeCommand: next.input }));
+    return;
+  }
+  setImmediate(() => execute(nextInput, nextWs, session, nextConfig));
+}
+
+module.exports = {
+  compact: compactCodexContext,
+  execute,
+  model: modelCodexContext,
+  applySettings: applySettingsCodexContext,
+  reasoning: reasoningCodexContext,
+  resolvePendingDanger,
+  resolvePendingPermission,
+  stop,
+  warmup,
+  _internal: {
+    buildCodexThreadStartParams,
+    buildExecArgs,
+    codexDefaultReasoningEffort,
+    codexTurnModelOverride,
+    codexTurnReasoningOverride,
+    currentCodexReasoningEffort,
+    codexModelInputNeedsLookup,
+    codexReasoningInputNeedsLookup,
+    formatCodexModelList,
+    formatCodexReasoningList,
+    loadCodexActualModelNames,
+    modelCodexContext,
+    normalizeCodexModelEntries,
+    normalizeCodexModelList,
+    normalizeCodexReasoningEffort,
+    recordCodexThreadReasoning,
+    reasoningCodexContext,
+    resolveModelNameFromList,
+    sendCodexReasoningResult,
+    uniqueReasoningEfforts,
+    withCodexFallbackModels,
+    buildCodexAppServerEnv,
+  },
+};
