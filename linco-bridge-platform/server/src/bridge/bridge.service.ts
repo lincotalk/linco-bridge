@@ -89,6 +89,7 @@ export class BridgeService {
       connected: this.presence.isOnline(connection.id),
       bridgeType: type,
       accountId: connection.account_id,
+      connectionId: connection.id,
     }
   }
 
@@ -146,6 +147,41 @@ export class BridgeService {
       contextId: selected.id,
       contextName: selected.label,
       sessionId,
+      agentName: agentDisplayName(type),
+    }
+  }
+
+  syncAgent(type: string, connectionId?: string) {
+    if (!isAgentBridgeType(type)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    const connection = connectionId
+      ? this.database.getConnectionById(connectionId)
+      : this.database.getConnectionByType(type)
+    if (!connection || connection.bridge_type !== type) {
+      throw new NotFoundException('连接配置不存在')
+    }
+    if (!this.presence.isOnline(connection.id)) {
+      throw new ConflictException('本机 Agent 尚未连接')
+    }
+
+    const session = this.database.getSessionByConnectionId(connection.id)
+    if (!session) {
+      throw new NotFoundException('会话不存在')
+    }
+
+    if (!connection.session_id) {
+      this.database.linkConnectionSession(connection.id, session.id)
+    }
+
+    if (type === 'codex') {
+      this.database.touchSession(session.id, 'Ready when you are.')
+    }
+
+    return {
+      bridgeType: type,
+      connectionId: connection.id,
+      sessionId: session.id,
       agentName: agentDisplayName(type),
     }
   }

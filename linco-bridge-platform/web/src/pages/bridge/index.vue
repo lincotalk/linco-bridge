@@ -23,6 +23,6 @@ function handleSelect(item: BridgeSourceCardType) {
 
 <style scoped lang="scss">
 .bridge-page__list {
-  padding: calc(env(safe-area-inset-top) + 24rpx) 30rpx 48rpx;
+  padding: calc(env(safe-area-inset-top) + 24rpx) 30rpx 24rpx;
 }
 </style>

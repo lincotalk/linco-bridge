@@ -64,4 +64,12 @@ export class BridgeController {
       ),
     )
   }
+
+  @Post(':type/sync')
+  syncAgent(
+    @Param('type') type: string,
+    @Body() body: { connectionId?: string; connection_id?: string },
+  ) {
+    return ok(this.bridgeService.syncAgent(type, (body.connectionId ?? body.connection_id)?.trim()))
+  }
 }

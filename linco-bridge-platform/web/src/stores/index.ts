@@ -21,8 +21,8 @@ export const useBridgeStore = defineStore('bridge', () => {
     return setup
   }
 
-  async function checkStatus(type: AgentBridgeType) {
-    const status = await sdk.value.checkStatus(type)
+  async function checkStatus(type: AgentBridgeType, connectionId?: string) {
+    const status = await sdk.value.checkStatus(type, connectionId)
     statusByType.value = { ...statusByType.value, [type]: status }
     return status
   }

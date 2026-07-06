@@ -11,6 +11,13 @@ page {
   box-sizing: border-box;
 }
 
+/* Standard bottom tabBar: top divider + icon above label. */
+.uni-tabbar,
+.uni-tabbar-bottom {
+  border-top: 1px solid #ebedf0 !important;
+  box-shadow: none !important;
+}
+
 .card {
   background: #ffffff;
   border-radius: 16rpx;

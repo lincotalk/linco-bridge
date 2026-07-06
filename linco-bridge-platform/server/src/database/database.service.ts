@@ -187,6 +187,26 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       ChatSessionRow | undefined
   }
 
+  getSessionByConnectionId(connectionId: string): ChatSessionRow | undefined {
+    return this.db
+      .prepare(`SELECT * FROM chat_sessions WHERE bridge_connection_id = ?`)
+      .get(connectionId) as unknown as ChatSessionRow | undefined
+  }
+
+  linkConnectionSession(connectionId: string, sessionId: string): void {
+    const now = Date.now()
+    this.db
+      .prepare(`UPDATE bridge_connections SET session_id = ?, update_time = ? WHERE id = ?`)
+      .run(sessionId, now, connectionId)
+  }
+
+  touchSession(sessionId: string, lastMessage: string): void {
+    const now = Date.now()
+    this.db
+      .prepare(`UPDATE chat_sessions SET last_message = ?, update_time = ? WHERE id = ?`)
+      .run(lastMessage, now, sessionId)
+  }
+
   listMessages(sessionId: string): ChatMessageRow[] {
     return this.db
       .prepare(`SELECT * FROM chat_messages WHERE session_id = ? ORDER BY create_time ASC`)

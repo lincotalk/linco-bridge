@@ -41,16 +41,31 @@ describe('createMockBridgeSdk', () => {
     expect(setup.setupCommands).toContain('linco-connect start --daemon')
   })
 
-  it('reports offline until bindContext succeeds', async () => {
-    const sdk = createMockBridgeSdk()
+  it('reports offline before connector attaches', async () => {
+    const sdk = createMockBridgeSdk({ autoConnectOnCheck: false })
+    const status = await sdk.checkStatus('claude')
+    expect(status.connected).toBe(false)
+    expect(status.bridgeType).toBe('claude')
+  })
+
+  it('bindContext returns sessionId and marks connector online', async () => {
+    const sdk = createMockBridgeSdk({ autoConnectOnCheck: false })
 
     const before = await sdk.checkStatus('hermes')
     expect(before.connected).toBe(false)
 
-    await sdk.bindContext('hermes', 'profile-default')
+    const bound = await sdk.bindContext('hermes', 'profile-default')
+    expect(bound.sessionId).toContain('mock-session-hermes')
 
     const after = await sdk.checkStatus('hermes')
     expect(after.connected).toBe(true)
+  })
+
+  it('syncAgent returns session for codex path', async () => {
+    const sdk = createMockBridgeSdk({ autoConnectOnCheck: false })
+    const synced = await sdk.syncAgent('codex')
+    expect(synced.sessionId).toContain('mock-session-codex')
+    expect(synced.agentName).toBe('Codex')
   })
 
   it('refreshSetup rotates secret while preserving command shape', async () => {

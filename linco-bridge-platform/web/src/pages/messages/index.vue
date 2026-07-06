@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import SessionListItem from '@/components/SessionListItem.vue'
+import { switchRootTab } from '@/constants/tabbar'
 import { useSessionStore } from '@/stores'
+import type { ChatSessionItem } from '@/bridge/types'
 
 const sessionStore = useSessionStore()
 
@@ -9,12 +11,12 @@ onShow(() => {
   void sessionStore.loadSessions()
 })
 
-function openChat(sessionId: string) {
-  uni.navigateTo({ url: `/pages/chat/index?sessionId=${sessionId}` })
+function openChat(item: ChatSessionItem) {
+  uni.navigateTo({ url: `/pages/chat/landing?agentType=${item.agentType}` })
 }
 
 function goBridge() {
-  uni.switchTab({ url: '/pages/bridge/index' })
+  switchRootTab('bridge')
 }
 </script>
 
@@ -30,7 +32,7 @@ function goBridge() {
         v-for="item in sessionStore.sessions"
         :key="item.id"
         :item="item"
-        @tap="openChat(item.id)"
+        @tap="openChat(item)"
       />
     </view>
   </view>
@@ -39,6 +41,7 @@ function goBridge() {
 <style scoped lang="scss">
 .messages-page__list {
   margin-top: calc(env(safe-area-inset-top) + 8rpx);
+  background: #ffffff;
 }
 
 .empty {

@@ -14,6 +14,26 @@ export function formatRelativeTime(timestamp: number, now = Date.now()): string 
   return `${month}-${dayOfMonth}`
 }
 
+/** Conversation list time — HH:mm for today, otherwise MM-DD (Flutter AppTimeFormatter). */
+export function formatConversationTime(timestamp: number, now = Date.now()): string {
+  const date = new Date(timestamp)
+  const nowDate = new Date(now)
+  const isSameDay =
+    date.getFullYear() === nowDate.getFullYear() &&
+    date.getMonth() === nowDate.getMonth() &&
+    date.getDate() === nowDate.getDate()
+
+  if (isSameDay) {
+    const hour = `${date.getHours()}`.padStart(2, '0')
+    const minute = `${date.getMinutes()}`.padStart(2, '0')
+    return `${hour}:${minute}`
+  }
+
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${month}-${day}`
+}
+
 export function copyToClipboard(text: string): Promise<void> {
   return new Promise((resolve, reject) => {
     uni.setClipboardData({

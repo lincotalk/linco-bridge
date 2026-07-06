@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common'
+import type { WebSocket } from 'ws'
 import { BridgePresenceService } from '../src/bridge/bridge-presence.service'
 import { BridgeService } from '../src/bridge/bridge.service'
 import { DatabaseService } from '../src/database/database.service'
@@ -31,6 +32,16 @@ describe('BridgeService', () => {
     const connection = database.getConnectionByType('hermes')
     expect(connection).toBeDefined()
     expect(() => service.listContexts('hermes', connection!.id)).toThrow(ConflictException)
+  })
+
+  it('syncAgent links seeded session when connector is online', () => {
+    const connection = database.getConnectionByType('codex')
+    expect(connection).toBeDefined()
+    presence.attach(connection!.id, { readyState: 1, OPEN: 1 } as unknown as WebSocket)
+
+    const synced = service.syncAgent('codex', connection!.id)
+    expect(synced.sessionId).toBeTruthy()
+    expect(synced.agentName).toBe('Codex')
   })
 
   it('authenticates token from seeded credentials', () => {
