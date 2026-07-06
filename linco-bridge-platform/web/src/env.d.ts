@@ -4,6 +4,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
   readonly VITE_USE_REMOTE_API?: string
+  readonly VITE_AGENT_CHAT_SDK?: string
 }
 
 interface ImportMeta {

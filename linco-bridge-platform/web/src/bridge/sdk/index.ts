@@ -1,4 +1,10 @@
-import { buildSetupCommands, defaultAccountId, getAgentDisplayName } from '../commands'
+import {
+  BRIDGE_CONNECT_CHANNEL,
+  buildSetupCommands,
+  defaultAccountId,
+  DEFAULT_BRIDGE_WS_URL,
+  getAgentDisplayName,
+} from '../commands'
 import type {
   AgentBridgeBindableContext,
   AgentBridgeSetup,
@@ -108,7 +114,16 @@ export function createMockBridgeSdk(options?: {
       appSecret,
       accountId,
       connectionId: `conn-${type}-demo`,
-      setupCommands: buildSetupCommands(type, { appId, appSecret, accountId }),
+      connectChannel: BRIDGE_CONNECT_CHANNEL,
+      wsBaseUrl: DEFAULT_BRIDGE_WS_URL,
+      wsUrl: DEFAULT_BRIDGE_WS_URL,
+      setupCommands: buildSetupCommands(type, {
+        appId,
+        appSecret,
+        accountId,
+        channel: BRIDGE_CONNECT_CHANNEL,
+        wsUrl: `${DEFAULT_BRIDGE_WS_URL}/${type}`,
+      }),
       ...setupOverrides?.[type],
     }
     store.set(type, setup)
@@ -186,6 +201,8 @@ export function createMockBridgeSdk(options?: {
             appId: setup.appId,
             appSecret: nextSecret,
             accountId: setup.accountId,
+            channel: setup.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
+            wsUrl: setup.wsUrl ?? setup.wsBaseUrl ?? `${DEFAULT_BRIDGE_WS_URL}/${type}`,
           }),
         }
         store.set(type, next)
@@ -228,6 +245,8 @@ export { getAgentDisplayName }
 export {
   buildLandingSubtitle,
   createMockAgentChatSdk,
-  createRestAgentChatSdk,
+  findMockHistoryItem,
+  getAgentAvatar,
+  parseAgentTypeFromSessionId,
 } from './agent-chat'
 export type { AgentChatSdk } from './agent-chat-types'

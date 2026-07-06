@@ -1,20 +1,34 @@
 import { Injectable } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 
+interface PendingTurn {
+  resolve: (text: string) => void
+  reject: (error: Error) => void
+  timeout: NodeJS.Timeout
+  accumulatedText: string
+}
+
 @Injectable()
 export class BridgeRelayService {
-  private readonly pendingTurns = new Map<
-    string,
-    {
-      resolve: (text: string) => void
-      reject: (error: Error) => void
-      timeout: NodeJS.Timeout
-    }
-  >()
+  private readonly pendingTurns = new Map<string, PendingTurn>()
 
   handleConnectorFrame(frame: Record<string, unknown>): void {
     const streamId = typeof frame.streamId === 'string' ? frame.streamId : ''
     if (!streamId) return
+
+    const pending = this.pendingTurns.get(streamId)
+    if (!pending) return
+
+    if (frame.type === 'stream_chunk') {
+      const delta = typeof frame.delta === 'string' ? frame.delta : ''
+      const fullText = typeof frame.fullText === 'string' ? frame.fullText : ''
+      if (fullText.trim()) {
+        pending.accumulatedText = fullText
+      } else if (delta) {
+        pending.accumulatedText += delta
+      }
+      return
+    }
 
     if (frame.type === 'turn_end' || frame.type === 'outbound_message') {
       const text =
@@ -22,13 +36,12 @@ export class BridgeRelayService {
           ? frame.text
           : typeof frame.fullText === 'string'
             ? frame.fullText
-            : ''
-      const pending = this.pendingTurns.get(streamId)
-      if (pending && text.trim()) {
-        clearTimeout(pending.timeout)
-        this.pendingTurns.delete(streamId)
-        pending.resolve(text.trim())
-      }
+            : pending.accumulatedText
+      if (!text.trim()) return
+
+      clearTimeout(pending.timeout)
+      this.pendingTurns.delete(streamId)
+      pending.resolve(text.trim())
     }
   }
 
@@ -44,14 +57,15 @@ export class BridgeRelayService {
     },
   ): Promise<string> {
     const requestId = randomUUID()
-    const streamId = `stream-${requestId}`
-    const sessionKey = `session:${input.sessionId}`
+    const streamId = `linco-stream-${requestId}`
+    const sessionKey = input.sessionId
 
     const payload = {
       type: 'inbound_message',
-      to: input.bridgeType,
+      to: 'agent',
       accountId: input.accountId,
-      agentId: input.boundContextId ?? '',
+      agentId: input.boundContextId ?? 'main',
+      channel: 'linco',
       chatType: 'direct',
       userId: input.userId,
       messageId: requestId,
@@ -71,9 +85,14 @@ export class BridgeRelayService {
       const timeout = setTimeout(() => {
         this.pendingTurns.delete(streamId)
         reject(new Error('bridge turn timeout'))
-      }, 30_000)
+      }, 120_000)
       timeout.unref?.()
-      this.pendingTurns.set(streamId, { resolve, reject, timeout })
+      this.pendingTurns.set(streamId, {
+        resolve,
+        reject,
+        timeout,
+        accumulatedText: '',
+      })
     })
   }
 }

@@ -10,6 +10,10 @@ export interface AgentBridgeSetup {
   accountId: string
   connectionId: string
   setupCommands: string
+  /** linco-connect IM channel; self-hosted platform uses `linco-demo`. */
+  connectChannel?: string
+  wsBaseUrl?: string
+  wsUrl?: string
 }
 
 export interface AgentBridgeBindableContext {

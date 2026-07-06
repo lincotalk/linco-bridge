@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "start": "node server.js",
+    "dev": "node bin/linco-connect.js start",
     "test": "node --test \"test/**/*.test.js\" \"packages/**/*.test.js\""
   },
   "engines": {

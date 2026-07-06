@@ -71,6 +71,18 @@ export class BridgeGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return
     }
 
+    if (frame.type === 'presence_event' && client.__connectionId) {
+      const device = frame.device
+      if (device && typeof device === 'object') {
+        const record = device as Record<string, unknown>
+        this.presence.updateDeviceInfo(client.__connectionId, {
+          id: typeof record.id === 'string' ? record.id : undefined,
+          name: typeof record.name === 'string' ? record.name : undefined,
+        })
+      }
+      return
+    }
+
     this.relay.handleConnectorFrame(frame)
   }
 

@@ -88,7 +88,11 @@ function handleVoice() {
           :class="{ 'chat-input__tool--disabled': !addEnabled }"
           @tap="handleAdd"
         >
-          <image class="chat-input__icon" :src="CHAT_ICON.add" mode="aspectFit" />
+          <image
+            class="chat-input__icon"
+            :src="CHAT_ICON.add"
+            mode="aspectFit"
+          />
         </view>
 
         <view class="chat-input__toolbar-spacer" />
