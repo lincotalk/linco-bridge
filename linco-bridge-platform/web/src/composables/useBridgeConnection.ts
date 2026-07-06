@@ -1,5 +1,10 @@
 import { computed, ref, type Ref } from 'vue'
-import { buildSetupCommands, getAgentDisplayName, requiresContextBinding } from '@/bridge'
+import {
+  BRIDGE_CONNECT_CHANNEL,
+  buildSetupCommands,
+  getAgentDisplayName,
+  requiresContextBinding,
+} from '@/bridge'
 import type {
   AgentBridgeBindableContext,
   AgentBridgeSetup,
@@ -36,15 +41,16 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
   const needsContextBinding = computed(() => requiresContextBinding(type.value))
   const connectionId = computed(() => setup.value?.connectionId ?? '')
   const commandText = computed(() => {
-    if (setup.value?.setupCommands?.trim()) {
-      return setup.value.setupCommands
+    if (setup.value?.appId && setup.value.appSecret && setup.value.accountId) {
+      return buildSetupCommands(type.value, {
+        appId: setup.value.appId,
+        appSecret: setup.value.appSecret,
+        accountId: setup.value.accountId,
+        channel: setup.value.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
+        wsUrl: setup.value.wsUrl ?? setup.value.wsBaseUrl,
+      })
     }
-    if (!setup.value) return ''
-    return buildSetupCommands(type.value, {
-      appId: setup.value.appId,
-      appSecret: setup.value.appSecret,
-      accountId: setup.value.accountId,
-    })
+    return setup.value?.setupCommands?.trim() ?? ''
   })
 
   async function loadSetup() {

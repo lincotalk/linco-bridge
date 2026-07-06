@@ -83,7 +83,7 @@ const MOCK_DEVICE_ID: Record<AgentBridgeType, string> = {
   openclaw: 'HQ-TS-0185',
 }
 
-/** In-memory mock for landing UI — replace via createAppAgentChatSdk when plugin is ready. */
+/** In-memory mock for landing UI when VITE_USE_REMOTE_API=false. */
 export function createMockAgentChatSdk(options?: {
   online?: Partial<Record<AgentBridgeType, boolean>>
 }): AgentChatSdk {
@@ -122,21 +122,6 @@ export function createMockAgentChatSdk(options?: {
 
     openAgentPanel(_agentType) {
       // Plugin phase: open native side panel
-    },
-  }
-}
-
-/** REST stub — wire to `/api/agent-chat/*` when server + plugin are ready. */
-export function createRestAgentChatSdk(): AgentChatSdk {
-  return {
-    async getLandingHeader() {
-      throw new Error('AgentChatSdk REST 尚未接入')
-    },
-    async listHistory() {
-      throw new Error('AgentChatSdk REST 尚未接入')
-    },
-    async startConversation() {
-      throw new Error('AgentChatSdk REST 尚未接入')
     },
   }
 }

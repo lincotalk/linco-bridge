@@ -2,9 +2,15 @@ import { Injectable } from '@nestjs/common'
 import type { WebSocket } from 'ws'
 import type { BridgeConnectionRow } from '../database/database.service'
 
+export interface BridgeDeviceInfo {
+  id?: string
+  name?: string
+}
+
 @Injectable()
 export class BridgePresenceService {
   private readonly clients = new Map<string, WebSocket>()
+  private readonly devices = new Map<string, BridgeDeviceInfo>()
 
   attach(connectionId: string, socket: WebSocket): void {
     const existing = this.clients.get(connectionId)
@@ -18,6 +24,7 @@ export class BridgePresenceService {
     const current = this.clients.get(connectionId)
     if (current === socket) {
       this.clients.delete(connectionId)
+      this.devices.delete(connectionId)
     }
   }
 
@@ -30,6 +37,18 @@ export class BridgePresenceService {
     const socket = this.clients.get(connectionId)
     if (!socket || socket.readyState !== socket.OPEN) return undefined
     return socket
+  }
+
+  getDeviceInfo(connectionId: string): BridgeDeviceInfo | undefined {
+    return this.devices.get(connectionId)
+  }
+
+  updateDeviceInfo(connectionId: string, device: BridgeDeviceInfo | undefined): void {
+    if (!device?.id && !device?.name) {
+      this.devices.delete(connectionId)
+      return
+    }
+    this.devices.set(connectionId, device)
   }
 
   sendJson(connectionId: string, payload: Record<string, unknown>): boolean {

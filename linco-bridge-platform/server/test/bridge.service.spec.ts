@@ -20,6 +20,7 @@ describe('BridgeService', () => {
     expect(setup.bridgeType).toBe('codex')
     expect(setup.appId).toBe('demo-codex-app')
     expect(setup.setupCommands).toContain('linco-connect init')
+    expect(setup.setupCommands).toContain('--channel linco-demo')
   })
 
   it('reports offline before connector attaches', () => {

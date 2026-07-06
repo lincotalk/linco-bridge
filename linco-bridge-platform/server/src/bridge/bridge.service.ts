@@ -25,10 +25,11 @@ export class BridgeService {
     private readonly presence: BridgePresenceService,
   ) {}
 
-  getWsUrl(): string {
+  getWsUrl(agentType?: string): string {
     const host = process.env.PUBLIC_HOST ?? '127.0.0.1'
     const port = process.env.PORT ?? '3300'
-    return `ws://${host}:${port}/bridge/ws`
+    const base = `ws://${host}:${port}/bridge/ws`
+    return agentType?.trim() ? `${base}/${agentType.trim()}` : base
   }
 
   getSetup(type: string) {
@@ -48,7 +49,7 @@ export class BridgeService {
         accountId: connection.account_id,
         boundContextId: connection.bound_context_id,
       },
-      this.getWsUrl(),
+      this.getWsUrl(type),
     )
   }
 
@@ -73,7 +74,7 @@ export class BridgeService {
         accountId: refreshed.account_id,
         boundContextId: refreshed.bound_context_id,
       },
-      this.getWsUrl(),
+      this.getWsUrl(refreshed.bridge_type),
     )
   }
 

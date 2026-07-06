@@ -58,7 +58,7 @@ const emit = defineEmits<{
           <text class="connect-page__tip-desc">
             {{
               tipDesc ??
-                '命令格式与 Flutter 客户端保持一致，后续将通过 SDK 统一对接后端。'
+                '使用 linco-demo 通道连接本机 Bridge。若 npm 全局安装的 linco-connect 预设指向远程，init 命令会显式指定 --ws-url 覆盖到本地服务。'
             }}
           </text>
         </view>

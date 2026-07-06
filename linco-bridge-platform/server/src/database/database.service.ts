@@ -207,6 +207,31 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(lastMessage, now, sessionId)
   }
 
+  createSession(input: {
+    agentType: AgentBridgeType
+    title: string
+    bridgeConnectionId?: string | null
+    lastMessage?: string
+  }): ChatSessionRow {
+    const id = randomUUID()
+    const now = Date.now()
+    const lastMessage = input.lastMessage ?? ''
+    this.db
+      .prepare(
+        `INSERT INTO chat_sessions (id, agent_type, title, bridge_connection_id, last_message, update_time)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(id, input.agentType, input.title, input.bridgeConnectionId ?? null, lastMessage, now)
+    return {
+      id,
+      agent_type: input.agentType,
+      title: input.title,
+      bridge_connection_id: input.bridgeConnectionId ?? null,
+      last_message: lastMessage,
+      update_time: now,
+    }
+  }
+
   listMessages(sessionId: string): ChatMessageRow[] {
     return this.db
       .prepare(`SELECT * FROM chat_messages WHERE session_id = ? ORDER BY create_time ASC`)

@@ -1,9 +1,23 @@
 import type { AgentBridgeType } from './types'
 
+/** Official Linco Talk IM channel inside linco-connect. */
+export const LINCO_OFFICIAL_CHANNEL = 'linco' as const
+
+/**
+ * Self-hosted linco-bridge-platform channel (not official `linco`).
+ * Must match linco-bridge-connect `CHANNEL_PRESETS['linco-demo']`.
+ */
+export const BRIDGE_CONNECT_CHANNEL = 'linco-demo' as const
+
+export const DEFAULT_BRIDGE_WS_URL = 'ws://127.0.0.1:3300/bridge/ws'
+
 export interface BridgeCommandParams {
   appId: string
   appSecret: string
   accountId: string
+  /** IM channel for linco-connect; defaults to {@link BRIDGE_CONNECT_CHANNEL}. */
+  channel?: string
+  wsUrl?: string
 }
 
 const LOCAL_AGENT_TYPES = new Set<AgentBridgeType>(['codex', 'claude', 'hermes'])
@@ -39,7 +53,16 @@ export function defaultAccountId(type: AgentBridgeType): string {
  */
 export function buildInitCommand(type: AgentBridgeType, params: BridgeCommandParams): string {
   const agentFlag = getConnectAgentFlag(type)
-  return `linco-connect init --token "${params.appId}:${params.appSecret}" --agent ${agentFlag} --account ${params.accountId}`
+  const channel = params.channel?.trim() || BRIDGE_CONNECT_CHANNEL
+  const wsUrl = params.wsUrl?.trim() || `${DEFAULT_BRIDGE_WS_URL}/${agentFlag}`
+  return [
+    `linco-connect init --token "${params.appId}:${params.appSecret}"`,
+    `--agent ${agentFlag}`,
+    `--channel ${channel}`,
+    `--account ${params.accountId}`,
+    `--ws-url ${wsUrl}`,
+    '--allow-insecure-ws',
+  ].join(' ')
 }
 
 /**

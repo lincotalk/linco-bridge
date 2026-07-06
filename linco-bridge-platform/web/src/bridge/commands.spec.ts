@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BRIDGE_CONNECT_CHANNEL,
   buildInitCommand,
   buildSetupCommands,
   defaultAccountId,
+  DEFAULT_BRIDGE_WS_URL,
   getAgentDisplayName,
   getConnectAgentFlag,
   isLocalAgentType,
@@ -16,22 +18,30 @@ describe('bridge/commands', () => {
     accountId: 'codex_1',
   }
 
-  it('buildInitCommand matches Flutter LocalAgentBridgeSpec for codex', () => {
-    expect(buildInitCommand('codex', params)).toBe(
-      'linco-connect init --token "app-123:secret-456" --agent codex --account codex_1',
-    )
+  const expectedInit = (agent: string, accountId: string) =>
+    [
+      `linco-connect init --token "app-123:secret-456"`,
+      `--agent ${agent}`,
+      `--channel ${BRIDGE_CONNECT_CHANNEL}`,
+      `--account ${accountId}`,
+      `--ws-url ${DEFAULT_BRIDGE_WS_URL}/${agent}`,
+      '--allow-insecure-ws',
+    ].join(' ')
+
+  it('buildInitCommand uses linco-demo channel for codex', () => {
+    expect(buildInitCommand('codex', params)).toBe(expectedInit('codex', 'codex_1'))
   })
 
-  it('buildInitCommand matches Flutter OpenClawBridgeCommands for openclaw', () => {
+  it('buildInitCommand matches openclaw agent flag', () => {
     expect(
       buildInitCommand('openclaw', {
         ...params,
         accountId: 'openclaw_1',
       }),
-    ).toBe('linco-connect init --token "app-123:secret-456" --agent openclaw --account openclaw_1')
+    ).toBe(expectedInit('openclaw', 'openclaw_1'))
   })
 
-  it('buildSetupCommands preserves Flutter command block structure', () => {
+  it('buildSetupCommands preserves command block structure', () => {
     const commands = buildSetupCommands('claude', {
       appId: 'a',
       appSecret: 'b',
@@ -42,7 +52,7 @@ describe('bridge/commands', () => {
       [
         'npm install -g linco-connect',
         '',
-        'linco-connect init --token "a:b" --agent claude --account claude_1',
+        expectedInit('claude', 'claude_1').replace('app-123:secret-456', 'a:b'),
         '',
         'linco-connect start --daemon',
       ].join('\n'),
