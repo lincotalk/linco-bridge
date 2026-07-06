@@ -19,7 +19,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | `src/channels/` | 远端 channel 注册、连接器和 Linco 协议适配。 |
 | `src/agents/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器。 |
 | `src/runtime/` | Agent 运行环境、进程 runner、Claude 历史和项目路径辅助逻辑。 |
-| `src/commands/` | 远端会话内的本地斜杠命令处理。 |
+| `src/commands/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
 | `src/core/` | session、协议发送、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
 | `src/attachments/` | 入站附件落盘、类型检查和图片处理。 |
 | `src/gateways/` | Hermes/OpenClaw Gateway 启动、健康检查和客户端封装。 |
