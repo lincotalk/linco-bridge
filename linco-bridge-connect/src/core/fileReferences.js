@@ -90,6 +90,10 @@ function validateGetFile(filePath, session, config) {
     return { ok: false, code: 'outside_allowed_roots', message: '拒绝读取该路径：只能获取当前工作目录、运行目录或附件目录内的文件。' };
   }
 
+  if (!config.allowHiddenGetFiles && hasHiddenPathSegment(resolved, session)) {
+    return { ok: false, code: 'hidden_path', message: `拒绝读取隐藏文件或隐藏目录下的文件：${path.basename(resolved)}` };
+  }
+
   let stat;
   try {
     stat = fs.statSync(resolved);
@@ -238,6 +242,18 @@ function isUnsafeAttachmentPath(filePath, config) {
   return new Set(config.unsafeAttachmentExtensions || []).has(ext);
 }
 
+function hasHiddenPathSegment(filePath, session = {}) {
+  const roots = allowedGetRoots(session)
+    .map(root => path.resolve(root))
+    .sort((a, b) => b.length - a.length);
+  const root = roots.find(item => isInsideOrSame(filePath, item));
+  const relative = root ? path.relative(root, path.resolve(filePath)) : path.resolve(filePath);
+  return relative
+    .split(path.sep)
+    .filter(Boolean)
+    .some(segment => segment.length > 1 && segment.startsWith('.'));
+}
+
 function isInsideOrSame(filePath, dir) {
   if (!dir) return false;
   const relative = path.relative(path.resolve(dir), path.resolve(filePath));
@@ -290,6 +306,7 @@ module.exports = {
     hasDirectImageGenerationIntent,
     isExplicitFileDeliveryRequest,
     isImageGenerationRequest,
+    hasHiddenPathSegment,
     shouldAddFileReferenceHint,
   },
 };
