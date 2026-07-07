@@ -1,19 +1,23 @@
 # Community / 社区与动态
 
-Linco Bridge is an open-source project, and we also maintain community channels for technical discussion, release updates, and product/news sharing around Linco, Agent workflows, and bridge integrations.
+Linco Bridge is an open-source project, and we also maintain community channels for broader discussion around AI coding, frontier AI updates, Agent workflows, bridge integrations, and product-building practice.
 
-Linco Bridge 是开源项目，我们也维护一些社区入口，用来分享技术讨论、版本更新，以及围绕 Linco、Agent 工作流和桥接集成的相关内容。
+Linco Bridge 是开源项目，我们也维护一些社区入口，用来承载更开放的交流内容，包括 AI coding、前沿 AI 资讯、Agent 工作流、桥接集成，以及产品实践相关讨论。
 
 ## Technical Community / 技术交流群
 
 Join the WeChat technical group to discuss:
 
+- AI coding skills, tools, and workflow practice;
+- frontier AI updates and notable industry signals;
 - open-source progress and release updates;
 - integration questions and bridge implementation details;
 - local Agent workflows, protocol design, and product ideas.
 
 欢迎加入微信技术交流群，讨论：
 
+- AI coding 技巧、工具与工作流实践；
+- 前沿 AI 资讯与值得关注的行业动态；
 - 开源进展与版本更新；
 - 接入问题与桥接实现细节；
 - 本地 Agent 工作流、协议设计与产品想法。
@@ -30,9 +34,9 @@ Note: WeChat group QR codes may expire. If the QR code is no longer valid, pleas
 
 ## Linco Lab / Linco Lab 内容渠道
 
-Follow **Linco Lab** for open-source updates, technical notes, bridge integration examples, and Agent workflow content.
+Follow **Linco Lab** for open-source updates, AI coding notes, bridge integration examples, Agent workflow content, and broader frontier AI observations.
 
-关注 **Linco Lab**，获取开源更新、技术笔记、桥接集成案例和 Agent 工作流相关内容。
+关注 **Linco Lab**，获取开源更新、AI coding 笔记、桥接集成案例、Agent 工作流内容，以及更广泛的前沿 AI 观察。
 
 - WeChat Official Account / 微信公众号：`Linco Lab`
 - Xiaohongshu / 小红书：`Linco Lab`
