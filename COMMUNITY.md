@@ -34,8 +34,8 @@ For the full official product experience, see Linco App:
 - iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
 - Android: [https://apphost.ddjf.info/](https://apphost.ddjf.info/)
 
-## Community Scope
+## Community Support
 
-- Community channels are optional and do not replace repository documentation.
-- Security issues should still be reported according to [SECURITY.md](SECURITY.md).
-- Product announcements and community content may evolve faster than the open-source release notes.
+- The community group is a good place to ask integration questions, share usage feedback, and discuss AI coding, Agent workflows, and Linco-related practice.
+- If you run into issues while using Linco Bridge, you are welcome to raise them in the community first. We will continue turning common questions into clearer repository documentation.
+- If you discover a security vulnerability or another sensitive issue, please follow [SECURITY.md](SECURITY.md) or contact a group administrator for a private report.
