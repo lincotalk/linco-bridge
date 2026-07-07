@@ -8,7 +8,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 它不是鉴权中心，也不是托管式多租户服务。用户凭证保存在本机配置中，远端连接通过配置中的 channel/account/agent 组合建立。
 
-从开源定位看，Linco Connect 不只服务官方 Linco IM。很多桥接项目会依赖飞书、微信、钉钉等既有平台，但这些平台的消息展示和交互形态不一定适合 Agent 的工具进度、权限确认、生成文件和长会话。配套开源的 platform 项目对应 `lincoDemo` 通道，用作可部署、可体验、可参考的实现。第三方可以基于自己的 H5、小程序、App 或其他前端形态新增 channel adapter，保留公共连接器和 Agent 适配层，同时独立演进自己的协议和交互体验。
+从开源定位看，Linco Connect 不只服务官方 Linco IM。很多桥接项目会依赖飞书、微信、钉钉等既有平台，但这些平台的消息展示和交互形态不一定适合 Agent 的工具进度、权限确认、生成文件和长会话。配套开源的 platform 项目对应 `linco-demo` 通道，用作可部署、可体验、可参考的实现。第三方可以基于自己的 H5、小程序、App 或其他前端形态新增 channel adapter，保留公共连接器和 Agent 适配层，同时独立演进自己的协议和交互体验。
 
 ## 主要目录
 
@@ -20,7 +20,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | `src/local/` | 本地测试页、本地访问鉴权和本地 WebSocket 接入；WebSocket 连接生命周期、消息分发、Linco 本地协议、presence 和 turn 控制按模块拆分。 |
 | `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
-| `src/channel/` | 具体 channel adapter 实现。当前包含 `linco/` 和 `lincoDemo/`；公共连接、注册和 presence 逻辑放在 `src/core/`。 |
+| `src/channel/` | 具体 channel adapter 实现。当前包含 `linco/` 和 `lincoDemo/` 目录，对应 `linco` 和 `linco-demo` channel key；公共连接、注册和 presence 逻辑放在 `src/core/`。 |
 | `src/agent/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器；按 Agent 类型放入同名目录，并以各目录的 `index.js` 作为 provider 入口。 |
 | `src/runtime/` | Agent 运行环境、进程 runner、Claude 历史和项目路径辅助逻辑。 |
 | `src/command/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
