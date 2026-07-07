@@ -10,7 +10,7 @@ It is not an authentication service or a hosted multi-tenant service. User crede
 
 Many Agent bridge projects integrate with existing collaboration platforms such as Feishu, WeChat, DingTalk, or similar IM products. This lowers the integration cost, but the display and interaction model is constrained by the host platform. Tool progress, permission confirmations, generated files, long-running sessions, and multi-Agent state are often hard to present comfortably.
 
-Linco Connect is open-sourced together with a reference platform project. That platform corresponds to the `lincoDemo` channel in this plugin. It is not meant to force everyone onto the official Linco IM. Instead, it gives users a deployable reference implementation: you can try the workflow first, then build your own H5 page, mini program, app, or other frontend channel and implement a matching channel adapter so the protocol, UI structure, and interaction experience can evolve with your product.
+Linco Connect is open-sourced together with a reference platform project. That platform corresponds to the `linco-demo` channel in this plugin. It is not meant to force everyone onto the official Linco IM. Instead, it gives users a deployable reference implementation: you can try the workflow first, then build your own H5 page, mini program, app, or other frontend channel and implement a matching channel adapter so the protocol, UI structure, and interaction experience can evolve with your product.
 
 ## Features
 
@@ -20,7 +20,7 @@ Linco Connect is open-sourced together with a reference platform project. That p
 - Supports generated file references. Agents return Markdown links with absolute local paths, and the IM can request the file on demand.
 - Supports tool and command permission confirmations, dangerous-operation confirmations, and manual/auto/yolo approval modes.
 - Supports session history viewing, binding, deletion, and token usage display.
-- Supports channel adapters. `linco` is the official Linco IM adapter, and `lincoDemo` is the open-source H5 demo channel.
+- Supports channel adapters. `linco` is the official Linco IM adapter, and `linco-demo` is the open-source H5 demo channel.
 
 ## Requirements
 
@@ -165,7 +165,7 @@ Configuration is stored in `.linco/config.json` under the user's home directory 
 
 The running connector watches `config.json` for changes. You can also trigger reload with `linco-connect reload`. Account changes, credential updates, Agent enablement, and remote IM connection parameters are reloaded automatically, and only affected remote IM connections are restarted. Service-level options such as `host`, `port`, `lincoHome`, `sessionsDir`, and the local test page require a process restart. If reload fails, the old configuration remains active.
 
-`linco` and `linco-demo` are independent channels. The official Linco IM adapter is in `src/channel/linco/`, and the open-source H5 demo channel is in `src/channel/lincoDemo/`. The demo currently uses a Linco-compatible protocol, but it can evolve independently. Third-party platforms should add their own channel directory and register an adapter instead of changing the official Linco channel.
+`linco` and `linco-demo` are independent channel keys. The official Linco IM adapter is in `src/channel/linco/`, and the open-source H5 demo adapter is in `src/channel/lincoDemo/`. The demo currently uses a Linco-compatible protocol, but it can evolve independently. Third-party platforms should add their own channel directory and register an adapter instead of changing the official Linco channel.
 
 Minimal configuration example:
 
