@@ -3,8 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../../../public/index.html'), 'utf8');
+const app = fs.readFileSync(path.resolve(__dirname, '../../../public/app.js'), 'utf8');
 
-const ensureMatch = html.match(/function ensureAssistantTurn\(\) \{([\s\S]*?)\r?\n    \}\r?\n\r?\n    function createActionPanel\(\)/);
+assert(html.includes('href="styles.css"'), 'index should load extracted stylesheet');
+assert(html.includes('src="app.js"'), 'index should load extracted app script');
+
+const ensureMatch = app.match(/function ensureAssistantTurn\(\) \{([\s\S]*?)\r?\n    \}\r?\n\r?\n    function createActionPanel\(\)/);
 assert(ensureMatch, 'ensureAssistantTurn function should exist');
 
 const body = ensureMatch[1];
@@ -20,7 +24,7 @@ assert(contentIndex < currentMsgIndex, 'current assistant target should be the c
 assert(!body.includes('actionPanel.details.appendChild(content)'), 'final answer must not be inside collapsible details');
 assert(!body.includes('actionPanel.list.appendChild(content)'), 'final answer must not be inside action list');
 
-const socketMatch = html.match(/function handleSocketMessage\(event\) \{([\s\S]*?)\r?\n    \}\r?\n\r?\n    function handleStreamChunk/);
+const socketMatch = app.match(/function handleSocketMessage\(event\) \{([\s\S]*?)\r?\n    \}\r?\n\r?\n    function handleStreamChunk/);
 assert(socketMatch, 'handleSocketMessage function should exist');
 const turnEndMatch = socketMatch[1].match(/case 'turn_end':([\s\S]*?)break;/);
 assert(turnEndMatch, 'turn_end branch should exist');
@@ -31,6 +35,6 @@ assert(turnEndMatch[1].includes('setRunning(false)'), 'turn_end should stop runn
 const presenceMatch = socketMatch[1].match(/case 'presence_event':([\s\S]*?)break;/);
 assert(presenceMatch, 'presence_event branch should exist');
 assert(presenceMatch[1].includes('addPresenceMessage(data)'), 'presence_event should render device presence details');
-assert(html.includes('function addPresenceMessage(data)'), 'presence renderer should exist');
+assert(app.includes('function addPresenceMessage(data)'), 'presence renderer should exist');
 
 console.log('mock im structure ok');
