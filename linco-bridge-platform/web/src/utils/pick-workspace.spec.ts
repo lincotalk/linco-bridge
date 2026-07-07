@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isBoundWorkspacePick } from '@/utils/pick-workspace'
+import { hasWorkspaceSessionPick, isBoundWorkspacePick } from '@/utils/pick-workspace'
 
 describe('isBoundWorkspacePick', () => {
   it('returns true when both sessionId and agentSessionId are present', () => {
@@ -20,6 +20,27 @@ describe('isBoundWorkspacePick', () => {
         name: 'demo',
         path: 'D:\\project\\demo',
         sessionId: 'platform-1',
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('hasWorkspaceSessionPick', () => {
+  it('returns true when sessionId is present', () => {
+    expect(
+      hasWorkspaceSessionPick({
+        name: 'demo',
+        path: 'D:\\project\\demo',
+        sessionId: 'platform-1',
+      }),
+    ).toBe(true)
+  })
+
+  it('returns false when sessionId is missing', () => {
+    expect(
+      hasWorkspaceSessionPick({
+        name: 'demo',
+        path: 'D:\\project\\demo',
       }),
     ).toBe(false)
   })

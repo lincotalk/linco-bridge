@@ -24,7 +24,12 @@ function avatarFor(item: ChatSessionItem): string {
 <template>
   <view class="session-item">
     <view class="session-item__body">
-      <image class="session-item__avatar" :src="avatarFor(item)" mode="aspectFill" />
+      <view class="session-item__avatar-wrap">
+        <image class="session-item__avatar" :src="avatarFor(item)" mode="aspectFill" />
+        <view class="session-item__ai-badge">
+          <text class="session-item__ai-badge-text">AI</text>
+        </view>
+      </view>
       <view class="session-item__content">
         <view class="session-item__title-wrap">
           <text class="session-item__title">{{ item.title }}</text>
@@ -53,13 +58,42 @@ function avatarFor(item: ChatSessionItem): string {
   box-sizing: border-box;
 }
 
-.session-item__avatar {
+.session-item__avatar-wrap {
+  position: relative;
   flex-shrink: 0;
   width: 80rpx;
   height: 80rpx;
   margin-right: 24rpx;
+}
+
+.session-item__avatar {
+  width: 80rpx;
+  height: 80rpx;
   border-radius: 50%;
   background: #f5f5f5;
+}
+
+.session-item__ai-badge {
+  position: absolute;
+  right: -2rpx;
+  bottom: -2rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  background: #00a870;
+  border: 2rpx solid #ffffff;
+  box-sizing: border-box;
+}
+
+.session-item__ai-badge-text {
+  font-size: 14rpx;
+  line-height: 1;
+  font-weight: 600;
+  color: #ffffff;
+  transform: scale(0.92);
 }
 
 .session-item__content {

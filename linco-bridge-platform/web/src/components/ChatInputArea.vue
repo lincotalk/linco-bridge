@@ -14,6 +14,7 @@ const props = withDefaults(
     isSendDisabled?: boolean
     isUploading?: boolean
     pendingFiles?: OutboundChatFile[]
+    bridgeProjectName?: string
   }>(),
   {
     modelValue: '',
@@ -44,6 +45,7 @@ const canSubmit = computed(
   () => canSend.value && !props.isSendDisabled && !props.disabled && !props.sending,
 )
 const addEnabled = computed(() => !props.disabled && !props.isUploading && !props.sending)
+const bridgeProjectLabel = computed(() => props.bridgeProjectName?.trim() ?? '')
 
 watch(
   () => props.modelValue,
@@ -105,6 +107,10 @@ function handleVoice() {
             :src="CHAT_ICON.add"
             mode="aspectFit"
           />
+        </view>
+
+        <view v-if="bridgeProjectLabel" class="chat-input__project-chip">
+          <text class="chat-input__project-chip-text">{{ bridgeProjectLabel }}</text>
         </view>
 
         <view class="chat-input__toolbar-spacer" />
@@ -176,6 +182,30 @@ function handleVoice() {
 .chat-input__toolbar-spacer {
   flex: 1;
   min-width: 0;
+}
+
+.chat-input__project-chip {
+  max-width: 304rpx;
+  height: 56rpx;
+  margin-left: 16rpx;
+  padding: 0 16rpx;
+  display: flex;
+  align-items: center;
+  border-radius: 8rpx;
+  background: #f4f5f6;
+  border: 1rpx solid #e4e6e8;
+  box-sizing: border-box;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.chat-input__project-chip-text {
+  font-size: 26rpx;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.87);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-input__tool {
