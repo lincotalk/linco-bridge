@@ -20,6 +20,24 @@ function createCaptureWs() {
   };
 }
 
+function canCreateDirectorySymlink() {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-symlink-check-'));
+  const realDir = path.join(tempDir, 'real');
+  const linkDir = path.join(tempDir, 'link');
+  try {
+    fs.mkdirSync(realDir, { recursive: true });
+    fs.symlinkSync(realDir, linkDir, 'dir');
+    return true;
+  } catch (err) {
+    if (err?.code === 'EPERM' || err?.code === 'EACCES') return false;
+    throw err;
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+const directorySymlinkSupported = canCreateDirectorySymlink();
+
 {
   const session = {
     workspace: 'C:\\work',
@@ -1241,7 +1259,7 @@ function createCaptureWs() {
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
 }
 
-{
+if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-state-realpath-home-'));
   const realProject = path.join(homeDir, 'real', 'codex-state-project');
   const linkProject = path.join(homeDir, 'link', 'codex-state-project');
@@ -1307,7 +1325,7 @@ function createCaptureWs() {
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
 }
 
-{
+if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-state-alias-split-home-'));
   const realProject = path.join(homeDir, 'real', 'aichat');
   const linkProject = path.join(homeDir, 'link', 'aichat');
@@ -1374,7 +1392,7 @@ function createCaptureWs() {
   assert.deepStrictEqual(realSessions.map(item => item.id), ['codex-state-real-aichat']);
 }
 
-{
+if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-realpath-cache-home-'));
   const realProject = path.join(homeDir, 'real', 'codex-jsonl-project');
   const linkProject = path.join(homeDir, 'link', 'codex-jsonl-project');
@@ -1409,7 +1427,7 @@ function createCaptureWs() {
   }
 }
 
-{
+if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-jsonl-alias-split-home-'));
   const realProject = path.join(homeDir, 'real', 'aichat');
   const linkProject = path.join(homeDir, 'link', 'aichat');
@@ -2133,7 +2151,7 @@ test('history-reload silently ends when the current turn is active', () => {
   assert(ws.sent[0].data.items[1].sessionsCommand.includes(projectB));
 }
 
-{
+if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-known-codex-realpath-home-'));
   const realProject = path.join(homeDir, 'real', 'known-codex-project');
   const linkProject = path.join(homeDir, 'link', 'known-codex-project');
