@@ -3,12 +3,12 @@ const Module = require('module');
 const path = require('path');
 
 function loadOpenClawAgentWithGateway(fakeGateway) {
-  const filename = path.resolve(__dirname, '../../src/agents/openclaw.js');
+  const filename = path.resolve(__dirname, '../../src/agents/openclaw/index.js');
   delete require.cache[filename];
 
   const originalLoad = Module._load;
   Module._load = function patchedLoad(request, parent, isMain) {
-    if (parent?.filename === filename && request === '../gateways/openclawGateway') {
+    if (parent?.filename === filename && request === '../../gateways/openclawGateway') {
       return fakeGateway;
     }
     return originalLoad.apply(this, arguments);

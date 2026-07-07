@@ -1,31 +1,56 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { isDangerousCommand } = require('../core/danger');
-const { buildCodexEnv } = require('../runtime/agentEnv');
-const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../core/protocol');
-const { persistAgentSessionId, stopAgentProcess: stopSessionProcess, updateAgentSessionHistory } = require('../core/session');
-const { buildFileReferenceHint, buildImageGenerationDeliveryHint, _internal: fileReferenceInternals } = require('../core/fileReferences');
+const { isDangerousCommand } = require('../../core/danger');
+const { buildCodexEnv } = require('../../runtime/agentEnv');
+const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../../core/protocol');
+const { persistAgentSessionId, stopAgentProcess: stopSessionProcess, updateAgentSessionHistory } = require('../../core/session');
 const {
   appendProgressiveAnswerText,
   promotePendingProgress,
   resetProgressiveAnswer,
-} = require('../core/progressiveAnswer');
-const { createTextStreamBuffer, appendTextStream, flushTextStream, resetTextStream } = require('../core/streamBuffer');
-const { captureAssistantReplyText, startAssistantReplyLog } = require('../core/conversationLog');
-const { GET_MODELS_AND_REASONS_COMMAND } = require('../commands/settings');
+} = require('../../core/progressiveAnswer');
+const { createTextStreamBuffer, appendTextStream, flushTextStream, resetTextStream } = require('../../core/streamBuffer');
+const { captureAssistantReplyText, startAssistantReplyLog } = require('../../core/conversationLog');
+const { GET_MODELS_AND_REASONS_COMMAND } = require('../../commands/settings');
 const {
   clearPendingPermissions,
   getPendingPermission,
   pendingPermissionIds,
   removePendingPermission,
   setPendingPermission,
-} = require('../core/permissionState');
+} = require('../../core/permissionState');
+const {
+  codexDefaultReasoningEffort,
+  codexFallbackModels,
+  codexFallbackReasoningEfforts,
+  codexModelInputNeedsLookup,
+  codexReasoningEffortValues,
+  codexReasoningInputNeedsLookup,
+  codexTurnModelOverride,
+  codexTurnReasoningOverride,
+  currentCodexReasoningEffort,
+  findCodexModelEntry,
+  formatCodexModelList,
+  formatCodexReasoningEffortLabel,
+  formatCodexReasoningList,
+  isSupportedCodexReasoningEffort,
+  normalizeCodexModelEntries,
+  normalizeCodexModelList,
+  normalizeCodexReasoningEffort,
+  resolveModelNameFromList,
+  uniqueReasoningEfforts,
+  withCodexFallbackModels,
+} = require('./options');
+const {
+  buildCodexDeliveryInput,
+  buildCodexInput,
+  stringifyInput,
+} = require('./input');
 
 const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
 const CODEX_COMPACTION_STALE_MS = 90_000;
 const DEFAULT_CODEX_COMPACTION_TIMEOUT_MS = 300_000;
-const DEFAULT_CODEX_REASONING_EFFORT = 'high';
 
 function execute(input, ws, session, config) {
   const textForCheck = stringifyInput(input);
@@ -112,14 +137,6 @@ function runAppServerTurn(input, ws, session, config) {
         finishCodexTurn(ws, session, config, 'error', { error: err.message });
       }
     });
-}
-
-function buildCodexDeliveryInput(input, session) {
-  const text = stringifyInput(input);
-  if (fileReferenceInternals.isImageGenerationRequest(text)) {
-    return buildImageGenerationDeliveryHint(input, session);
-  }
-  return buildFileReferenceHint(input, session);
 }
 
 async function warmup(ws, session, config) {
@@ -622,48 +639,6 @@ function sendCodexReasoningResult(ws, session, config, options = {}) {
   });
 }
 
-function codexTurnModelOverride(session) {
-  if (!session.codexModelOverrideDirty) return {};
-  const model = String(session.codexModelOverride || '').trim();
-  session.codexModelOverrideDirty = false;
-  return { model: model || null };
-}
-
-function codexTurnReasoningOverride(session, agentConfig = {}, options = {}) {
-  if (!session.codexReasoningEffortDirty && !options.includeDefault) return {};
-  const effort = normalizeCodexReasoningEffort(session.codexReasoningEffortOverride || '')
-    || (options.includeDefault ? codexDefaultReasoningEffort(agentConfig) : '');
-  session.codexReasoningEffortDirty = false;
-  session.codexActiveReasoningEffort = effort || '';
-  return { effort: effort || null };
-}
-
-function codexDefaultReasoningEffort(agentConfig = {}) {
-  const configured = normalizeCodexReasoningEffort(
-    agentConfig.reasoningEffort || agentConfig.defaultReasoningEffort || agentConfig.effort || DEFAULT_CODEX_REASONING_EFFORT
-  );
-  return isSupportedCodexReasoningEffort(configured) ? configured : DEFAULT_CODEX_REASONING_EFFORT;
-}
-
-function currentCodexReasoningEffort(session) {
-  return normalizeCodexReasoningEffort(
-    session?.codexReasoningEffortOverride || session?.codexActiveReasoningEffort || ''
-  );
-}
-
-function codexModelInputNeedsLookup(input) {
-  const raw = String(input || '').trim();
-  if (!raw) return false;
-  if (/^\d+$/.test(raw)) return true;
-  return !raw.includes('/') && !raw.includes('-') && !raw.includes('.');
-}
-
-function codexReasoningInputNeedsLookup(input) {
-  const raw = String(input || '').trim();
-  if (!raw) return false;
-  return /^\d+$/.test(raw);
-}
-
 async function resolveCodexModelInput(session, config, input) {
   const raw = String(input || '').trim();
   const models = await loadCodexModelNames(session, config);
@@ -706,165 +681,6 @@ async function loadCodexReasoningChoices(session, config) {
     modelDefaultEffort: selected?.defaultReasoningEffort || null,
     model: selected?.name || currentModel || '',
   };
-}
-
-function resolveModelNameFromList(input, models) {
-  const raw = String(input || '').trim();
-  if (!raw) return '';
-  const index = Number.parseInt(raw, 10);
-  if (String(index) === raw && index >= 1 && index <= models.length) return models[index - 1];
-  const exact = models.find(model => model.toLowerCase() === raw.toLowerCase());
-  return exact || raw;
-}
-
-function normalizeCodexModelList(result) {
-  const source = Array.isArray(result)
-    ? result
-    : Array.isArray(result?.data)
-      ? result.data
-      : Array.isArray(result?.models)
-        ? result.models
-        : Array.isArray(result?.items)
-          ? result.items
-          : [];
-  return source
-    .map(item => String(item?.id || item?.model || item?.displayName || item?.name || item || '').trim())
-    .filter(Boolean);
-}
-
-function normalizeCodexModelEntries(result) {
-  const source = Array.isArray(result)
-    ? result
-    : Array.isArray(result?.data)
-      ? result.data
-      : Array.isArray(result?.models)
-        ? result.models
-        : Array.isArray(result?.items)
-          ? result.items
-          : [];
-  return source.map(item => {
-    const name = String(item?.id || item?.model || item?.displayName || item?.name || item || '').trim();
-    const supportedReasoningEfforts = Array.isArray(item?.supportedReasoningEfforts)
-      ? item.supportedReasoningEfforts
-          .map(option => normalizeCodexReasoningEffort(option?.reasoningEffort || option?.effort || option))
-          .filter(Boolean)
-      : [];
-    return {
-      name,
-      supportedReasoningEfforts,
-      defaultReasoningEffort: normalizeCodexReasoningEffort(item?.defaultReasoningEffort || item?.defaultEffort || ''),
-      isDefault: Boolean(item?.isDefault),
-    };
-  }).filter(entry => entry.name);
-}
-
-function findCodexModelEntry(entries, model) {
-  const raw = String(model || '').trim().toLowerCase();
-  if (!raw) return null;
-  return entries.find(entry => entry.name.toLowerCase() === raw) || null;
-}
-
-function withCodexFallbackModels(models) {
-  return uniqueModelNames([...(models || []), ...codexFallbackModels()]);
-}
-
-function codexFallbackModels() {
-  return [
-    'gpt-5.5',
-    'gpt-5.4',
-    'gpt-5.4-mini',
-    'gpt-5.3-codex',
-    'gpt-5.2',
-    'codex-mini-latest',
-    'gpt-4.1',
-    'gpt-4.1-mini',
-    'o4-mini',
-    'o3',
-  ];
-}
-
-function uniqueModelNames(models) {
-  const seen = new Set();
-  const result = [];
-  for (const model of models) {
-    const name = String(model || '').trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(name);
-  }
-  return result;
-}
-
-function formatCodexModelList(models, current) {
-  if (!models.length) return `Current model: ${current || '(default)'}\nCodex returned no model entries.`;
-  return [
-    `Current model: ${current || '(default)'}`,
-    '',
-    ...models.map((model, index) => `${index + 1}. ${model}${model === current ? ' (current)' : ''}`),
-  ].join('\n');
-}
-
-function codexReasoningEffortValues() {
-  return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
-}
-
-function codexFallbackReasoningEfforts() {
-  return ['low', 'medium', 'high', 'xhigh'];
-}
-
-function normalizeCodexReasoningEffort(value) {
-  const raw = String(value || '').trim().toLowerCase();
-  const normalized = raw.replace(/[\s_]+/g, '-');
-  if (normalized === 'extra-high' || normalized === 'extra' || normalized === 'x-high') return 'xhigh';
-  return normalized;
-}
-
-function isSupportedCodexReasoningEffort(effort) {
-  return codexReasoningEffortValues().includes(normalizeCodexReasoningEffort(effort));
-}
-
-function uniqueReasoningEfforts(efforts) {
-  const allowed = new Set(codexReasoningEffortValues());
-  const seen = new Set();
-  const result = [];
-  for (const effort of efforts || []) {
-    const normalized = normalizeCodexReasoningEffort(effort);
-    if (!allowed.has(normalized) || seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(normalized);
-  }
-  return result.length ? result : codexFallbackReasoningEfforts();
-}
-
-function formatCodexReasoningEffortLabel(effort) {
-  const normalized = normalizeCodexReasoningEffort(effort);
-  if (normalized === 'xhigh') return 'Extra High';
-  if (normalized === 'minimal') return 'Minimal';
-  if (normalized === 'none') return 'None';
-  if (normalized === 'low') return 'Low';
-  if (normalized === 'medium') return 'Medium';
-  if (normalized === 'high') return 'High';
-  return String(effort || '');
-}
-
-function formatCodexReasoningList(efforts, current, options = {}) {
-  const defaultEffort = options.defaultEffort || '';
-  const model = options.model || '';
-  if (!efforts.length) return `Current reasoning effort: ${current ? formatCodexReasoningEffortLabel(current) : '(model default)'}\nCodex returned no reasoning effort entries.`;
-  const lines = [
-    `Current reasoning effort: ${current ? formatCodexReasoningEffortLabel(current) : '(model default)'}`,
-  ];
-  if (defaultEffort) lines.push(`Model default: ${formatCodexReasoningEffortLabel(defaultEffort)}${model ? ` (${model})` : ''}`);
-  lines.push('');
-  lines.push(...efforts.map((effort, index) => {
-    const tags = [];
-    if (effort === current) tags.push('current');
-    if (!current && defaultEffort && effort === defaultEffort) tags.push('default');
-    return `${index + 1}. ${formatCodexReasoningEffortLabel(effort)}${tags.length ? ` (${tags.join(', ')})` : ''}`;
-  }));
-  return lines.join('\n');
 }
 
 function sendCodexCompactCommand(ws, session, config, options = {}) {
@@ -2199,42 +2015,6 @@ function summarizeCodexParams(params) {
   return typeof input === 'string' ? input.slice(0, 1000) : JSON.stringify(input).slice(0, 1000);
 }
 
-function buildCodexInput(input, workspace) {
-  if (Array.isArray(input)) {
-    const result = [];
-    for (const block of input) {
-      if (typeof block === 'string') {
-        result.push({ type: 'text', text: block });
-      } else if (block?.type === 'text') {
-        result.push({ type: 'text', text: block.text || '' });
-      } else if (block?.type === 'image' && block.path) {
-        // Codex sandbox can only read from workspace — copy image into workspace
-        const fs = require('fs');
-        const path = require('path');
-        const basename = path.basename(block.path);
-        const copyDir = path.join(workspace, '_linco_attachments');
-        const copyPath = path.join(copyDir, basename);
-        try {
-          fs.mkdirSync(copyDir, { recursive: true });
-          fs.copyFileSync(block.path, copyPath);
-        } catch {
-          // If copy fails, fall back to original path
-        }
-        const mediaType = block.source?.media_type || '';
-        result.push({ type: 'text', text: `用户发送了一张图片（${mediaType}），文件已保存到 ${copyPath}，请按需读取` });
-      } else if (block?.type === 'image') {
-        result.push({ type: 'text', text: '[图片附件]' });
-      } else if (block?.type === 'meta') {
-        continue;
-      } else {
-        result.push({ type: 'text', text: JSON.stringify(block) });
-      }
-    }
-    return result;
-  }
-  return [{ type: 'text', text: String(input || '') }];
-}
-
 // ─── exec fallback mode ────────────────────────────────────────────────
 
 function runExecTurn(input, ws, session, config) {
@@ -2379,19 +2159,6 @@ function quoteCmdArg(value) {
   const text = String(value);
   if (!/[ \t&()^|<>"]/u.test(text)) return text;
   return `"${text.replace(/"/g, '""')}"`;
-}
-
-function stringifyInput(input) {
-  if (Array.isArray(input)) {
-    return input.map(block => {
-      if (typeof block === 'string') return block;
-      if (block?.type === 'text') return block.text || '';
-      if (block?.type === 'meta') return '';
-      if (block?.type === 'image') return '[图片附件：Codex 当前适配器暂不直接传入图片内容]';
-      return JSON.stringify(block);
-    }).filter(Boolean).join('\n');
-  }
-  return String(input || '');
 }
 
 function handleCodexEvent(event, ws, session, ensureAssistantStarted) {

@@ -4,7 +4,7 @@ const Module = require('module');
 const path = require('path');
 
 function loadCodexInternals() {
-  const filename = path.resolve(__dirname, '../../src/agents/codex.js');
+  const filename = path.resolve(__dirname, '../../src/agents/codex/index.js');
   const source = fs.readFileSync(filename, 'utf8');
   const mod = new Module(filename, module);
   mod.filename = filename;
