@@ -318,7 +318,7 @@ function loadConfig(rootDir) {
 
   return {
     logLevel: stringFromEnv('LOG_LEVEL', userConfig.logLevel || 'info'),
-    port: stringFromEnv('PORT', userConfig.port || 30381),
+    port: stringFromEnv('PORT', userConfig.port || 3011),
     host: stringFromEnv('HOST', userConfig.host || '127.0.0.1'),
     lincoHome,
     sessionsDir,
