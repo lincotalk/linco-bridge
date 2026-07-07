@@ -1,6 +1,6 @@
 # 斜杠命令适配说明
 
-斜杠命令是在远端 IM 会话中由 Linco Connect 本地处理的命令。`src/commands/index.js` 负责分发，部分复杂命令拆在 `src/commands/*.js` 中。
+斜杠命令是在远端 IM 会话中由 Linco Connect 本地处理的命令。`src/command/index.js` 负责分发，部分复杂命令拆在 `src/command/*.js` 中。
 
 除本文列出的本地命令外，其他 `/xxx` 默认透传给当前 Agent。部分 Agent 原生命令只适合交互式 CLI/TUI，在桥接模式下可能没有输出。
 

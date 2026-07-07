@@ -1,9 +1,9 @@
-const assert = require('assert');
+﻿const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { loadConfig } = require('../../src/config');
-const { OFFICIAL_LINCO_DEMO_AGENT_WS_URLS } = require('../../src/channels/presets/lincoDemo');
+const { OFFICIAL_LINCO_DEMO_AGENT_WS_URLS } = require('../../src/channel/lincoDemo/defaults');
 
 function withTempConfig(config, fn, env = {}) {
   const envNames = ['LINCO_HOME', 'LINCO_AGENT', 'LINCO_CHANNEL', 'LINCO_ACCOUNT', 'LINCO_APP_ID', 'LINCO_APP_SECRET', 'LINCO_TOKEN'];

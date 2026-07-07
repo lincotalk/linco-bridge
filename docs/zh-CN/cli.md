@@ -19,6 +19,8 @@
 
 ## 说明
 
+设备标识在运行时生成。如需覆盖展示名称，可使用 `LINCO_DEVICE_NAME` 环境变量或配置中的 `device.name`。
+
 - 普通输出和日志中不要显示完整 App Secret 或 Token。
 - 实际运行行为会因 Agent 类型、channel 配置和本地操作环境而不同。
-- 配置结构、环境变量和 Agent 适配细节请参考 [`linco-bridge-connect/README.md`](../linco-bridge-connect/README.md)。
+- 配置结构、环境变量和 Agent 适配细节请参考 [`linco-bridge-connect/README.md`](../../linco-bridge-connect/README.md)。

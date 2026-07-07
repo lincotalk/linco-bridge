@@ -1,8 +1,8 @@
-const { executeAgentQuery, resolvePendingDanger, resolvePendingPermission } = require('../runtime/agentRunner');
-const { handleLegacyImageMessage, handleMessageWithAttachments } = require('../attachments/attachmentHandler');
+﻿const { executeAgentQuery, resolvePendingDanger, resolvePendingPermission } = require('../runtime/agentRunner');
+const { handleLegacyImageMessage, handleMessageWithAttachments } = require('../attachment/attachmentHandler');
 const { send, sendError } = require('../core/protocol');
-const { handleSlashCommand, isBridgeControlCommand } = require('../commands');
-const { isLincoMessage } = require('../channels/bridge/protocolAdapter');
+const { handleSlashCommand, isBridgeControlCommand } = require('../command');
+const { isLincoMessage } = require('../channel/linco/protocol');
 const { logUserInput } = require('../core/conversationLog');
 const { handleLincoInboundMessage } = require('./linco');
 const { stopCurrentTurn } = require('./turn');

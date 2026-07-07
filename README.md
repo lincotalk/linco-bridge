@@ -8,10 +8,13 @@
 
 ## What It Is
 
+Local AI agent tools are powerful, but their sessions usually stay on one computer. Many bridge projects connect these tools to existing collaboration platforms such as Feishu, WeChat, DingTalk, or similar IM products. That approach lowers integration cost, but display and interaction are constrained by the host platform. Tool progress, permission confirmations, generated files, long-running sessions, and multi-agent state are often hard to present comfortably.
+
 Linco Bridge helps teams expose local AI agent tools beyond a single desktop. It provides an open connector, a reference platform, and reusable SDK/protocol layers so you can:
 
-- verify the full bridge flow with a reference web client;
-- connect local agents to your own web, app, or IM product;
+- verify the full bridge flow with the reference platform and reference web client;
+- connect local agents to your own web, app, mini program, or IM product;
+- deploy the reference platform (mapped to the `lincoDemo` channel in the connector), then build your own H5 page, mini program, app, or other frontend channel with a matching channel adapter;
 - build compatible integrations on top of the public protocol and SDK surface.
 
 ## Repository Scope
@@ -31,7 +34,7 @@ Local agent CLI
     ↕ local process, gateway, or session files
 linco-bridge-connect on the user's computer
     ↕ authenticated bridge connection
-Reference server or compatible backend
+Reference platform, compatible backend, or Linco Cloud
     ↕
 Reference web, Linco App, or a third-party client
 ```
@@ -93,9 +96,10 @@ The connector SDK is a reusable package surface. The web Bridge/AgentChat SDK is
 
 | Path | Intended user | Availability |
 | --- | --- | --- |
-| Reference Web | Developers validating the bridge flow | Included with the open-source release |
-| Linco App | Users who want the full product experience | Official product |
-| Protocol integration | Teams building their own client | Included with the open-source release |
+| Reference Platform / Reference Web | Developers validating the bridge flow or building a custom experience | Included with the open-source release |
+| Custom channel adapter | Teams building their own H5, mini program, app, or IM client | Included with the open-source protocol and connector |
+| Linco App / official Linco channel | Users who want the full product experience | Official product |
+| Protocol integration | Teams building their own client or server | Included with the open-source release |
 | Connector SDK | Teams that want reusable bridge client connectivity | Included with the open-source release |
 | Bridge SDK / AgentChat SDK | Teams integrating with the reference platform or adapting the flow to their own client | Included as a usable reference implementation |
 | Self-hosting | Teams that need their own deployment | Initial release is for reference/dev validation, not production guidance |

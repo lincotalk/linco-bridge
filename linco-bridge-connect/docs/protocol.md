@@ -1,6 +1,22 @@
-# Linco Connect 协议说明
+﻿# Linco Connect 协议说明
 
-本文描述 `linco-bridge-connect` 与远端 IM 之间的主要消息约定。代码入口主要在 `src/channels/bridge/protocolAdapter.js`、`src/channels/bridge/connector.js` 和 `packages/protocol/src`。
+本文描述 `linco-bridge-connect` 与远端 channel 之间的主要消息约定。公共连接入口在 `src/core/channelConnector.js`，channel 注册入口在 `src/core/channelRegistry.js`，官方 Linco IM 协议实现位于 `src/channel/linco/`，开源 H5 示例 channel 位于 `src/channel/lincoDemo/`。
+
+`linco` 和 `linco-demo` 是两个独立 channel。当前 `linco-demo` 采用 Linco 兼容协议，后续可以在自己的 adapter 内独立演进，不应反向修改官方 `linco` adapter。
+
+开源参考 platform 对应 `linco-demo`。它用于展示一套更适合 Agent 的 H5 交互形态，第三方也可以实现自己的 H5、小程序、App 或其他前端 channel，并在自己的 adapter 内定义外部消息类型和展示结构。
+
+## 公共层与 Channel Adapter
+
+公共连接器不定义新的外部网络协议。它只处理稳定的内部输入和 Agent 输出事件：
+
+| 层级 | 职责 |
+| --- | --- |
+| channel adapter | 识别各自外部 `type`，转换入站消息，生成出站 payload，构造心跳和连接客户端。 |
+| `src/core/channelConnector.js` | 处理连接生命周期、session、斜杠命令、附件、Agent runner 和权限回传。 |
+| `src/agent/` / `src/runtime/` | 执行具体 Agent，并产生 `assistant_chunk`、`tool_call`、`turn_end` 等内部事件。 |
+
+因此，外部 `type` 由各 channel 自己定义；进入公共层后必须转换为公共连接器已知的内部输入和事件。第三方 channel 应新增自己的 channel 目录，而不是修改 `src/channel/linco/`。
 
 ## 通用字段
 
