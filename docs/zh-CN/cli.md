@@ -2,25 +2,21 @@
 
 [English](../cli.md)
 
-| 命令 | 用途 |
-| --- | --- |
-| `linco-connect init` | 初始化凭证、Agent 类型、账号、channel 和连接覆盖配置。 |
-| `linco-connect remove-account` | 删除某个 Agent 的已配置账号。 |
-| `linco-connect delete-account` | `remove-account` 的同义命令。 |
-| `linco-connect ws-prefix` | 为当前选定 channel 下的已配置账号写入或清除 `wsUrl` 覆盖。 |
-| `linco-connect start` | 以前台方式启动本地桥接。 |
-| `linco-connect start --daemon` | 在后台启动本地桥接。 |
-| `linco-connect stop` | 停止本地桥接。 |
-| `linco-connect reload` | 在支持的场景下重载运行时配置。 |
-| `linco-connect status` | 显示版本和运行状态。 |
-| `linco-connect doctor` | 检查本机环境、CLI 可用性和桥接相关配置。 |
-| `linco-connect help` | 显示帮助信息。 |
-| `linco-connect version` | 输出当前安装版本。 |
+根目录只保留项目级入口。`linco-connect` 的完整命令、配置、环境变量、斜杠命令和 Agent 适配说明请直接参考连接器项目文档：
 
-## 说明
+- [Linco Connect README](../../linco-bridge-connect/README.zh-CN.md)
+- [架构说明](../../linco-bridge-connect/docs/architecture.md)
+- [协议说明](../../linco-bridge-connect/docs/protocol.md)
+- [斜杠命令适配说明](../../linco-bridge-connect/docs/slash-commands.md)
+- [安全说明](../../linco-bridge-connect/docs/security.md)
 
-设备标识在运行时生成。如需覆盖展示名称，可使用 `LINCO_DEVICE_NAME` 环境变量或配置中的 `device.name`。
+常用入口：
 
-- 普通输出和日志中不要显示完整 App Secret 或 Token。
-- 实际运行行为会因 Agent 类型、channel 配置和本地操作环境而不同。
-- 配置结构、环境变量和 Agent 适配细节请参考 [`linco-bridge-connect/README.md`](../../linco-bridge-connect/README.md)。
+```bash
+linco-connect init --token "<appId>:<appSecret>" --agent codex
+linco-connect start --daemon
+linco-connect doctor
+linco-connect stop
+```
+
+使用开源参考平台时，初始化命令需要使用 `--channel linco-demo`；具体命令以 Reference Web 页面生成的 setup commands 为准。

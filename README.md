@@ -2,52 +2,56 @@
 
 [简体中文](README.zh-CN.md)
 
-> An open bridge layer for connecting local AI agent tools to web, mobile, and IM clients.
+> An open bridge layer for connecting AI agent tools running on a personal computer to Web, H5, mini program, app, IM, or other clients.
 
-**Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change, but the first open-source release targets all four supported agents and a usable SDK surface.
+**Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change. The first open-source release focuses on a working local connector, a deployable reference platform channel, and bridge validation for Codex CLI, Claude Code, Hermes, and OpenClaw.
 
 ## What It Is
 
-Local AI agent tools are powerful, but their sessions usually stay on one computer. Many bridge projects connect these tools to existing collaboration platforms such as Feishu, WeChat, DingTalk, or similar IM products. That approach lowers integration cost, but display and interaction are constrained by the host platform. Tool progress, permission confirmations, generated files, long-running sessions, and multi-agent state are often hard to present comfortably.
+Local AI agent tools are powerful, but their sessions, tool execution, and generated files usually stay on one computer. Many bridge projects connect these tools to existing collaboration platforms such as Feishu, WeChat, DingTalk, or similar IM products. That lowers integration cost, but display and interaction are constrained by the host platform: tool progress, permission confirmations, generated files, long-running sessions, multi-agent state, and session recovery are hard to present comfortably.
 
-Linco Bridge helps teams expose local AI agent tools beyond a single desktop. It provides an open connector, a reference platform, and reusable SDK/protocol layers so you can:
+Linco Bridge is not meant to force every workflow into one IM product. It provides an open reference path:
 
-- verify the full bridge flow with the reference platform and reference web client;
-- connect local agents to your own web, app, mini program, or IM product;
-- deploy the reference platform (mapped to the `linco-demo` channel in the connector), then build your own H5 page, mini program, app, or other frontend channel with a matching channel adapter;
-- build compatible integrations on top of the public protocol and SDK surface.
+- use the local connector plugin to bridge PC-based Agent CLIs;
+- deploy the open reference platform to try the `linco-demo` channel quickly;
+- use the official Linco channel for the full official product experience;
+- build your own H5 page, mini program, app, web, or IM entry on top of the public protocol, SDKs, and channel adapter mechanism.
 
 ## Repository Scope
 
-This repository currently contains:
+This repository contains two runnable subprojects plus project-level documentation:
 
-- `linco-bridge-connect`: the local connector CLI that runs on the user's computer and bridges agent sessions to compatible clients and servers;
-- `linco-bridge-platform`: a self-hosted demo/reference platform with a NestJS backend and UniApp frontend;
-- `docs/`: project-level documentation for setup, architecture, protocol, security, and troubleshooting.
+- `linco-bridge-connect`: the local connector / plugin project. It runs on the user's computer, connects to local Agent CLIs, and relays messages, permission requests, attachments, and generated files to a remote channel;
+- `linco-bridge-platform`: the open reference platform channel. It includes a NestJS backend and UniApp frontend for quickly self-hosting the `linco-demo` flow, and can be used as a reference for custom H5, mini program, or app development;
+- `docs/`: project-level documentation for setup, architecture, protocol, security, support scope, and troubleshooting.
 
-This repository does **not** include the full Linco App product or hosted cloud services.
+This repository does **not** include the full Linco App product or official hosted cloud-service code. The official Linco channel is a product experience entry; the open `linco-demo` channel is a deployable and customizable reference implementation.
 
 ## How It Works
 
 ```text
-Local agent CLI
+Local Agent CLI
     ↕ local process, gateway, or session files
 linco-bridge-connect on the user's computer
-    ↕ authenticated bridge connection
-Reference platform, compatible backend, or Linco Cloud
+    ↕ authenticated WebSocket bridge connection
+Official Linco channel, open Reference Platform, or compatible backend
     ↕
-Reference web, Linco App, or a third-party client
+Linco App, Reference Web, custom H5/mini program/app/IM client
 ```
 
-`linco-bridge-connect` runs on the user's computer, adapts a local agent, and relays sessions, messages, permissions, attachments, and generated files to compatible products.
+`linco-bridge-connect` adapts the local agent and relays sessions, messages, permission requests, attachments, and generated files to compatible products. `linco-bridge-platform` provides a locally deployable backend and H5 experience for validating the full flow and for building a better custom interaction model.
 
-## Typical Use Cases
+## Recommended Paths
 
-- Developers who want to validate a complete local-agent-to-client bridge flow.
-- Product teams that want to integrate local AI tools into their own app, web, or IM experience.
-- Engineering teams that want a reference implementation before building their own bridge-compatible stack.
+| Path | Best for | Notes |
+| --- | --- | --- |
+| Official Linco channel (`linco`) | Users who want the official product flow | Uses the default channel and official credentials. No platform deployment is required. |
+| Open reference platform (`linco-demo`) | Teams that want quick self-hosting, bridge validation, or implementation study | Start the `linco-bridge-platform` server + web app, then connect the local Agent with the connector. |
+| Custom channel adapter | Product or engineering teams building a better interaction experience | Reuse the connector and Agent adapter layer, then add your own H5, mini program, app, web, or IM channel. |
 
 ## Quick Start
+
+### Option 1: Official Channel
 
 Install the local connector:
 
@@ -55,13 +59,12 @@ Install the local connector:
 npm install -g linco-connect
 ```
 
-Initialize a device with an issued credential:
+Initialize it with credentials issued for the official channel:
 
 ```bash
 linco-connect init \
   --token "<app-id>:<app-secret>" \
-  --agent codex \
-  --device-name codex1
+  --agent codex
 ```
 
 Start the connector:
@@ -70,43 +73,71 @@ Start the connector:
 linco-connect start --daemon
 ```
 
-Then open a compatible client, confirm the device is online, enter a session, and send a short test message.
+Then open a compatible client, confirm the device is online, enter a session, and send a test message.
 
-For the detailed flow, see [Quick Start](docs/quick-start.md).
+### Option 2: Open Reference Platform
+
+Start the reference backend and H5 frontend:
+
+```bash
+cd linco-bridge-platform/server
+npm install
+npm run start:dev
+
+cd ../web
+npm install
+node scripts/generate-icons.mjs
+npm run dev:h5
+```
+
+Open the bridge page in the H5 frontend and copy the generated `linco-connect` setup command. A manual command usually looks like this:
+
+```bash
+linco-connect init \
+  --token "demo-codex-app:demo-codex-secret" \
+  --agent codex \
+  --channel linco-demo \
+  --account codex_1 \
+  --allow-insecure-ws
+
+linco-connect start --daemon
+```
+
+For the detailed flow, see [Quick Start](docs/quick-start.md) and the [platform README](linco-bridge-platform/README.md).
 
 ## Supported Agents
 
-| Agent | Status | Notes |
+| Agent | First-release status | Verified version in subproject docs |
 | --- | --- | --- |
-| Codex CLI | Supported in first release | Connector, reference platform, and bridge flow are included in the first open-source release. |
-| Claude Code | Supported in first release | Connector, reference platform, and bridge flow are included in the first open-source release. |
-| Hermes | Supported in first release | Connector, profile binding flow, and reference platform support are included in the first open-source release. |
-| OpenClaw | Supported in first release | Connector, agent binding flow, and reference platform support are included in the first open-source release. |
+| Codex CLI | Supported | `codex-cli 0.142.5` |
+| Claude Code | Supported | `2.1.198 (Claude Code)` |
+| Hermes | Supported | `Hermes Agent v0.13.0 (2026.5.7)` |
+| OpenClaw | Supported | `OpenClaw 2026.5.18 (50a2481)` |
 
-## SDK Surface
+Exact compatibility should follow release notes and each subproject README.
 
-The first open-source release includes two SDK layers with different goals:
+## SDKs and Extension Points
 
-- `src/package/connector` in `linco-bridge-connect`: a reusable connector client package for authenticated bridge WebSocket connectivity;
-- `linco-bridge-platform/web/src/bridge/sdk`: usable Bridge SDK and AgentChat SDK reference implementations for web integration against the reference platform REST APIs.
-
-The connector SDK is a reusable package surface. The web Bridge/AgentChat SDK is currently positioned as a reference implementation for integration teams building on the open protocol and demo platform.
+- `linco-bridge-connect/src/package/connector`: reusable connector SDK for authenticated bridge WebSocket connectivity;
+- `linco-bridge-connect/src/package/protocol`: connector-side message, file, and channel normalization helpers;
+- `linco-bridge-platform/web/src/bridge/sdk`: Bridge SDK / AgentChat SDK reference implementation for the reference platform REST APIs and bridge flow;
+- `linco-bridge-connect/src/channel/`: channel adapter extension point. `linco` is the official channel, `linco-demo` is the open reference platform channel, and third parties should add and register their own channel directory.
 
 ## Project Boundaries
 
-| Path | Intended user | Availability |
-| --- | --- | --- |
-| Reference Platform / Reference Web | Developers validating the bridge flow or building a custom experience | Included with the open-source release |
-| Custom channel adapter | Teams building their own H5, mini program, app, or IM client | Included with the open-source protocol and connector |
-| Linco App / official Linco channel | Users who want the full product experience | Official product |
-| Protocol integration | Teams building their own client or server | Included with the open-source release |
-| Connector SDK | Teams that want reusable bridge client connectivity | Included with the open-source release |
-| Bridge SDK / AgentChat SDK | Teams integrating with the reference platform or adapting the flow to their own client | Included as a usable reference implementation |
-| Self-hosting | Teams that need their own deployment | Initial release is for reference/dev validation, not production guidance |
+| Capability | Included in this repository |
+| --- | --- |
+| Local connector plugin | Yes |
+| Open reference platform channel | Yes |
+| Reference Web / H5 experience | Yes |
+| Full official Linco App product | No |
+| Official hosted cloud-service code | No |
+| Production self-hosting operations guide | No. The current scope is development validation and secondary-development reference. |
 
 ## Security and Privacy
 
-- Never commit credentials or write secrets to logs.
+- Never commit App Secrets, tokens, or private keys, and do not write them to logs.
+- Local `linco-demo` uses `ws://127.0.0.1:3300` for local development validation only. Public deployments should configure TLS/WSS plus their own authentication, storage, and audit policies.
 - TLS/WSS transport encryption does not by itself mean end-to-end encryption.
 - Session index synchronization does not necessarily mean full message-history upload.
 - Review [Security and Privacy](docs/security-and-privacy.md) before connecting real data.
@@ -122,6 +153,8 @@ The connector SDK is a reusable package surface. The web Bridge/AgentChat SDK is
 - [Supported Platforms](docs/supported-platforms.md)
 - [Security and Privacy](docs/security-and-privacy.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [Connector README](linco-bridge-connect/README.en-US.md)
+- [Platform README](linco-bridge-platform/README.md)
 - [Support Boundary](SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)
 

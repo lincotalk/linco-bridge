@@ -2,52 +2,56 @@
 
 [English](README.md)
 
-> 一个开放的桥接层，用来把本地 AI Agent 工具连接到 Web、移动端和 IM 客户端。
+> 一个开放的桥接层，用来把运行在个人电脑上的 AI Agent 工具连接到 Web、H5、小程序、App、IM 或其他客户端。
 
-**项目状态：** Open Source Alpha。接口、兼容性和文档仍可能变化，但首期开源版本以四个已支持 Agent 和可用 SDK 能力为目标。
+**项目状态：** Open Source Alpha。接口、兼容性和文档仍可能变化；首期开源版本聚焦于可运行的本地连接器、可部署的参考平台通道，以及 Codex CLI、Claude Code、Hermes、OpenClaw 四类 Agent 的桥接验证。
 
 ## 它是什么
 
-本地 AI 工具很强大，但会话通常停留在一台电脑上。很多桥接项目会接入飞书、微信、钉钉等既有协作平台，这种方式接入成本低，但展示和交互形式受平台限制，工具进度、权限确认、生成文件、长会话和多 Agent 状态往往很难做出舒适体验。
+本地 AI Agent 工具很强大，但会话、工具执行和生成文件通常停留在一台电脑上。很多桥接项目会接入飞书、微信、钉钉等既有 IM 或协作平台，这种方式接入成本低，但展示和交互形式受平台限制：工具进度、权限确认、生成文件、长会话、多 Agent 状态和会话恢复很难做出足够舒适的体验。
 
-Linco Bridge 帮助团队把原本只停留在一台电脑上的本地 AI Agent 工具，连接到更多产品入口。它提供本地连接器、参考平台，以及可复用的 SDK / 协议层，方便你：
+Linco Bridge 的目标不是把所有人都绑定到某个 IM，而是提供一套开放思路和参考实现：
 
-- 用参考 platform / Reference Web 验证完整桥接链路；
-- 将本地 Agent 接入自有 Web、App、小程序或 IM 产品；
-- 先部署参考 platform（对应连接器插件里的 `linco-demo` 通道），再基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter；
-- 基于公开协议和 SDK 边界构建兼容集成。
+- 通过本地连接器插件把 PC 上的 Agent CLI 桥接出来；
+- 通过开源参考平台快速部署一条可体验的 `linco-demo` 通道；
+- 通过官方 Linco 通道直接体验完整产品链路；
+- 基于公开协议、SDK 和 channel adapter 机制，二开自己的 H5、小程序、App、Web 或 IM 入口。
 
 ## 仓库包含什么
 
-这个仓库当前主要包含三部分：
+这个仓库包含两个可运行子项目和项目级文档：
 
-- `linco-bridge-connect`：运行在用户电脑上的本地连接器 CLI，负责把本地 Agent 会话桥接到兼容客户端和服务端；
-- `linco-bridge-platform`：自托管 demo/reference platform，包含 NestJS 后端和 UniApp 前端；
-- `docs/`：项目级文档，覆盖快速开始、工作原理、协议、安全和排障。
+- `linco-bridge-connect`：本地连接器 / 插件项目，运行在用户电脑上，负责连接本地 Agent CLI，并把消息、权限请求、附件和生成文件中继到远端通道；
+- `linco-bridge-platform`：开源参考平台通道，包含 NestJS 后端和 UniApp 前端，用于快速自托管体验 `linco-demo` 流程，也可作为二次开发 H5、小程序或 App 的参考；
+- `docs/`：项目级文档，覆盖快速开始、工作原理、协议、安全、支持范围和排障。
 
-这个仓库 **不包含** 完整的 Linco App 产品本体，也不包含托管云服务。
+这个仓库 **不包含** 完整的 Linco App 产品本体，也不包含官方托管云服务代码。官方 Linco 通道是产品体验入口；开源 `linco-demo` 通道是可部署、可改造的参考实现。
 
 ## 工作方式
 
 ```text
 本地 Agent CLI
-    ↕ 本地进程、网关或会话文件
+    ↕ 本地进程、Gateway 或会话文件
 linco-bridge-connect（运行在用户电脑上）
-    ↕ 认证后的桥接连接
-Reference Platform、兼容后端或 Linco Cloud
+    ↕ 已鉴权 WebSocket 桥接连接
+官方 Linco 通道、开源 Reference Platform 或兼容后端
     ↕
-Reference Web、Linco App 或第三方客户端
+Linco App、Reference Web、自定义 H5/小程序/App/IM 客户端
 ```
 
-`linco-bridge-connect` 运行在用户电脑上，负责适配本地 Agent，并把会话、消息、权限请求、附件和生成文件中继到兼容产品中。
+`linco-bridge-connect` 负责适配本地 Agent，并把会话、消息、权限请求、附件和生成文件中继到兼容产品中。`linco-bridge-platform` 提供一套可本地部署的后端和 H5 体验，方便验证完整链路，也方便团队在此基础上改造自己的交互体验。
 
-## 典型使用场景
+## 推荐使用路径
 
-- 想验证“本地 Agent 到客户端”完整桥接链路的开发者；
-- 希望把本地 AI 工具接入自家 App、Web 或 IM 的产品团队；
-- 想先参考一套实现，再构建自有兼容栈的工程团队。
+| 路径 | 适合谁 | 说明 |
+| --- | --- | --- |
+| 官方 Linco 通道（`linco`） | 想直接体验官方产品链路的用户 | 使用默认通道和官方签发凭证，不需要部署平台项目。 |
+| 开源参考平台（`linco-demo`） | 想快速自部署、验证桥接链路或研究实现的团队 | 启动 `linco-bridge-platform` 的 server + web，再用连接器接入本机 Agent。 |
+| 自定义 channel adapter | 想做更好交互体验的产品或工程团队 | 复用连接器和 Agent 适配层，新增自己的 H5、小程序、App、Web 或 IM 通道。 |
 
 ## 快速开始
+
+### 方式一：使用官方通道
 
 安装本地连接器：
 
@@ -55,13 +59,12 @@ Reference Web、Linco App 或第三方客户端
 npm install -g linco-connect
 ```
 
-用已签发的凭证初始化设备：
+用官方通道签发的凭证初始化：
 
 ```bash
 linco-connect init \
   --token "<app-id>:<app-secret>" \
-  --agent codex \
-  --device-name codex1
+  --agent codex
 ```
 
 启动连接器：
@@ -70,43 +73,71 @@ linco-connect init \
 linco-connect start --daemon
 ```
 
-然后打开兼容客户端，确认设备上线，进入一个会话并发送测试消息。
+然后打开兼容客户端，确认设备上线，进入会话并发送测试消息。
 
-完整流程见 [快速开始](docs/zh-CN/quick-start.md)。
+### 方式二：部署开源参考平台
+
+启动参考平台后端和 H5：
+
+```bash
+cd linco-bridge-platform/server
+npm install
+npm run start:dev
+
+cd ../web
+npm install
+node scripts/generate-icons.mjs
+npm run dev:h5
+```
+
+在 H5 中进入桥接页面，复制页面生成的 `linco-connect` 初始化命令。手动执行时，命令形态通常如下：
+
+```bash
+linco-connect init \
+  --token "demo-codex-app:demo-codex-secret" \
+  --agent codex \
+  --channel linco-demo \
+  --account codex_1 \
+  --allow-insecure-ws
+
+linco-connect start --daemon
+```
+
+完整流程见 [快速开始](docs/zh-CN/quick-start.md) 和 [平台 README](linco-bridge-platform/README.md)。
 
 ## 支持的 Agent
 
-| Agent | 状态 | 说明 |
+| Agent | 首期状态 | 当前子项目文档中的验证版本 |
 | --- | --- | --- |
-| Codex CLI | 首期开源支持 | 首期开源版本同步提供连接器、参考平台和完整桥接链路。 |
-| Claude Code | 首期开源支持 | 首期开源版本同步提供连接器、参考平台和完整桥接链路。 |
-| Hermes | 首期开源支持 | 首期开源版本同步提供连接器、Profile 绑定流程和参考平台支持。 |
-| OpenClaw | 首期开源支持 | 首期开源版本同步提供连接器、Agent 绑定流程和参考平台支持。 |
+| Codex CLI | 支持 | `codex-cli 0.142.5` |
+| Claude Code | 支持 | `2.1.198 (Claude Code)` |
+| Hermes | 支持 | `Hermes Agent v0.13.0 (2026.5.7)` |
+| OpenClaw | 支持 | `OpenClaw 2026.5.18 (50a2481)` |
 
-## SDK 能力
+精确兼容性以后续 release notes 和各子项目 README 为准。
 
-首期开源版本会同步提供两层 SDK 能力，但定位不同：
+## SDK 与扩展点
 
 - `linco-bridge-connect/src/package/connector`：可复用的 connector SDK，用于建立带认证的桥接 WebSocket 连接；
-- `linco-bridge-platform/web/src/bridge/sdk`：可使用的 Bridge SDK / AgentChat SDK 参考实现，用于对接 reference platform 的 REST API 和桥接流程。
-
-其中 connector SDK 更接近公共可复用能力；Web 侧 Bridge SDK / AgentChat SDK 当前更适合作为集成团队参考实现和二次开发基础。
+- `linco-bridge-connect/src/package/protocol`：连接器侧的消息、文件和 channel 规范化工具；
+- `linco-bridge-platform/web/src/bridge/sdk`：Bridge SDK / AgentChat SDK 参考实现，用于对接参考平台 REST API 和桥接流程；
+- `linco-bridge-connect/src/channel/`：channel adapter 扩展点。`linco` 是官方通道，`linco-demo` 是开源参考平台通道，第三方应新增自己的 channel 目录并注册 adapter。
 
 ## 项目边界
 
-| 路径 | 适用用户 | 可用状态 |
-| --- | --- | --- |
-| Reference Platform / Reference Web | 验证桥接链路或构建自定义体验的开发者 | 随开源版提供 |
-| 自定义 channel adapter | 构建自有 H5、小程序、App 或 IM 客户端的团队 | 随开源协议和连接器提供 |
-| Linco App / 官方 Linco 通道 | 希望获得完整官方产品体验的用户 | 官方产品 |
-| Protocol 集成 | 构建自有客户端或服务端的团队 | 随开源版提供 |
-| Connector SDK | 需要可复用桥接连接能力的团队 | 随开源版提供 |
-| Bridge SDK / AgentChat SDK | 需要对接参考平台或改造为自有客户端的团队 | 以可用参考实现形式随开源版提供 |
-| 自托管 | 需要独立部署的团队 | 首期仅提供参考 / 开发验证能力，不作为生产部署指南 |
+| 能力 | 开源仓库是否包含 |
+| --- | --- |
+| 本地连接器插件 | 是 |
+| 开源参考平台通道 | 是 |
+| Reference Web / H5 体验 | 是 |
+| 官方 Linco App 完整产品 | 否 |
+| 官方托管云服务代码 | 否 |
+| 生产级自托管运维指南 | 否，当前以开发验证和二次开发参考为主 |
 
 ## 安全与隐私
 
-- 不要将凭证提交到仓库或写入日志。
+- 不要将 App Secret、Token 或私钥提交到仓库或写入日志。
+- 本地 `linco-demo` 使用 `ws://127.0.0.1:3300`，仅用于本机开发验证；公网部署应配置 TLS/WSS 和自己的鉴权、存储、审计策略。
 - TLS / WSS 传输加密本身不等同于端到端加密。
 - 会话索引同步不等于完整消息历史上传。
 - 连接真实数据前，请先阅读 [安全与隐私](docs/zh-CN/security-and-privacy.md)。
@@ -122,6 +153,8 @@ linco-connect start --daemon
 - [支持平台](docs/zh-CN/supported-platforms.md)
 - [安全与隐私](docs/zh-CN/security-and-privacy.md)
 - [排障](docs/zh-CN/troubleshooting.md)
+- [连接器 README](linco-bridge-connect/README.zh-CN.md)
+- [参考平台 README](linco-bridge-platform/README.md)
 - [支持边界](SUPPORT.md)
 - [参与贡献](CONTRIBUTING.md)
 

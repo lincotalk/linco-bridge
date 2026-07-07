@@ -2,13 +2,14 @@
 
 [简体中文](zh-CN/quick-start.md)
 
-## Prerequisites
+Linco Bridge has two common evaluation paths:
 
-- A supported operating system and Node.js version.
-- At least one supported local agent CLI installed and working locally.
-- Credentials created in the Reference Web or Linco App.
+- **Official Linco channel (`linco`):** for the official product flow without deploying the platform project.
+- **Open reference platform (`linco-demo`):** for local validation, self-hosting evaluation, and secondary development. This requires starting `linco-bridge-platform`.
 
-## Install and connect
+## Minimal Flow
+
+The official channel usually only requires installing the connector, initializing credentials, and starting it:
 
 ```bash
 npm install -g linco-connect
@@ -16,9 +17,14 @@ linco-connect init --token "<app-id>:<app-secret>" --agent codex
 linco-connect start --daemon
 ```
 
-Return to the client, confirm the device is online, open a recent session, and send a short test message.
+For the open reference platform, start the backend and H5 frontend first, then copy the generated setup commands from the H5 bridge page. The command uses `--channel linco-demo`; local development also includes `--allow-insecure-ws`.
 
-For Hermes or OpenClaw, complete the additional profile or agent binding step shown in the client after the connector comes online.
+## Detailed Docs
+
+- [Connector installation, initialization, and commands](../linco-bridge-connect/README.en-US.md)
+- [Reference platform startup and demo credentials](../linco-bridge-platform/README.md)
+- [CLI entry](cli.md)
+- [Troubleshooting](troubleshooting.md)
 
 ## Stop
 
