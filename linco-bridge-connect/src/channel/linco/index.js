@@ -1,7 +1,7 @@
 const protocol = require('./protocol');
 const defaults = require('./defaults');
-const { buildHeartbeatMessage } = require('../../../packages/protocol');
-const { BridgeConnectorClient } = require('../../../packages/connector-sdk');
+const { buildHeartbeatMessage } = require('../../package/protocol');
+const { BridgeConnectorClient } = require('../../package/connector');
 
 function getSessionKey(msg) {
   return String(msg?.sessionKey || '').trim();

@@ -25,8 +25,8 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | `src/core/` | session、协议发送、日志、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
 | `src/attachment/` | 入站附件落盘、类型检查和图片处理。 |
 | `src/gateway/` | Hermes/OpenClaw Gateway 启动、健康检查和客户端封装。 |
-| `packages/protocol/` | 可复用的消息、文件、channel 规范化工具。 |
-| `packages/connector-sdk/` | 远端桥接 WebSocket 客户端、认证 URL、重连、心跳和消息队列。 |
+| `src/package/protocol/` | 可复用的消息、文件、channel 规范化工具。 |
+| `src/package/connector/` | 远端桥接 WebSocket 客户端、认证 URL、重连、心跳和消息队列。 |
 | `public/` | 本地测试页。 |
 | `test/` | Node.js 原生 test runner 测试。 |
 
@@ -50,7 +50,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 `src/local` 只处理本机测试页和本地 WebSocket 接入。`websocket.js` 保持为连接入口，session 建立、消息分发、Linco 本地消息、presence 事件和 stop turn 控制分别放在独立模块中。
 
-`packages/protocol` 和 `packages/connector-sdk` 应尽量保持轻量、可复用，避免反向依赖 `src/`。
+`src/package/protocol` 和 `src/package/connector` 应尽量保持轻量、可复用，避免反向依赖 `src/` 中的业务模块。
 
 ## Agent Prompt
 

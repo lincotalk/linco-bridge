@@ -6,7 +6,7 @@ const {
   isLincoMessage,
   lincoMetaDefaults,
   pruneUndefined,
-} = require('../src');
+} = require('../../../src/package/protocol');
 
 test('recognizes bridge inbound message types', () => {
   assert.equal(isLincoMessage({ type: 'inbound_message' }), true);

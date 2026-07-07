@@ -4,7 +4,7 @@ const {
   lincoFilesToAttachments,
   normalizeLincoFiles,
   normalizeOutboundFiles,
-} = require('../src');
+} = require('../../../src/package/protocol');
 
 test('normalizes inbound file array and legacy media fields', () => {
   const files = normalizeLincoFiles({
