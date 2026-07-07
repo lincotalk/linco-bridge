@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { ChatMessage } from '@/bridge/types'
+import ChatStreamingIndicator from '@/components/ChatStreamingIndicator.vue'
+import MessageAttachmentList from '@/components/MessageAttachmentList.vue'
+import MessageContent from '@/components/MessageContent.vue'
 
 defineProps<{
   message: ChatMessage
@@ -7,63 +10,73 @@ defineProps<{
 </script>
 
 <template>
-  <view class="bubble-row" :class="`bubble-row--${message.role}`">
-    <view class="bubble" :class="`bubble--${message.role}`">
-      <text class="bubble__text">{{ message.content }}</text>
-      <text v-if="message.streaming" class="bubble__streaming">▍</text>
+  <view class="message-row" :class="`message-row--${message.role}`">
+    <view v-if="message.role === 'user'" class="message-row__user-wrap">
+      <view class="message-row__user-bubble">
+        <MessageAttachmentList
+          v-if="message.attachments?.length"
+          :attachments="message.attachments"
+          variant="user"
+        />
+        <MessageContent
+          v-if="message.content"
+          :content="message.content"
+          variant="user"
+          :session-id="message.sessionId"
+          :streaming="message.streaming"
+        />
+      </view>
+    </view>
+
+    <view v-else class="message-row__assistant-wrap">
+      <MessageAttachmentList
+        v-if="message.attachments?.length"
+        :attachments="message.attachments"
+        variant="assistant"
+      />
+      <view v-if="message.content" class="message-row__assistant-body">
+        <MessageContent
+          :content="message.content"
+          variant="assistant"
+          :session-id="message.sessionId"
+          :streaming="message.streaming"
+        />
+      </view>
+      <ChatStreamingIndicator
+        v-if="message.streaming && !message.content"
+        class="message-row__thinking"
+      />
     </view>
   </view>
 </template>
 
 <style scoped lang="scss">
-.bubble-row {
-  display: flex;
-  margin-bottom: 24rpx;
+.message-row {
+  margin-bottom: 28rpx;
 }
 
-.bubble-row--user {
+.message-row__user-wrap {
+  display: flex;
   justify-content: flex-end;
 }
 
-.bubble-row--assistant,
-.bubble-row--system {
-  justify-content: flex-start;
+.message-row__user-bubble {
+  max-width: 76%;
+  padding: 24rpx 32rpx;
+  border-radius: 24rpx;
+  background: #f2f4f5;
 }
 
-.bubble {
-  max-width: 78%;
-  padding: 20rpx 24rpx;
-  border-radius: 20rpx;
+.message-row__assistant-wrap {
+  width: 100%;
+  padding-right: 8rpx;
 }
 
-.bubble--user {
-  background: #00754a;
+.message-row__assistant-body {
+  width: 100%;
 }
 
-.bubble--assistant,
-.bubble--system {
-  background: #ffffff;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-}
-
-.bubble__text {
-  font-size: 28rpx;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.bubble--user .bubble__text {
-  color: #ffffff;
-}
-
-.bubble--assistant .bubble__text,
-.bubble--system .bubble__text {
-  color: #1a1a1a;
-}
-
-.bubble__streaming {
-  margin-left: 4rpx;
-  color: #00754a;
+.message-row__thinking {
+  margin-top: 8rpx;
 }
 </style>

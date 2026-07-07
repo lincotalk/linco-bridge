@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatConversationTime, formatRelativeTime } from '@/utils/format'
+import { formatConversationTime, formatRelativeTime, formatSessionPreview } from '@/utils/format'
 
 describe('formatRelativeTime', () => {
   const now = new Date('2026-07-06T12:00:00.000Z').getTime()
@@ -27,5 +27,15 @@ describe('formatConversationTime', () => {
 
   it('returns MM-DD for previous days', () => {
     expect(formatConversationTime(new Date('2026-07-01T08:00:00.000Z').getTime(), now)).toBe('07-01')
+  })
+})
+
+describe('formatSessionPreview', () => {
+  it('collapses multiline markdown to one line', () => {
+    const preview = formatSessionPreview(
+      '我会在项目根目录新建一个纯文本攻略文\n\n[beijing-travel-guide.txt](D:/project/bpms-workbench/beijing-travel-guide.txt)\n\n文件放在项目根目录',
+    )
+    expect(preview).not.toContain('\n')
+    expect(preview).toContain('beijing-travel-guide.txt')
   })
 })

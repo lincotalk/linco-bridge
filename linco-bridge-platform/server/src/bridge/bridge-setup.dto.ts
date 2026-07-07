@@ -38,7 +38,6 @@ export function toBridgeSetupDto(
     appSecret: input.appSecret,
     accountId: input.accountId,
     channel: BRIDGE_CONNECT_CHANNEL,
-    wsUrl,
   }
   const initCommand = buildInitCommand(input.bridgeType, params)
   const startCommand = 'linco-connect start --daemon'

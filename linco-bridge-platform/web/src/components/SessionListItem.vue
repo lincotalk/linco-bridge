@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ChatSessionItem } from '@/bridge/types'
-import { formatRelativeTime } from '@/utils/format'
+import { formatConversationTime, formatSessionPreview } from '@/utils/format'
 
-defineProps<{
+const props = defineProps<{
   item: ChatSessionItem
 }>()
 
@@ -12,6 +13,8 @@ const bridgeAvatarMap: Record<ChatSessionItem['agentType'], string> = {
   hermes: '/static/icons/bot/bridge_hermes.png',
   openclaw: '/static/icons/bot/bridge_claw.png',
 }
+
+const previewText = computed(() => formatSessionPreview(props.item.lastMessage))
 
 function avatarFor(item: ChatSessionItem): string {
   return bridgeAvatarMap[item.agentType]
@@ -23,10 +26,14 @@ function avatarFor(item: ChatSessionItem): string {
     <view class="session-item__body">
       <image class="session-item__avatar" :src="avatarFor(item)" mode="aspectFill" />
       <view class="session-item__content">
-        <text class="session-item__title text-ellipsis">{{ item.title }}</text>
-        <text class="session-item__preview text-ellipsis">{{ item.lastMessage }}</text>
+        <view class="session-item__title-wrap">
+          <text class="session-item__title">{{ item.title }}</text>
+        </view>
+        <view class="session-item__preview-wrap">
+          <text class="session-item__preview">{{ previewText }}</text>
+        </view>
       </view>
-      <text class="session-item__time">{{ formatRelativeTime(item.updatedAt) }}</text>
+      <text class="session-item__time">{{ formatConversationTime(item.updatedAt) }}</text>
     </view>
     <view class="session-item__divider" />
   </view>
@@ -61,8 +68,16 @@ function avatarFor(item: ChatSessionItem): string {
   padding-right: 72rpx;
 }
 
+.session-item__title-wrap,
+.session-item__preview-wrap {
+  overflow: hidden;
+}
+
 .session-item__title {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 30rpx;
   font-weight: 500;
   line-height: 1.2;
@@ -71,6 +86,9 @@ function avatarFor(item: ChatSessionItem): string {
 
 .session-item__preview {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-top: 8rpx;
   font-size: 26rpx;
   line-height: 1.2;

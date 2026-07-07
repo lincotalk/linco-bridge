@@ -7,6 +7,7 @@ import type {
   StartConversationInput,
   StartConversationResult,
 } from '@/bridge/types'
+import { pickBridgeWorkspace } from '@/utils/pick-workspace'
 import { apiGet, apiPost } from './http-client'
 
 const useRemoteApi = import.meta.env.VITE_USE_REMOTE_API !== 'false'
@@ -44,12 +45,17 @@ export function createRestAgentChatSdk(): AgentChatSdk {
         {
           message: input.message,
           tempSession: input.tempSession,
+          title: input.title,
         },
       )
       if (!res.success || !res.data?.sessionId) {
         throw new Error(res.message || '创建会话失败')
       }
       return { sessionId: res.data.sessionId }
+    },
+
+    pickWorkspace(agentType) {
+      return pickBridgeWorkspace(agentType)
     },
 
     watchLandingHeader(agentType, listener) {

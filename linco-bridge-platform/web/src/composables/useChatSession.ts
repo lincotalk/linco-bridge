@@ -1,6 +1,8 @@
 import { computed, ref } from 'vue'
 import { parseAgentTypeFromSessionId } from '@/bridge/sdk/agent-chat'
+import type { OutboundChatFile } from '@/api/session-api'
 import { useBridgeStore, useSessionStore } from '@/stores'
+import { takePendingFiles } from '@/composables/pendingAttachmentTransfer'
 import { resolveChatHeader, type ChatHeaderView } from '@/utils/chat-header'
 import { showToast } from '@/utils/format'
 
@@ -15,6 +17,8 @@ export function useChatSession() {
   const header = ref<ChatHeaderView | null>(null)
   const scrollAnchor = ref('')
   const pendingDraft = ref('')
+  const activeStreamId = ref('')
+  const abortController = ref<AbortController | null>(null)
 
   const messages = computed(() => sessionStore.getMessages(sessionId.value))
   const lastMessageId = computed(() => {
@@ -38,9 +42,17 @@ export function useChatSession() {
     header.value = resolveChatHeader(sessionId.value, session, online)
   }
 
-  async function loadSession(id: string, initialDraft?: string) {
+  async function loadSession(
+    id: string,
+    options?: string | { initialDraft?: string; reloadHistory?: boolean },
+  ) {
+    const normalized =
+      typeof options === 'string'
+        ? { initialDraft: options, reloadHistory: false }
+        : { initialDraft: options?.initialDraft, reloadHistory: options?.reloadHistory ?? false }
+
     sessionId.value = id
-    pendingDraft.value = initialDraft?.trim() ?? ''
+    pendingDraft.value = normalized.initialDraft?.trim() ?? ''
     loading.value = true
 
     try {
@@ -50,8 +62,12 @@ export function useChatSession() {
 
       header.value = resolveChatHeader(id, sessionStore.getSession(id))
 
+      if (normalized.reloadHistory) {
+        sessionStore.setMessages(id, [])
+      }
+
       try {
-        await sessionStore.loadMessages(id)
+        await sessionStore.loadMessages(id, normalized.reloadHistory ? 5 : undefined)
       } catch {
         sessionStore.setMessages(id, [])
       }
@@ -59,11 +75,12 @@ export function useChatSession() {
       await refreshHeader()
       scrollToBottom()
 
-      if (pendingDraft.value) {
+      const pendingFiles = takePendingFiles(id)
+      if (pendingDraft.value || pendingFiles.length > 0) {
         const text = pendingDraft.value
         pendingDraft.value = ''
-        draft.value = text
-        await sendMessage(text)
+        if (text) draft.value = text
+        await sendMessage(text, pendingFiles)
       }
     } finally {
       loading.value = false
@@ -77,21 +94,69 @@ export function useChatSession() {
     })
   }
 
-  async function sendMessage(contentOverride?: string) {
+  async function sendMessage(contentOverride?: string, files: OutboundChatFile[] = []) {
     const content = (contentOverride ?? draft.value).trim()
-    if (!content || !sessionId.value || sending.value) return
+    if ((!content && files.length === 0) || !sessionId.value || sending.value) return
 
     sending.value = true
+    activeStreamId.value = ''
     if (!contentOverride) draft.value = ''
 
+    const controller = new AbortController()
+    abortController.value = controller
+
     try {
-      await sessionStore.sendMessage(sessionId.value, content)
-    } catch {
-      sessionStore.appendDemoExchange(sessionId.value, content)
-      showToast('已本地演示发送，接入 SDK 后将同步到 Agent')
+      await sessionStore.sendMessageStream(sessionId.value, content, {
+        signal: controller.signal,
+        onStreamId: (streamId) => {
+          activeStreamId.value = streamId
+        },
+        files,
+      })
+    } catch (err) {
+      if (controller.signal.aborted) {
+        showToast('已停止生成')
+      } else {
+        const message = err instanceof Error ? err.message : '发送失败'
+        showToast(message)
+      }
     } finally {
+      abortController.value = null
+      activeStreamId.value = ''
       sending.value = false
       scrollToBottom()
+    }
+  }
+
+  async function stopGeneration() {
+    if (!sending.value || !sessionId.value) return
+
+    abortController.value?.abort()
+
+    const streamId = activeStreamId.value
+    if (streamId) {
+      try {
+        await sessionStore.cancelActiveStream(sessionId.value, streamId)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '停止生成失败'
+        showToast(message)
+      }
+    }
+
+    sending.value = false
+    activeStreamId.value = ''
+    abortController.value = null
+    scrollToBottom()
+  }
+
+  async function reloadHistory(limit?: number) {
+    if (!sessionId.value) return
+    loading.value = true
+    try {
+      await sessionStore.loadMessages(sessionId.value, limit)
+      scrollToBottom()
+    } finally {
+      loading.value = false
     }
   }
 
@@ -105,6 +170,8 @@ export function useChatSession() {
     scrollAnchor,
     loadSession,
     sendMessage,
+    stopGeneration,
     scrollToBottom,
+    reloadHistory,
   }
 }

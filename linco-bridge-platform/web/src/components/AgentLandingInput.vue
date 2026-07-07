@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import PendingAttachmentList from '@/components/PendingAttachmentList.vue'
+import type { OutboundChatFile } from '@/api/session-api'
 import { CHAT_ICON } from '@/constants/chat-icons'
 
 const props = withDefaults(
@@ -8,12 +10,14 @@ const props = withDefaults(
     placeholder?: string
     disabled?: boolean
     tempSession?: boolean
+    pendingFiles?: OutboundChatFile[]
   }>(),
   {
     modelValue: '',
     placeholder: '今天想做什么？',
     disabled: false,
     tempSession: false,
+    pendingFiles: () => [],
   },
 )
 
@@ -23,9 +27,13 @@ const emit = defineEmits<{
   add: []
   voice: []
   'toggle-temp': []
+  'remove-file': [number]
 }>()
 
 const draft = ref(props.modelValue)
+const canSend = computed(
+  () => draft.value.trim().length > 0 || (props.pendingFiles?.length ?? 0) > 0,
+)
 
 watch(
   () => props.modelValue,
@@ -42,7 +50,7 @@ function onInput(event: InputEvent) {
 }
 
 function handleSend() {
-  if (props.disabled || !draft.value.trim()) return
+  if (props.disabled || !canSend.value) return
   emit('send')
 }
 </script>
@@ -50,6 +58,11 @@ function handleSend() {
 <template>
   <view class="landing-input">
     <view class="landing-input__card">
+      <PendingAttachmentList
+        v-if="pendingFiles.length > 0"
+        :files="pendingFiles"
+        @remove="(index) => emit('remove-file', index)"
+      />
       <textarea
         class="landing-input__field"
         :value="draft"

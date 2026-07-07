@@ -1,7 +1,9 @@
 
 const fs = require('fs');
+const path = require('path');
 const { StringDecoder } = require('string_decoder');
 const { _internal: agentPromptInternals } = require('../../core/agentPrompt');
+const { candidatePathsFromMarkdownLinks, mimeFromFilename } = require('../../core/fileReferences');
 const { SESSION_SUMMARY_SCAN_LIMIT } = require('./constants');
 const {
   extractHistoryTimestamp,
@@ -196,24 +198,32 @@ function parseClaudeHistoryRounds(filePath) {
 
   for (const item of readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER)) {
     if (isClaudeActualUserRecord(item)) {
+      const userPayload = extractClaudeUserPayload(item);
       current = {
-        user: extractClaudeUserPrompt(item),
+        user: userPayload.text,
+        userFiles: userPayload.files,
         assistant: '',
+        assistantFiles: [],
         userTimestamp: extractHistoryTimestamp(item),
       };
-      if (current.user) rounds.push(current);
+      if (userPayload.text || userPayload.files.length > 0) rounds.push(current);
       continue;
     }
 
     if (!current || !isClaudeAssistantRecord(item)) continue;
+    const content = item?.message?.content;
     const text = extractClaudeAssistantText(item);
+    const files = extractClaudeContentFiles(content);
     if (text) {
       current.assistant = text;
       current.assistantTimestamp = extractHistoryTimestamp(item);
     }
+    if (files.length > 0) {
+      current.assistantFiles = files;
+    }
   }
 
-  return rounds.filter(round => round.user || round.assistant);
+  return rounds.filter(round => round.user || round.assistant || round.userFiles?.length || round.assistantFiles?.length);
 }
 
 function isClaudeActualUserRecord(item) {
@@ -221,18 +231,65 @@ function isClaudeActualUserRecord(item) {
   if (item.toolUseResult || item.sourceToolAssistantUUID) return false;
   const content = item.message?.content ?? item.content;
   if (Array.isArray(content) && content.some(block => block?.type === 'tool_result')) return false;
-  return !!extractClaudeUserPrompt(item);
+  const payload = extractClaudeUserPayload(item);
+  return !!payload.text || payload.files.length > 0;
 }
 
-function extractClaudeUserPrompt(item) {
+function extractClaudeContentFiles(content) {
+  if (!Array.isArray(content)) return [];
+  const files = [];
+  let imageIndex = 0;
+
+  for (const block of content) {
+    if (block?.type === 'image' && block.source?.type === 'base64') {
+      imageIndex += 1;
+      const mimeType = stringOrEmpty(block.source.media_type) || 'image/png';
+      const base64 = stringOrEmpty(block.source.data);
+      if (!base64) continue;
+      files.push({
+        name: `image-${imageIndex}.${mimeType.includes('jpeg') ? 'jpg' : 'png'}`,
+        mimeType,
+        base64,
+      });
+      continue;
+    }
+
+    if (block?.type === 'document' && block.source?.type === 'base64') {
+      const mimeType = stringOrEmpty(block.source.media_type) || 'application/octet-stream';
+      const base64 = stringOrEmpty(block.source.data);
+      if (!base64) continue;
+      files.push({
+        name: stringOrEmpty(block.name) || 'document',
+        mimeType,
+        base64,
+      });
+    }
+  }
+
+  return files;
+}
+
+function extractClaudeUserPayload(item) {
   const content = item?.message?.content ?? item?.content;
-  if (typeof content === 'string') return content.trim();
-  if (!Array.isArray(content)) return '';
-  return content
+  if (typeof content === 'string') {
+    return { text: content.trim(), files: [] };
+  }
+  if (!Array.isArray(content)) {
+    return { text: '', files: [] };
+  }
+  const text = content
     .filter(block => block?.type === 'text')
     .map(block => block.text || '')
     .join('\n')
     .trim();
+  return {
+    text,
+    files: extractClaudeContentFiles(content),
+  };
+}
+
+function extractClaudeUserPrompt(item) {
+  return extractClaudeUserPayload(item).text;
 }
 
 function isClaudeAssistantRecord(item) {
@@ -249,6 +306,53 @@ function extractClaudeAssistantText(item) {
     .trim();
 }
 
+function readLocalHistoryFileAttachment(filePath, maxBytes = 4 * 1024 * 1024) {
+  try {
+    const resolved = path.resolve(String(filePath || '').trim());
+    const stat = fs.statSync(resolved);
+    if (!stat.isFile() || stat.size <= 0 || stat.size > maxBytes) return null;
+    const name = path.basename(resolved);
+    return {
+      name,
+      mimeType: mimeFromFilename(name),
+      base64: fs.readFileSync(resolved).toString('base64'),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function extractCodexMentionedUserFiles(message) {
+  const text = stringOrEmpty(message);
+  if (!text.includes('# Files mentioned by the user:')) return [];
+
+  const files = [];
+  for (const line of text.split(/\r\n|\n|\r/)) {
+    const match = line.match(/^##\s+([^:]+):\s+(.+)$/);
+    if (!match) continue;
+    const label = match[1].trim();
+    const filePath = match[2].trim();
+    const attachment = readLocalHistoryFileAttachment(filePath);
+    if (attachment) {
+      files.push({ ...attachment, name: label || attachment.name });
+    }
+  }
+  return files;
+}
+
+function extractCodexAssistantFiles(text) {
+  const files = [];
+  const seen = new Set();
+  for (const filePath of candidatePathsFromMarkdownLinks(text)) {
+    const resolved = path.resolve(filePath);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    const attachment = readLocalHistoryFileAttachment(resolved);
+    if (attachment) files.push(attachment);
+  }
+  return files;
+}
+
 function parseCodexHistoryRounds(filePath) {
   const rounds = [];
   let current = null;
@@ -259,10 +363,13 @@ function parseCodexHistoryRounds(filePath) {
 
     if (payload.type === 'user_message') {
       const text = normalizeCodexUserText(payload.message);
-      if (!text) continue;
+      const userFiles = extractCodexMentionedUserFiles(payload.message);
+      if (!text && userFiles.length === 0) continue;
       current = {
         user: text,
+        userFiles,
         assistant: '',
+        assistantFiles: [],
         userTimestamp: extractHistoryTimestamp(item),
       };
       rounds.push(current);
@@ -272,14 +379,23 @@ function parseCodexHistoryRounds(filePath) {
     if (!current) continue;
     if (payload.type === 'agent_message' && payload.phase === 'final_answer') {
       const text = sanitizeCodexHistoryAssistantText(payload.message);
+      const assistantFiles = extractCodexAssistantFiles(text);
       if (text) {
         current.assistant = text;
         current.assistantTimestamp = extractHistoryTimestamp(item);
       }
+      if (assistantFiles.length > 0) {
+        current.assistantFiles = assistantFiles;
+      }
     }
   }
 
-  return rounds.filter(round => round.user || round.assistant);
+  return rounds.filter(round =>
+    round.user ||
+    round.assistant ||
+    round.userFiles?.length ||
+    round.assistantFiles?.length,
+  );
 }
 
 function sanitizeCodexHistoryAssistantText(value) {
@@ -316,6 +432,9 @@ function escapeRegExp(value) {
 }
 
 module.exports = {
+  extractClaudeContentFiles,
+  extractCodexAssistantFiles,
+  extractCodexMentionedUserFiles,
   extractTextFromMessageContent,
   normalizeCodexTitle,
   parseClaudeHistoryRounds,
