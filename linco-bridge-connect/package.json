@@ -1,7 +1,7 @@
 {
   "name": "linco-connect",
   "version": "1.2.25",
-  "description": "自研 IM 桥接多 Agent 服务",
+  "description": "Local Agent connector for Linco IM",
   "main": "server.js",
   "bin": {
     "linco-connect": "./bin/linco-connect.js"
@@ -9,19 +9,21 @@
   "files": [
     "bin",
     "docs",
-    "packages/connector-sdk/package.json",
-    "packages/connector-sdk/src",
-    "packages/protocol/package.json",
-    "packages/protocol/src",
+    "src/package/connector/package.json",
+    "src/package/connector/src",
+    "src/package/protocol/package.json",
+    "src/package/protocol/src",
     "src",
     "public",
     "server.js",
-    "README.md"
+    "README.md",
+    "README.en-US.md",
+    "README.zh-CN.md"
   ],
   "scripts": {
     "start": "node server.js",
     "dev": "node bin/linco-connect.js start",
-    "test": "node --test \"test/**/*.test.js\" \"packages/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\""
   },
   "engines": {
     "node": "20.x || 22.x || 23.x || 24.x || 25.x || 26.x"

@@ -1,10 +1,10 @@
-const { executeAgentQuery } = require('../runtime/agentRunner');
-const { handleMessageWithAttachments } = require('../attachments/attachmentHandler');
+﻿const { executeAgentQuery } = require('../runtime/agentRunner');
+const { handleMessageWithAttachments } = require('../attachment/attachmentHandler');
 const { send } = require('../core/protocol');
 const { saveSessionMetadata } = require('../core/session');
-const { handleSlashCommand, isBridgeControlCommand } = require('../commands');
-const { toInternal, createLincoAdapter } = require('../channels/bridge/protocolAdapter');
-const { _internal: imConnectorInternals } = require('../channels/bridge/connector');
+const { handleSlashCommand, isBridgeControlCommand } = require('../command');
+const { toInternal, createLincoAdapter } = require('../channel/linco/protocol');
+const { _internal: imConnectorInternals } = require('../core/channelConnector');
 const { logUserInput } = require('../core/conversationLog');
 const { sendLocalPresence } = require('./presence');
 

@@ -1,6 +1,6 @@
-const assert = require("assert");
+﻿const assert = require("assert");
 const { sendAgentSession, sendTurnEnd } = require("../../src/core/protocol");
-const { mapLocalEventToLinco } = require("../../src/channels/bridge/protocolAdapter");
+const { mapLocalEventToLinco } = require("../../src/channel/linco/protocol");
 
 function createCaptureWs() {
   const sent = [];

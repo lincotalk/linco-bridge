@@ -1,4 +1,4 @@
-const os = require('os');
+﻿const os = require('os');
 const path = require('path');
 const { findGitBash, resolveCommand } = require('./commandResolution');
 const { getConfigFile, readUserConfig } = require('./io');
@@ -10,7 +10,7 @@ const {
 const {
   getChannelAgentWsUrl,
   getChannelAgentWsUrls,
-} = require('../channels/registry');
+} = require('../core/channelRegistry');
 
 function numberFromEnv(name, fallback) {
   const value = Number(process.env[name]);

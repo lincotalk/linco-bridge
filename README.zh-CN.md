@@ -8,10 +8,13 @@
 
 ## 它是什么
 
+本地 AI 工具很强大，但会话通常停留在一台电脑上。很多桥接项目会接入飞书、微信、钉钉等既有协作平台，这种方式接入成本低，但展示和交互形式受平台限制，工具进度、权限确认、生成文件、长会话和多 Agent 状态往往很难做出舒适体验。
+
 Linco Bridge 帮助团队把原本只停留在一台电脑上的本地 AI Agent 工具，连接到更多产品入口。它提供本地连接器、参考平台，以及可复用的 SDK / 协议层，方便你：
 
-- 用 Reference Web 验证完整桥接链路；
-- 将本地 Agent 接入自有 Web、App 或 IM 产品；
+- 用参考 platform / Reference Web 验证完整桥接链路；
+- 将本地 Agent 接入自有 Web、App、小程序或 IM 产品；
+- 先部署参考 platform（对应连接器插件里的 `lincoDemo` 通道），再基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter；
 - 基于公开协议和 SDK 边界构建兼容集成。
 
 ## 仓库包含什么
@@ -31,7 +34,7 @@ Linco Bridge 帮助团队把原本只停留在一台电脑上的本地 AI Agent 
     ↕ 本地进程、网关或会话文件
 linco-bridge-connect（运行在用户电脑上）
     ↕ 认证后的桥接连接
-Reference Server 或兼容后端
+Reference Platform、兼容后端或 Linco Cloud
     ↕
 Reference Web、Linco App 或第三方客户端
 ```
@@ -93,9 +96,10 @@ linco-connect start --daemon
 
 | 路径 | 适用用户 | 可用状态 |
 | --- | --- | --- |
-| Reference Web | 验证桥接链路的开发者 | 随开源版提供 |
-| Linco App | 希望获得完整产品体验的用户 | 官方产品 |
-| Protocol 集成 | 构建自有客户端的团队 | 随开源版提供 |
+| Reference Platform / Reference Web | 验证桥接链路或构建自定义体验的开发者 | 随开源版提供 |
+| 自定义 channel adapter | 构建自有 H5、小程序、App 或 IM 客户端的团队 | 随开源协议和连接器提供 |
+| Linco App / 官方 Linco 通道 | 希望获得完整官方产品体验的用户 | 官方产品 |
+| Protocol 集成 | 构建自有客户端或服务端的团队 | 随开源版提供 |
 | Connector SDK | 需要可复用桥接连接能力的团队 | 随开源版提供 |
 | Bridge SDK / AgentChat SDK | 需要对接参考平台或改造为自有客户端的团队 | 以可用参考实现形式随开源版提供 |
 | 自托管 | 需要独立部署的团队 | 首期仅提供参考 / 开发验证能力，不作为生产部署指南 |

@@ -12,12 +12,14 @@ Reference platform, compatible backend, or Linco Cloud
 Reference Web, Linco App, or a third-party client
 ```
 
+The open-source reference platform maps to the `lincoDemo` channel in the connector plugin. It is a deployable example for teams that want a better Agent interaction surface than generic IM bridges. You can reuse the shared connector and Agent adapter layers while building your own H5 page, mini program, app, or other frontend channel.
+
 ## Responsibilities
 
 - **Local agent:** Executes prompts and tools on the user's computer.
 - **linco-connect:** Adapts the agent, maintains connectivity, and translates sessions and events.
-- **Server:** Authenticates devices, tracks connection state, and relays messages.
-- **Client:** Displays sessions, sends messages, and presents permission requests.
+- **Reference platform / server:** Authenticates devices, tracks connection state, and relays messages.
+- **Client / channel frontend:** Displays sessions, sends messages, and presents permission requests.
 
 ## Boundaries
 

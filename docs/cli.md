@@ -19,6 +19,8 @@
 
 ## Notes
 
+Device identity is generated at runtime. Override the display name with `LINCO_DEVICE_NAME` or `device.name` in config when needed.
+
 - Never print the complete App Secret or token in normal output or logs.
 - Runtime behavior may differ by agent type, configured channel, and local operating environment.
 - For configuration structure, environment variables, and agent-specific notes, refer to [`linco-bridge-connect/README.md`](../linco-bridge-connect/README.md).

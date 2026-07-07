@@ -1,5 +1,5 @@
-const { WebSocketServer } = require('ws');
-const { createLincoAdapter } = require('../channels/bridge/protocolAdapter');
+﻿const { WebSocketServer } = require('ws');
+const { createLincoAdapter } = require('../channel/linco/protocol');
 const { sendError, sendSystem } = require('../core/protocol');
 const { cleanupSession, createSession } = require('../core/session');
 const { isLocalRequestAuthorized } = require('./auth');

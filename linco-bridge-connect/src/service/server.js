@@ -1,8 +1,8 @@
-const { ensureDir, loadConfig } = require('../config');
+﻿const { ensureDir, loadConfig } = require('../config');
 const { ensureLocalToken, localUrlWithToken } = require('../local/auth');
 const { createStaticServer } = require('../local/static');
 const { startControlServer, stopControlServer } = require('./control');
-const { startImConnectors } = require('../channels/bridge/connector');
+const { startImConnectors } = require('../core/channelConnector');
 const { startConfigReloadWatcher, stopConfigReloadWatcher } = require('./reload');
 const { createLogger } = require('../core/logger');
 const { attachWebSocketServer } = require('../local/websocket');
@@ -12,7 +12,7 @@ async function prewarmHermesGateway(config) {
   const hermes = config.agents?.hermes;
   if (!hermes?.enabled || hermes.autoStartGateway === false) return;
   try {
-    const { ensureHermesGateway } = require('../gateways/hermesGateway');
+    const { ensureHermesGateway } = require('../gateway/hermesGateway');
     await ensureHermesGateway(hermes, config.logger);
     config.logger?.info('hermes gateway pre-warmed', { gatewayUrl: hermes.gatewayUrl || 'http://127.0.0.1:8642' });
   } catch (err) {

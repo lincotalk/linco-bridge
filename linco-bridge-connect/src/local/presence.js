@@ -1,4 +1,4 @@
-const { buildPresenceEvent } = require('../channels/bridge/presence');
+﻿const { buildPresenceEvent } = require('../core/channelPresence');
 
 function sendLocalPresence(rawWs, session, config, status, reason) {
   try {
