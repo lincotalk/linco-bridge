@@ -141,16 +141,20 @@ const { OpenClawGatewayClient } = require('../../src/gateways/openclawGateway');
 }
 
 {
-  const input = '联网搜索一张可爱的小猫的图片发给我\n\n系统提示：用户正在要求发送或获取文件/图片。请将最终文件保存到当前工作目录或会话运行目录，并在回复中返回文件路径引用；用户点击引用后会自动触发 /get <路径> 下发文件。\n当前工作目录: C:/tmp/workspace';
+  const input = '联网搜索一张可爱的小猫的图片发给我\n\nSystem note: The user is asking to send or deliver a file/image.\nSave the final file in the current workspace or conversation runtime directory, then return it using this exact Markdown file reference format:\n[filename.ext](absolute-local-path)\n\nCurrent workspace: C:/tmp/workspace';
   const labelA = _internal.buildOpenClawSessionLabel(input, { id: 'session-1' });
   const labelB = _internal.buildOpenClawSessionLabel(input, { id: 'session-1' });
 
   assert(labelA.startsWith('联网搜索一张可爱的小猫的图片发给我 #'));
-  assert(!labelA.includes('系统提示'));
+  assert(!labelA.includes('System note'));
   assert.notStrictEqual(labelA, labelB);
   assert.strictEqual(
     _internal.sanitizeOpenClawErrorMessage(`label already in use: ${input}`),
     'label already in use: 联网搜索一张可爱的小猫的图片发给我',
+  );
+  assert.strictEqual(
+    _internal.stripInternalOutboxHint('帮我看一下代码\n\nSystem note: You are running inside Linco Connect, a bridge that connects you to Linco IM.\nYour normal text responses are automatically delivered to the user.'),
+    '帮我看一下代码',
   );
 }
 

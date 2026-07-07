@@ -52,6 +52,14 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 `packages/protocol` 和 `packages/connector-sdk` 应尽量保持轻量、可复用，避免反向依赖 `src/`。
 
+## Agent Prompt
+
+`src/core/agentPrompt.js` 统一维护 Agent 可见的 Linco Connect 桥接身份说明和通用交付规则。提示词应说明 Agent 正在通过 Linco Connect 连接 Linco IM，普通文本回复会自动发送给用户，不需要额外调用发送机制。
+
+Claude 通过 `--append-system-prompt` 注入统一提示词；Hermes 通过 Gateway `instructions` 字段注入；Codex 和 OpenClaw 保持现有协议字段结构，在输入层追加桥接提示。
+
+Agent 可见的文件交付提示只应要求返回 Markdown 绝对路径引用，例如 `[filename.ext](absolute-local-path)`；`/get` 属于远端 IM 与连接器之间的内部取文件协议，不应写进 Agent prompt。
+
 ## 会话标识
 
 Linco Connect 内部至少会同时处理三类标识：

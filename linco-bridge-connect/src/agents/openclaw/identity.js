@@ -1,5 +1,11 @@
 const crypto = require('crypto');
 const { saveSessionMetadata } = require('../../core/session');
+const { _internal: agentPromptInternals } = require('../../core/agentPrompt');
+
+const INTERNAL_HINT_PATTERN = new RegExp(
+  `\\n\\s*(?:${escapeRegExp(agentPromptInternals.BRIDGE_INPUT_HINT_MARKER)}|System note: The user is asking to send or deliver a file\\/image\\.|系统提示：用户正在要求发送或获取文件\\/图片。)`,
+  'u'
+);
 
 function resolveOpenClawAgentId(input, session, agentConfig) {
   const messageAgentId = readInputMeta(input, 'openclawAgentId');
@@ -40,7 +46,7 @@ function firstText(input) {
 }
 
 function stripInternalOutboxHint(text) {
-  return String(text || '').split(/\n\s*系统提示：用户正在要求发送或获取文件\/图片。/)[0];
+  return String(text || '').split(INTERNAL_HINT_PATTERN)[0];
 }
 
 function sanitizeOpenClawErrorMessage(message) {
@@ -68,6 +74,10 @@ function sanitizeKeyPart(value) {
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80) || 'main';
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 module.exports = {
