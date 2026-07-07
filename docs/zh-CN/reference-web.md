@@ -2,7 +2,7 @@
 
 [English](../reference-web.md)
 
-Reference Web 是用于验证 Linco Connect 链路的开放客户端，属于参考 platform，对应连接器插件里的 `lincoDemo` 通道。其响应式移动布局是 H5 体验，不等同于微信小程序。
+Reference Web 是用于验证 Linco Connect 链路的开放客户端，属于参考 platform，对应连接器插件里的 `linco-demo` 通道。其响应式移动布局是 H5 体验，不等同于微信小程序。
 
 它的目标是给需要专属 Agent 交互界面的团队一个可部署参考，而不是只能受限于飞书、微信、钉钉等既有 IM 产品的展示形态。团队可以直接用它做体验验证，也可以替换成自己的 H5、小程序、App 或其他前端 channel。
 

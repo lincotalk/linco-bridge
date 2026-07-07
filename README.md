@@ -14,7 +14,7 @@ Linco Bridge helps teams expose local AI agent tools beyond a single desktop. It
 
 - verify the full bridge flow with the reference platform and reference web client;
 - connect local agents to your own web, app, mini program, or IM product;
-- deploy the reference platform (mapped to the `lincoDemo` channel in the connector), then build your own H5 page, mini program, app, or other frontend channel with a matching channel adapter;
+- deploy the reference platform (mapped to the `linco-demo` channel in the connector), then build your own H5 page, mini program, app, or other frontend channel with a matching channel adapter;
 - build compatible integrations on top of the public protocol and SDK surface.
 
 ## Repository Scope
@@ -87,7 +87,7 @@ For the detailed flow, see [Quick Start](docs/quick-start.md).
 
 The first open-source release includes two SDK layers with different goals:
 
-- `packages/connector-sdk` in `linco-bridge-connect`: a reusable connector client for authenticated bridge WebSocket connectivity;
+- `src/package/connector` in `linco-bridge-connect`: a reusable connector client package for authenticated bridge WebSocket connectivity;
 - `linco-bridge-platform/web/src/bridge/sdk`: usable Bridge SDK and AgentChat SDK reference implementations for web integration against the reference platform REST APIs.
 
 The connector SDK is a reusable package surface. The web Bridge/AgentChat SDK is currently positioned as a reference implementation for integration teams building on the open protocol and demo platform.

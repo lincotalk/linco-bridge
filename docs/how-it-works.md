@@ -12,7 +12,7 @@ Reference platform, compatible backend, or Linco Cloud
 Reference Web, Linco App, or a third-party client
 ```
 
-The open-source reference platform maps to the `lincoDemo` channel in the connector plugin. It is a deployable example for teams that want a better Agent interaction surface than generic IM bridges. You can reuse the shared connector and Agent adapter layers while building your own H5 page, mini program, app, or other frontend channel.
+The open-source reference platform maps to the `linco-demo` channel in the connector plugin. It is a deployable example for teams that want a better Agent interaction surface than generic IM bridges. You can reuse the shared connector and Agent adapter layers while building your own H5 page, mini program, app, or other frontend channel.
 
 ## Responsibilities
 
