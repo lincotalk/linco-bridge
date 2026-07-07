@@ -1,11 +1,11 @@
-const assert = require('assert');
+﻿const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const { getDeviceIdentity } = require('../../src/core/deviceIdentity');
-const { _internal: imInternal } = require('../../src/channels/bridge/connector');
-const { buildPresenceEvent } = require('../../src/channels/bridge/presence');
+const { _internal: imInternal } = require('../../src/core/channelConnector');
+const { buildPresenceEvent } = require('../../src/core/channelPresence');
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-device-'));
 const config = {

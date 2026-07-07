@@ -1,7 +1,7 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { loadConfig } = require('../config');
-const { syncImConnectors } = require('../channels/bridge/connector');
+const { syncImConnectors } = require('../core/channelConnector');
 
 const RUNTIME_KEYS = new Set([
   'activeSessions',

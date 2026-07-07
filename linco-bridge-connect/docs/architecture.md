@@ -1,4 +1,4 @@
-# Linco Connect 架构说明
+﻿# Linco Connect 架构说明
 
 本文面向需要阅读、调试或扩展 `linco-bridge-connect` 的贡献者。
 
@@ -18,13 +18,13 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | `src/local/` | 本地测试页、本地访问鉴权和本地 WebSocket 接入；WebSocket 连接生命周期、消息分发、Linco 本地协议、presence 和 turn 控制按模块拆分。 |
 | `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
-| `src/channels/` | 远端 channel 注册、连接器和 Linco 协议适配。 |
-| `src/agents/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器；按 Agent 类型放入同名目录，并以各目录的 `index.js` 作为 provider 入口。 |
+| `src/channel/` | 具体 channel adapter 实现。当前包含 `linco/` 和 `lincoDemo/`；公共连接、注册和 presence 逻辑放在 `src/core/`。 |
+| `src/agent/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器；按 Agent 类型放入同名目录，并以各目录的 `index.js` 作为 provider 入口。 |
 | `src/runtime/` | Agent 运行环境、进程 runner、Claude 历史和项目路径辅助逻辑。 |
-| `src/commands/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
+| `src/command/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
 | `src/core/` | session、协议发送、日志、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
-| `src/attachments/` | 入站附件落盘、类型检查和图片处理。 |
-| `src/gateways/` | Hermes/OpenClaw Gateway 启动、健康检查和客户端封装。 |
+| `src/attachment/` | 入站附件落盘、类型检查和图片处理。 |
+| `src/gateway/` | Hermes/OpenClaw Gateway 启动、健康检查和客户端封装。 |
 | `packages/protocol/` | 可复用的消息、文件、channel 规范化工具。 |
 | `packages/connector-sdk/` | 远端桥接 WebSocket 客户端、认证 URL、重连、心跳和消息队列。 |
 | `public/` | 本地测试页。 |
@@ -32,21 +32,21 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 ## 数据流
 
-1. 远端 IM 通过 WebSocket 发送 `inbound_message`。
-2. `src/channels/bridge/connector.js` 根据 channel/account/agent/sessionKey 找到或创建本地 session。
-3. `src/channels/bridge/protocolAdapter.js` 把 Linco 消息转换为内部消息格式，并保留 `_lincoMeta` 作为桥接层路由元数据。
+1. 远端 channel 通过 WebSocket 发送自己的外部协议消息，例如 Linco 的 `inbound_message`。
+2. `src/core/channelConnector.js` 根据配置中的 `channel` 取得 adapter，并根据 channel/account/agent/sessionKey 找到或创建本地 session。
+3. channel adapter 把外部消息转换为公共连接器可消费的内部输入，并保留必要的路由元数据；当前 `linco` 和 `linco-demo` 是两个独立 adapter，`linco-demo` 目前复用 Linco 兼容协议实现。
 4. `src/runtime/agentRunner.js` 按 `session.agentType` 调用对应 Agent 适配器。
 5. Agent 适配器启动本地 CLI 或调用 Gateway，并把输出转换为内部事件，例如 `assistant_chunk`、`tool_call`、`permission_request`、`turn_end`。
-6. 协议适配器把内部事件转换为 Linco 事件，例如 `stream_chunk`、`outbound_message`、`slash_command_result`、`turn_end`。
-7. 远端 IM 依据 `streamId`、`sessionKey`、`messageId` 等字段更新 UI 状态。
+6. channel adapter 把内部事件转换为对应 channel 的外部事件，例如 Linco 的 `stream_chunk`、`outbound_message`、`slash_command_result`、`turn_end`。
+7. 远端 channel 依据 `streamId`、`sessionKey`、`messageId` 等字段更新 UI 状态。
 
 ## 模块边界
 
 `src/core` 不应该依赖具体 Agent。它提供 session、日志、权限、文件和通用协议能力。
 
-`src/agents` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。新增 Agent 时优先使用 `src/agents/<agent>/index.js` 作为 provider 入口，并在目录内继续按进程启动、事件解析、权限处理、模型/设置等职责拆分。Codex 适配器已将输入构造放在 `src/agents/codex/input.js`，模型和推理选项放在 `src/agents/codex/options.js`；Claude 将输入 payload 和模型/effort 选项拆到 `input.js`、`options.js`；Hermes 将 profile/model 解析拆到 `options.js`；OpenClaw 将 agent/session 标识处理拆到 `identity.js`。
+`src/agent` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。新增 Agent 时优先使用 `src/agent/<agent>/index.js` 作为 provider 入口，并在目录内继续按进程启动、事件解析、权限处理、模型/设置等职责拆分。Codex 适配器已将输入构造放在 `src/agent/codex/input.js`，模型和推理选项放在 `src/agent/codex/options.js`；Claude 将输入 payload 和模型/effort 选项拆到 `input.js`、`options.js`；Hermes 将 profile/model 解析拆到 `options.js`；OpenClaw 将 agent/session 标识处理拆到 `identity.js`。
 
-`src/channels` 负责远端连接和协议适配，不应该包含具体 Agent CLI 的启动细节。
+`src/channel` 只放具体 channel adapter，不应该包含公共连接器、注册表或具体 Agent CLI 的启动细节。公共连接流程放在 `src/core/channelConnector.js`，channel 注册放在 `src/core/channelRegistry.js`，presence 构造放在 `src/core/channelPresence.js`；官方 Linco IM 协议放在 `src/channel/linco/`，开源 H5 示例协议放在 `src/channel/lincoDemo/`。新增第三方 channel 时优先新增 `src/channel/<channel>/`，并通过 `registerChannelAdapter()` 注册，不应修改官方 `linco` channel。
 
 `src/local` 只处理本机测试页和本地 WebSocket 接入。`websocket.js` 保持为连接入口，session 建立、消息分发、Linco 本地消息、presence 事件和 stop turn 控制分别放在独立模块中。
 

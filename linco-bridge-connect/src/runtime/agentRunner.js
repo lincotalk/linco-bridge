@@ -1,7 +1,7 @@
-const claude = require('../agents/claude');
-const codex = require('../agents/codex');
-const hermes = require('../agents/hermes');
-const openclaw = require('../agents/openclaw');
+const claude = require('../agent/claude');
+const codex = require('../agent/codex');
+const hermes = require('../agent/hermes');
+const openclaw = require('../agent/openclaw');
 
 const providers = {
   claude,

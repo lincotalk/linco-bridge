@@ -1,4 +1,4 @@
-const { findGitBash, resolveCommand } = require('./commandResolution');
+﻿const { findGitBash, resolveCommand } = require('./commandResolution');
 const { loadConfig, parseToken } = require('./env');
 const {
   ensureDir,
@@ -20,13 +20,13 @@ const {
   getChannelAgentWsUrl,
   getChannelAgentWsUrls,
   getChannelPreset,
-} = require('../channels/registry');
+} = require('../core/channelRegistry');
 const {
   DEFAULT_LINCO_WS_URL,
   OFFICIAL_LINCO_AGENT_WS_URLS,
   OFFICIAL_LINCO_WS_BASE_URL,
   officialLincoAgentWsUrl,
-} = require('../channels/presets/linco');
+} = require('../channel/linco/defaults');
 
 const DEFAULT_AGENT_WS_URLS = OFFICIAL_LINCO_AGENT_WS_URLS;
 
