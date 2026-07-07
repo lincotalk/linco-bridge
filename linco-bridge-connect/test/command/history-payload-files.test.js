@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { buildHistoryPayload } = require('../../src/commands/history/payloads');
-const { extractClaudeContentFiles, extractCodexMentionedUserFiles } = require('../../src/commands/history/readers');
+const { buildHistoryPayload } = require('../../src/command/history/payloads');
+const { extractClaudeContentFiles, extractCodexMentionedUserFiles } = require('../../src/command/history/readers');
 
 test('buildHistoryPayload includes user and assistant files', () => {
   const payload = buildHistoryPayload('claude', 'sess-1', 10, [{
