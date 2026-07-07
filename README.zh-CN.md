@@ -158,6 +158,10 @@ linco-connect start --daemon
 - [支持边界](SUPPORT.md)
 - [参与贡献](CONTRIBUTING.md)
 
+## 社区与动态
+
+技术交流群、Linco Lab 内容渠道和 Linco App 下载入口见 [COMMUNITY.md](COMMUNITY.md)。
+
 ## 参与贡献
 
 欢迎通过 Issue、Discussion 和 Pull Request 参与完善项目。贡献约定与问题报告方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。

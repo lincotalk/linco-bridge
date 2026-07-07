@@ -158,6 +158,10 @@ Exact compatibility should follow release notes and each subproject README.
 - [Support Boundary](SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
+## Community
+
+For technical discussion, Linco Lab updates, and official Linco App download links, see [COMMUNITY.md](COMMUNITY.md).
+
 ## Contributing
 
 Issues, discussions, and pull requests are welcome. For contribution expectations and reporting guidance, see [CONTRIBUTING.md](CONTRIBUTING.md).
