@@ -27,6 +27,10 @@ function isDangerConfirm(msg) {
   return msg?.type === 'danger_confirm';
 }
 
+function isStopTurn(msg) {
+  return msg?.type === 'stop_turn';
+}
+
 function shouldRouteToAgent(msg, agentType) {
   const to = String(msg?.to || agentType);
   return ['agent', 'claude', agentType].includes(to);
@@ -64,6 +68,7 @@ module.exports = {
   isDangerConfirm,
   isPing,
   isPong,
+  isStopTurn,
   isRemoteMessage: protocol.isLincoMessage,
   shouldRouteToAgent,
 };
