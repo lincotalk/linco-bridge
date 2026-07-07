@@ -5,7 +5,7 @@
 ## 未检测到设备
 
 1. 确认 `linco-connect` 正在运行。
-2. 检查 App ID、App Secret、Agent 类型和设备名。
+2. 检查 App ID、App Secret、Agent 类型、通道和账号。
 3. 检查到已配置 WSS 端点的网络连接。
 4. 分享日志前删除密钥。
 

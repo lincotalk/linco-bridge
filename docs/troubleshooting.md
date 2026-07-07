@@ -5,7 +5,7 @@
 ## Device does not appear
 
 1. Confirm that `linco-connect` is running.
-2. Check the App ID, App Secret, agent type, and device name.
+2. Check the App ID, App Secret, agent type, channel, and account.
 3. Check network access to the configured WSS endpoint.
 4. Remove secrets before sharing logs.
 
