@@ -2,7 +2,7 @@
 
 [简体中文](zh-CN/reference-web.md)
 
-Reference Web is the open client for verifying the Linco Connect flow. It belongs to the reference platform and maps to the connector plugin's `lincoDemo` channel. Its responsive mobile layout is the H5 experience; it is not a WeChat mini program.
+Reference Web is the open client for verifying the Linco Connect flow. It belongs to the reference platform and maps to the connector plugin's `linco-demo` channel. Its responsive mobile layout is the H5 experience; it is not a WeChat mini program.
 
 The goal is to provide a deployable reference for teams that want a dedicated Agent interaction surface instead of being limited by Feishu, WeChat, DingTalk, or other existing IM products. Teams can use it directly for evaluation or replace it with their own H5 page, mini program, app, or other frontend channel.
 

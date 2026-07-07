@@ -12,7 +12,7 @@ Reference Platform、兼容后端或 Linco Cloud
 Reference Web、Linco App 或第三方客户端
 ```
 
-开源参考 platform 对应连接器插件中的 `lincoDemo` 通道。它是一个可部署的示例，用来帮助团队获得比通用 IM 桥接更适合 Agent 的交互界面。你可以复用公共连接器和 Agent 适配层，同时基于自己的 H5、小程序、App 或其他前端形态实现新的 channel。
+开源参考 platform 对应连接器插件中的 `linco-demo` 通道。它是一个可部署的示例，用来帮助团队获得比通用 IM 桥接更适合 Agent 的交互界面。你可以复用公共连接器和 Agent 适配层，同时基于自己的 H5、小程序、App 或其他前端形态实现新的 channel。
 
 ## 职责
 

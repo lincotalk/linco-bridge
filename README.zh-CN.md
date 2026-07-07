@@ -14,7 +14,7 @@ Linco Bridge 帮助团队把原本只停留在一台电脑上的本地 AI Agent 
 
 - 用参考 platform / Reference Web 验证完整桥接链路；
 - 将本地 Agent 接入自有 Web、App、小程序或 IM 产品；
-- 先部署参考 platform（对应连接器插件里的 `lincoDemo` 通道），再基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter；
+- 先部署参考 platform（对应连接器插件里的 `linco-demo` 通道），再基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter；
 - 基于公开协议和 SDK 边界构建兼容集成。
 
 ## 仓库包含什么
@@ -87,7 +87,7 @@ linco-connect start --daemon
 
 首期开源版本会同步提供两层 SDK 能力，但定位不同：
 
-- `linco-bridge-connect/packages/connector-sdk`：可复用的 connector SDK，用于建立带认证的桥接 WebSocket 连接；
+- `linco-bridge-connect/src/package/connector`：可复用的 connector SDK，用于建立带认证的桥接 WebSocket 连接；
 - `linco-bridge-platform/web/src/bridge/sdk`：可使用的 Bridge SDK / AgentChat SDK 参考实现，用于对接 reference platform 的 REST API 和桥接流程。
 
 其中 connector SDK 更接近公共可复用能力；Web 侧 Bridge SDK / AgentChat SDK 当前更适合作为集成团队参考实现和二次开发基础。
