@@ -13,6 +13,10 @@ export function isBoundWorkspacePick(picked: PickWorkspaceResult): boolean {
   return Boolean(picked.sessionId?.trim() && picked.agentSessionId?.trim())
 }
 
+export function hasWorkspaceSessionPick(picked: PickWorkspaceResult): boolean {
+  return Boolean(picked.sessionId?.trim())
+}
+
 export async function ensureBridgeOnline(
   agentType: AgentBridgeType,
   connectionId?: string,

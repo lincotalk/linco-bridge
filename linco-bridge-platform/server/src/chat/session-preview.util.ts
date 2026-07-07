@@ -1,6 +1,9 @@
 export function normalizeSessionPreview(content: string): string {
   let text = content.trim()
   if (!text) return ''
+  if (text.toLowerCase() === 'ready when you are.' || text.toLowerCase() === 'ready when you are') {
+    return ''
+  }
 
   text = text.replace(/\r\n/g, '\n')
   text = text.replace(/```[\s\S]*?```/g, '[代码]')

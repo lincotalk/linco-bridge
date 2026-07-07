@@ -217,8 +217,13 @@ async function handleCreateProjectSession(project: BridgeProjectItem) {
   const key = `project:${project.path}`
   await runSelecting(key, async () => {
     try {
-      const result = await applySelection({
-        project,
+      if (!connectionId.value) return null
+      const projectPath = project.path.trim()
+      const projectName = project.name.trim() || projectPath
+      const result = await bridgeStore.sdk.applyWorkspaceSelection(agentType.value, {
+        connectionId: connectionId.value,
+        projectPath,
+        projectName,
         selectProjectCommand: selectCommandFor(project),
       })
       if (!result) return null

@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { buildChatSubtitle, resolveChatHeader } from '@/utils/chat-header'
+import {
+  buildBridgeHeaderSubtitle,
+  resolveChatHeader,
+  stripDeviceSuffixFromTitle,
+} from '@/utils/chat-header'
+
+describe('stripDeviceSuffixFromTitle', () => {
+  it('removes trailing device suffix from title', () => {
+    expect(stripDeviceSuffixFromTitle('调整设置页推理与模型 - HQ-TS-0182', 'HQ-TS-0182')).toBe(
+      '调整设置页推理与模型',
+    )
+  })
+})
+
+describe('buildBridgeHeaderSubtitle', () => {
+  it('shows device name and online status', () => {
+    expect(buildBridgeHeaderSubtitle('HQ-TS-0182', true)).toBe('HQ-TS-0182 · 在线')
+  })
+
+  it('shows only status when device name is missing', () => {
+    expect(buildBridgeHeaderSubtitle('', false)).toBe('离线')
+  })
+})
 
 describe('resolveChatHeader', () => {
   it('uses mock history title for hist-* session ids', () => {
@@ -7,30 +29,28 @@ describe('resolveChatHeader', () => {
 
     expect(header.title).toBe('AIChat-Admin')
     expect(header.agentType).toBe('codex')
-    expect(header.subtitle).toContain('Codex')
-    expect(header.subtitle).toContain('离线')
+    expect(header.subtitle).toBe('离线')
   })
 
-  it('includes project path in subtitle for workspace history', () => {
-    const header = resolveChatHeader('hist-codex-bpms')
+  it('strips device suffix from title and shows device in subtitle', () => {
+    const header = resolveChatHeader(
+      'session-1',
+      {
+        id: 'session-1',
+        agentType: 'codex',
+        title: 'Codex - HQ-TS-0182',
+        conversationTitle: '调整设置页推理与模型',
+        lastMessage: 'hello',
+        updatedAt: 1,
+        online: true,
+        deviceName: 'HQ-TS-0182',
+      },
+      true,
+      'HQ-TS-0182',
+    )
 
-    expect(header.title).toBe('bpms-workbench')
-    expect(header.subtitle).toContain('D:\\project\\bpms-workbench')
-  })
-
-  it('prefers session store data when available', () => {
-    const header = resolveChatHeader('session-1', {
-      id: 'session-1',
-      agentType: 'codex',
-      title: 'Codex Bridge',
-      lastMessage: 'hello',
-      updatedAt: 1,
-      online: true,
-    })
-
-    expect(header.title).toBe('Codex Bridge')
-    expect(buildChatSubtitle('codex', true)).toBe('Codex · 在线')
-    expect(header.subtitle).toBe('Codex · 在线')
+    expect(header.title).toBe('调整设置页推理与模型')
+    expect(header.subtitle).toBe('HQ-TS-0182 · 在线')
   })
 
   it('parses agent type from new conversation id', () => {
@@ -38,5 +58,6 @@ describe('resolveChatHeader', () => {
 
     expect(header.agentType).toBe('codex')
     expect(header.title).toBe('Codex')
+    expect(header.subtitle).toBe('离线')
   })
 })

@@ -48,10 +48,16 @@ export function showToast(title: string, icon: 'success' | 'none' = 'none') {
   uni.showToast({ title, icon, duration: 2000 })
 }
 
+const BRIDGE_PLACEHOLDER_PREVIEWS = new Set([
+  'ready when you are.',
+  'ready when you are',
+])
+
 /** Session list preview — single line, markdown stripped (aligned with Flutter preview). */
 export function formatSessionPreview(content: string): string {
   let text = content.trim()
   if (!text) return ''
+  if (BRIDGE_PLACEHOLDER_PREVIEWS.has(text.toLowerCase())) return ''
 
   text = text.replace(/\r\n/g, '\n')
   text = text.replace(/```[\s\S]*?```/g, '[代码]')

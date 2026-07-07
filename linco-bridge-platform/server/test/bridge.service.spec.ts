@@ -283,4 +283,41 @@ describe('BridgeService', () => {
 
     expect(third.sessionId).toBe(seededSession.id)
   })
+
+  it('applyWorkspaceSelection creates platform session for new project session without desktop bind', async () => {
+    const connection = database.getConnectionByType('codex')!
+    presence.attach(connection.id, onlineSocket())
+    const seededSession = database.getSessionByConnectionId(connection.id)!
+
+    jest.spyOn(presence, 'sendJson').mockImplementation((_connectionId, payload) => {
+      const streamId = String(payload.streamId ?? 'stream-project-new')
+      queueMicrotask(() => {
+        relay.handleConnectorFrame({
+          type: 'turn_end',
+          streamId,
+          text: 'ok',
+        })
+      })
+      return true
+    })
+
+    const first = await service.applyWorkspaceSelection('codex', connection.id, {
+      projectPath: 'D:\\project\\demo',
+      projectName: 'demo',
+      selectProjectCommand: '/project --select "D:\\project\\demo"',
+    })
+
+    expect(first.sessionId).not.toBe(seededSession.id)
+    expect(first.agentSessionId).toBeUndefined()
+    expect(database.getSession(first.sessionId)?.bridge_project_path).toBe('D:\\project\\demo')
+    expect(database.getSession(first.sessionId)?.bridge_agent_session_id).toBeNull()
+
+    const second = await service.applyWorkspaceSelection('codex', connection.id, {
+      projectPath: 'D:\\project\\demo',
+      projectName: 'demo',
+      selectProjectCommand: '/project --select "D:\\project\\demo"',
+    })
+
+    expect(second.sessionId).toBe(first.sessionId)
+  })
 })
