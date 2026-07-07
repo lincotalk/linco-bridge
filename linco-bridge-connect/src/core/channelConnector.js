@@ -1,7 +1,7 @@
 const { executeAgentQuery, resolvePendingDanger, resolvePendingPermission } = require('../runtime/agentRunner');
 const { handleMessageWithAttachments } = require('../attachment/attachmentHandler');
-const { send, sendError, sendSystem } = require('./protocol');
-const { cleanupSession, createSession, saveSessionMetadata } = require('./session');
+const { send, sendError, sendSystem, sendTurnEnd } = require('./protocol');
+const { cleanupSession, createSession, saveSessionMetadata, stopAgentProcess } = require('./session');
 const { handleSlashCommand, isBridgeControlCommand } = require('../command');
 const { getClientInfo, getDeviceIdentity } = require('./deviceIdentity');
 const { getChannelAdapter } = require('./channelRegistry');
@@ -186,6 +186,17 @@ class ImConnector {
     const session = this.sessions.get(sessionKey);
     if (!session) return;
     session.lastRemoteActivityAt = Date.now();
+
+    if (this.adapter.isStopTurn?.(msg)) {
+      stopAgentProcess(session, { clearAgentSession: false });
+      sendSystem(session.ws, '⏹️ 已停止当前 Agent 进程，下次消息会尝试恢复当前会话。');
+      sendTurnEnd(session.ws, session, 'cancelled', {
+        requestId: msg.messageId || msg.requestId,
+        streamId: msg.streamId,
+        sessionKey,
+      });
+      return;
+    }
 
     if (this.adapter.isDangerConfirm(msg)) {
       if (!resolvePendingDanger(!!msg.approved, session.ws, session, this.config)) {
