@@ -2,17 +2,19 @@
 
 [English](../supported-platforms.md)
 
-本页用于说明首期开源版本的发布范围，以及兼容性信息的公开规则。
+本页只说明项目级发布范围。Agent 精确验证版本、Node.js 兼容性、操作系统注意事项和已知限制，请以连接器子项目 README 与 release notes 为准。
 
-| Agent | 发布范围 | 兼容性公开方式 | 说明 |
-| --- | --- | --- | --- |
-| Codex CLI | 首期开源包含 | 完成验证后，在 Release Notes 中公布精确测试版本和操作系统覆盖范围 | 支持 reference bridge flow 和 reference platform 集成 |
-| Claude Code | 首期开源包含 | 完成验证后，在 Release Notes 中公布精确测试版本和操作系统覆盖范围 | 支持 reference bridge flow 和 reference platform 集成 |
-| Hermes | 首期开源包含 | 完成验证后，在 Release Notes 中公布精确测试版本和操作系统覆盖范围 | 兼容客户端中包含 profile 绑定流程 |
-| OpenClaw | 首期开源包含 | 完成验证后，在 Release Notes 中公布精确测试版本和操作系统覆盖范围 | 兼容客户端中包含 agent 绑定流程 |
+## 项目级范围
+
+| 类别 | 首期范围 | 详细文档 |
+| --- | --- | --- |
+| Agent | Codex CLI、Claude Code、Hermes、OpenClaw | [连接器 README](../../linco-bridge-connect/README.zh-CN.md) |
+| 官方通道 | `linco` | [连接器配置说明](../../linco-bridge-connect/README.zh-CN.md#配置) |
+| 开源参考通道 | `linco-demo` | [参考平台 README](../../linco-bridge-platform/README.md) |
+| 自定义通道 | 可通过新增 channel adapter 扩展 | [连接器架构说明](../../linco-bridge-connect/docs/architecture.md) |
 
 ## 发布规则
 
-- 保持 README、Release Notes 和兼容性说明的一致。
-- 完成实际验证后，再在 Release 中公布精确测试版本。
-- 如果某个 Agent 或操作系统存在限制，请在 Release Notes 和排障文档中明确写出，而不是让发布范围保持模糊。
+- 保持根 README、子项目 README、Release Notes 和兼容性说明一致。
+- 完成实际验证后，在 Release 中公布精确测试版本、操作系统和已知限制。
+- 如果某个 Agent、Node.js 版本或操作系统存在限制，请在 Release Notes 和排障文档中明确写出。
