@@ -6,7 +6,7 @@ Linco Connect runs on the user's machine and bridges remote IM with local Agents
 
 Configuration is stored in `.linco/config.json` under the user's home directory by default. Do not publish this file. Do not commit real `appId`, `appSecret`, `LINCO_TOKEN`, or local test-page URLs containing tokens.
 
-Local test-page URLs include access tokens and are only for development and self-testing. Do not forward them to untrusted users.
+Local test-page URLs include access tokens and are only for development and self-testing. Do not forward them to untrusted users. After the first successful tokenized visit, the connector stores a browser cookie scoped to the local test page so refreshes and same-origin reopens keep working. If browser site data is cleared, open the full URL printed by `linco-connect start` again.
 
 ## Remote WebSocket
 

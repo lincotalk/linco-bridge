@@ -50,7 +50,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 `src/channel` 只放具体 channel adapter，不应该包含公共连接器、注册表或具体 Agent CLI 的启动细节。公共连接流程放在 `src/core/channelConnector.js`，channel 注册放在 `src/core/channelRegistry.js`，presence 构造放在 `src/core/channelPresence.js`；连接器配置签名、远端 metadata 和 Agent 账号标识解析分别放在 `src/core/channelConnectorConfig.js`、`src/core/channelConnectorMeta.js`、`src/core/channelConnectorIdentity.js`。官方 Linco IM 协议放在 `src/channel/linco/`，开源 H5 示例协议放在 `src/channel/lincoDemo/`。新增第三方 channel 时优先新增 `src/channel/<channel>/`，并通过 `registerChannelAdapter()` 注册，不应修改官方 `linco` channel。
 
-`src/local` 只处理本机测试页和本地 WebSocket 接入。`websocket.js` 保持为连接入口，session 建立、消息分发、Linco 本地消息、presence 事件和 stop turn 控制分别放在独立模块中。
+`src/local` 只处理本机测试页和本地 WebSocket 接入。插件内置 Web 默认不开启，只有显式使用 `linco-connect start --local-im` / `--mock-im` 等本地调试参数时才启用；它只用于本机开发、自测和协议调试，不是生产 Web 服务，也不应暴露到公网。`websocket.js` 保持为连接入口，session 建立、消息分发、Linco 本地消息、presence 事件和 stop turn 控制分别放在独立模块中。
 
 `src/package/protocol` 和 `src/package/connector` 应尽量保持轻量、可复用，避免反向依赖 `src/` 中的业务模块。
 
