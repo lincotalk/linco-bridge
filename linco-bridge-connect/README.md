@@ -1,4 +1,4 @@
-# Linco Connect
+﻿# Linco Connect
 
 Linco Connect 是运行在用户电脑上的本机 Agent 连接器，用于把 Linco IM 消息转发给本机 Agent CLI，并把回复、工具调用、权限确认、附件和生成文件回传到 IM。
 
@@ -158,6 +158,8 @@ linco-connect start --local-im
 配置默认保存在用户目录下的 `.linco/config.json`。初始化命令会自动写入凭证和本地测试 token，一般不需要手动编辑。
 
 运行中的连接器会监听 `config.json` 变化，也可以用 `linco-connect reload` 手动触发。账号新增、删除、凭证更新、Agent 启停和远端 IM 连接参数会自动重载，并只重启受影响的远端 IM 连接。`host`、`port`、`lincoHome`、`sessionsDir` 和本地测试页开关等服务级配置仍需重启进程后生效。配置重载失败时会保留旧配置继续运行。
+
+`linco` 和 `linco-demo` 是两个独立 channel。官方 Linco IM 协议实现位于 `src/channel/linco/`，开源 H5 示例 channel 位于 `src/channel/lincoDemo/`；当前 demo 采用 Linco 兼容协议，后续可以独立演进。第三方平台扩展应新增自己的 channel 目录并注册 adapter，而不是修改官方 Linco channel。
 
 最小配置结构示例：
 

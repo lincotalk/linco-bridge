@@ -8,11 +8,11 @@ const {
   readUserConfig,
 } = require('../config');
 const { ensureLocalToken, localUrlWithToken } = require('../local/auth');
-const { checkGatewayHealth, resolveHermesGatewayOptions } = require('../gateways/hermesGateway');
+const { checkGatewayHealth, resolveHermesGatewayOptions } = require('../gateway/hermesGateway');
 const {
   checkGatewayHealth: checkOpenClawGatewayHealth,
   resolveOpenClawGatewayOptions,
-} = require('../gateways/openclawGateway');
+} = require('../gateway/openclawGateway');
 const { commandExists, safeUrlForDisplay } = require('./utils');
 
 async function doctorCommand(context = {}) {
