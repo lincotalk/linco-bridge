@@ -3,7 +3,6 @@ const { handleMessageWithAttachments } = require('../attachment/attachmentHandle
 const { send, sendError, sendSystem } = require('./protocol');
 const { cleanupSession, createSession, saveSessionMetadata } = require('./session');
 const { handleSlashCommand, isBridgeControlCommand } = require('../command');
-const { readUserConfig } = require('../config');
 const { getClientInfo, getDeviceIdentity } = require('./deviceIdentity');
 const { getChannelAdapter } = require('./channelRegistry');
 const lincoAdapter = require('../channel/linco');
@@ -12,11 +11,28 @@ const {
   connectorKey,
   remoteSessionScope,
 } = require('../package/protocol');
+const {
+  buildHeartbeatMessage,
+  connectorSignature,
+  imLogPrefix,
+  remoteConnectorSpecs,
+} = require('./channelConnectorConfig');
+const {
+  accountSelectorFromMessage,
+  resolveHermesProfileFromMessage,
+  resolveOpenClawAgentIdFromMessage,
+} = require('./channelConnectorIdentity');
+const {
+  connectorLincoMeta,
+  lincoMetaForConnector,
+  lincoMetaFromMessage,
+  remoteInboundMetaForLog,
+  remoteTurnEndMetaForLog,
+} = require('./channelConnectorMeta');
 
 const {
   buildStreamId,
   lincoMetaDefaults,
-  normalizeLincoFiles,
   pruneUndefined,
 } = lincoAdapter;
 
@@ -503,190 +519,6 @@ function isDuplicateInbound(msg, connector) {
   if (inboundDedupe.has(key)) return true;
   inboundDedupe.add(key);
   return false;
-}
-
-function resolveOpenClawAgentIdFromMessage(msg, session, agentConfig, config) {
-  if (session.openclawAgentId) return String(session.openclawAgentId).trim() || 'main';
-  return String(
-    msg.openclawAgentId ||
-    accountSelectorFromMessage(msg, session, config, 'openclaw', 'openclawAgentId') ||
-    agentConfig.openclawAgentId ||
-    config.agents?.openclaw?.openclawAgentId ||
-    'main'
-  ).trim() || 'main';
-}
-
-function resolveHermesProfileFromMessage(msg, session, agentConfig, config) {
-  if (session.hermesProfile) return String(session.hermesProfile).trim() || 'default';
-  return String(
-    msg.hermesProfile ||
-    msg.profile ||
-    accountSelectorFromMessage(msg, session, config, 'hermes', 'profile') ||
-    agentConfig.profile ||
-    config.agents?.hermes?.profile ||
-    'default'
-  ).trim() || 'default';
-}
-
-function accountSelectorFromMessage(msg, session, config, agentType, key) {
-  const account = String(msg?.accountId || session?.linco?.accountId || config?.im?.account || 'default').trim() || 'default';
-  const channel = String(msg?.channel || session?.linco?.channel || config?.im?.channel || 'linco').trim() || 'linco';
-  const channelConfig = readChannelAgentConfig(config, channel, agentType);
-  return channelConfig?.accounts?.[account]?.[key] || '';
-}
-
-function readChannelAgentConfig(config, channel, agentType) {
-  const fromRuntime = config?.channels?.[channel]?.agents?.[agentType];
-  if (fromRuntime) return fromRuntime;
-  if (!config?.configFile) return null;
-  try {
-    return readUserConfig(config.configFile).channels?.[channel]?.agents?.[agentType] || null;
-  } catch {
-    return null;
-  }
-}
-
-function lincoSessionKey(msg) {
-  return String(msg.sessionKey || '').trim();
-}
-
-function lincoMetaFromMessage(msg) {
-  const userId = stringOrUndefined(msg.userId || msg.targetId);
-  return pruneUndefined({
-    accountId: stringOrUndefined(msg.accountId),
-    agentId: stringOrUndefined(msg.agentId),
-    chatType: stringOrUndefined(msg.chatType || msg.targetType),
-    targetType: stringOrUndefined(msg.targetType || msg.chatType),
-    targetId: stringOrUndefined(msg.targetId || msg.userId),
-    userId,
-    messageId: stringOrUndefined(msg.messageId),
-    streamId: stringOrUndefined(msg.streamId) || buildStreamId(msg),
-    sessionKey: lincoSessionKey(msg),
-    channel: stringOrUndefined(msg.channel),
-  });
-}
-
-function remoteInboundMetaForLog(msg) {
-  const files = normalizeLincoFiles(msg);
-  return pruneUndefined({
-    type: stringOrUndefined(msg.type),
-    messageId: stringOrUndefined(msg.messageId),
-    streamId: stringOrUndefined(msg.streamId) || buildStreamId(msg),
-    sessionKey: lincoSessionKey(msg) || undefined,
-    accountId: stringOrUndefined(msg.accountId),
-    agentId: stringOrUndefined(msg.agentId),
-    to: stringOrUndefined(msg.to),
-    from: stringOrUndefined(msg.from),
-    channel: stringOrUndefined(msg.channel),
-    chatType: stringOrUndefined(msg.chatType || msg.targetType),
-    userId: stringOrUndefined(msg.userId || msg.targetId),
-    textLength: String(msg.text || '').length,
-    attachmentCount: files.length,
-  });
-}
-
-function remoteTurnEndMetaForLog(message) {
-  return pruneUndefined({
-    type: stringOrUndefined(message.type),
-    requestId: stringOrUndefined(message.requestId || message.request_id),
-    messageId: stringOrUndefined(message.messageId),
-    streamId: stringOrUndefined(message.streamId || message.stream_id),
-    sessionKey: stringOrUndefined(message.sessionKey || message.session_key),
-    accountId: stringOrUndefined(message.accountId),
-    agentId: stringOrUndefined(message.agentId),
-    channel: stringOrUndefined(message.channel),
-    reason: stringOrUndefined(message.reason),
-  });
-}
-
-function stringOrUndefined(value) {
-  const text = String(value || '').trim();
-  return text || undefined;
-}
-
-function buildHeartbeatMessage(config, options = {}) {
-  return lincoAdapter.buildHeartbeat(config, {
-    ...options,
-    device: getDeviceIdentity(config),
-    client: getClientInfo(),
-  });
-}
-
-function remoteConnectorSpecs(config) {
-  const configured = Array.isArray(config.im?.connectors) ? config.im.connectors : [];
-  if (configured.length > 0) {
-    return configured
-      .filter(item => item && config.agents?.[item.agentType]?.enabled && hasWsUrl(item.wsUrl))
-      .map(item => ({
-        agentType: item.agentType,
-        agentConfig: config.agents[item.agentType],
-        im: item,
-      }));
-  }
-
-  return Object.entries(config.agents || { claude: { enabled: true } })
-    .filter(([, agent]) => agent?.enabled)
-    .map(([agentType, agent]) => {
-      const im = {
-        channel: config.im?.channel,
-        account: config.im?.account,
-        agentId: config.im?.agentId,
-        appId: agent.appId || config.im?.appId,
-        appSecret: agent.appSecret || config.im?.appSecret,
-        wsUrl: agent.wsUrl || config.im?.wsUrl,
-        allowInsecureWs: config.im?.allowInsecureWs,
-      };
-      return {
-        agentType,
-        agentConfig: agent,
-        im,
-      };
-    })
-    .filter(spec => hasWsUrl(spec.im.wsUrl));
-}
-
-function hasWsUrl(value) {
-  return String(value || '').trim() !== '';
-}
-
-function imLogPrefix(agentType, imConfig = {}) {
-  const channel = String(imConfig.channel || 'linco').trim() || 'linco';
-  const normalizedAgentType = String(agentType || 'agent').trim() || 'agent';
-  const account = String(imConfig.account || 'default').trim() || 'default';
-  return `[IM:${channel}/${normalizedAgentType}/${account}]`;
-}
-
-function connectorLincoMeta(connector, meta = {}) {
-  return {
-    ...meta,
-    accountId: meta.accountId || connector.imConfig.account,
-    agentId: meta.agentId || connector.imConfig.agentId,
-    channel: meta.channel || connector.imConfig.channel,
-  };
-}
-
-function connectorSignature(config, agentType, agentConfig = {}, imConfig = {}) {
-  return JSON.stringify({
-    key: connectorKey(agentType, imConfig),
-    agentType,
-    imEnabled: config.im?.enabled === true,
-    wsUrl: imConfig.wsUrl || agentConfig.wsUrl || config.im?.wsUrl || '',
-    appId: imConfig.appId || agentConfig.appId || config.im?.appId || '',
-    appSecret: imConfig.appSecret || agentConfig.appSecret || config.im?.appSecret || '',
-    allowInsecureWs: (imConfig.allowInsecureWs ?? config.im?.allowInsecureWs) === true,
-    connectTimeoutMs: config.im?.connectTimeoutMs,
-    heartbeatMs: config.im?.heartbeatMs,
-    reconnectMinMs: config.im?.reconnectMinMs,
-    reconnectMaxMs: config.im?.reconnectMaxMs,
-    maxPayloadBytes: config.maxWsPayloadBytes,
-    account: imConfig.account || config.im?.account || '',
-    channel: imConfig.channel || config.im?.channel || '',
-    agentId: imConfig.agentId || config.im?.agentId || '',
-  });
-}
-
-function lincoMetaForConnector(connector, msg) {
-  return connectorLincoMeta(connector, lincoMetaFromMessage(msg));
 }
 
 module.exports = {

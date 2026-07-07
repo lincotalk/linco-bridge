@@ -10,7 +10,7 @@ Linco Connect 是运行在用户电脑上的本机 Agent 连接器，用于把 L
 
 很多 Agent 桥接项目会接入飞书、微信、钉钉等既有协作平台。这种方式接入成本低，但展示和交互形式受平台限制，工具进度、权限确认、生成文件、长会话和多 Agent 状态往往很难做出舒适体验。
 
-Linco Connect 会配套开源一个参考 platform 项目，对应插件里的 `lincoDemo` 通道。它不是要求所有人都使用 Linco 官方 IM，而是给用户一个可先部署体验的参考实现：如果现有 IM 平台的交互不满足需求，可以基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter，让消息协议、展示结构和交互体验按自己的产品需求演进。
+Linco Connect 会配套开源一个参考 platform 项目，对应插件里的 `linco-demo` 通道。它不是要求所有人都使用 Linco 官方 IM，而是给用户一个可先部署体验的参考实现：如果现有 IM 平台的交互不满足需求，可以基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter，让消息协议、展示结构和交互体验按自己的产品需求演进。
 
 ## 功能
 
@@ -21,7 +21,7 @@ Linco Connect 会配套开源一个参考 platform 项目，对应插件里的 `
 - 支持远端 IM 按路径取回文件：前端拿到本机路径后可发送 `/get <路径>`，连接器校验后返回文件 base64。
 - 支持工具/命令权限确认和危险操作确认，默认 auto 审批模式，可在会话内切换 manual/auto/yolo。
 - 支持会话历史查看、切换、删除和 Token 用量查看。
-- 支持自定义 channel adapter；`linco` 是官方 Linco IM 通道，`lincoDemo` 是开源参考 platform 对应的示例通道。
+- 支持自定义 channel adapter；`linco` 是官方 Linco IM 通道，`linco-demo` 是开源参考 platform 对应的示例通道。
 
 ## 前置条件
 
@@ -168,7 +168,7 @@ linco-connect start --local-im
 
 运行中的连接器会监听 `config.json` 变化，也可以用 `linco-connect reload` 手动触发。账号新增、删除、凭证更新、Agent 启停和远端 IM 连接参数会自动重载，并只重启受影响的远端 IM 连接。`host`、`port`、`lincoHome`、`sessionsDir` 和本地测试页开关等服务级配置仍需重启进程后生效。配置重载失败时会保留旧配置继续运行。
 
-`linco` 和 `linco-demo` 是两个独立 channel。官方 Linco IM 协议实现位于 `src/channel/linco/`，开源 H5 示例 channel 位于 `src/channel/lincoDemo/`；当前 demo 采用 Linco 兼容协议，后续可以独立演进。第三方平台扩展应新增自己的 channel 目录并注册 adapter，而不是修改官方 Linco channel。
+`linco` 和 `linco-demo` 是两个独立 channel key。官方 Linco IM 协议实现位于 `src/channel/linco/`，开源 H5 示例 adapter 位于 `src/channel/lincoDemo/`；当前 demo 采用 Linco 兼容协议，后续可以独立演进。第三方平台扩展应新增自己的 channel 目录并注册 adapter，而不是修改官方 Linco channel。
 
 最小配置结构示例：
 
