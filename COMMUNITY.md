@@ -16,7 +16,7 @@ Join the WeChat technical group to discuss:
 
 Current WeChat group QR code:
 
-![Linco technical WeChat group](/Users/admin/Desktop/linco-bridge/docs/community-wechat-group.jpg)
+![Linco technical WeChat group](docs/community-wechat-group.jpg)
 
 Note: WeChat group QR codes may expire. If the QR code is no longer valid, please check the latest community information in this repository or in official Linco channels.
 
