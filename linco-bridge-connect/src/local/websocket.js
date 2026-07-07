@@ -1,7 +1,7 @@
 const { WebSocketServer } = require('ws');
 const { executeAgentQuery, resolvePendingDanger, resolvePendingPermission, stopAgentProcess } = require('../runtime/agentRunner');
 const { handleLegacyImageMessage, handleMessageWithAttachments } = require('../attachments/attachmentHandler');
-const { isLocalRequestAuthorized } = require('./localAuth');
+const { isLocalRequestAuthorized } = require('./auth');
 const { send, sendError, sendSystem, sendTurnEnd } = require('../core/protocol');
 const { cleanupSession, createSession, saveSessionMetadata } = require('../core/session');
 const { handleSlashCommand, isBridgeControlCommand } = require('../commands');

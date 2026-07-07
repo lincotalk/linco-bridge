@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { applyRuntimeConfig } = require('../../src/app/configRuntime');
+const { applyRuntimeConfig } = require('../../src/daemon/reload');
 
 const logger = { info() {}, warn() {} };
 const activeSessions = new Map([['claude:s1', { id: 's1' }]]);

@@ -7,7 +7,7 @@ const {
   loadConfig,
   readUserConfig,
 } = require('../config');
-const { ensureLocalToken, localUrlWithToken } = require('../app/localAuth');
+const { ensureLocalToken, localUrlWithToken } = require('../local/auth');
 const { checkGatewayHealth, resolveHermesGatewayOptions } = require('../gateways/hermesGateway');
 const {
   checkGatewayHealth: checkOpenClawGatewayHealth,

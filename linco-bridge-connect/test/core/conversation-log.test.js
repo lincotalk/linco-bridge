@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { sendTurnEnd } = require('../../src/core/protocol');
-const { createLogger } = require('../../src/app/logger');
+const { createLogger } = require('../../src/core/logger');
 const {
   captureAssistantReplyText,
   logUserInput,

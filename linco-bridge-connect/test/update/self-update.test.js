@@ -7,7 +7,7 @@ const {
   resolveTargetVersion,
   scheduleSelfUpdate,
   _internal,
-} = require('../../src/app/selfUpdate');
+} = require('../../src/update');
 const pkg = require('../../package.json');
 
 (async () => {

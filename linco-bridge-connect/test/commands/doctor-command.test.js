@@ -3,9 +3,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { OFFICIAL_LINCO_DEMO_AGENT_WS_URLS } = require('../../src/channels/presets/lincoDemo');
 
 const rootDir = path.resolve(__dirname, '..', '..');
 const cli = path.join(rootDir, 'bin', 'linco-connect.js');
+const lincoDemoCodexWsUrl = OFFICIAL_LINCO_DEMO_AGENT_WS_URLS.codex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-doctor-command-'));
 
@@ -61,7 +63,7 @@ try {
   assert.match(output, /Channel linco: preset=linco/);
   assert.match(output, /Channel linco\/claude\/default: wss:\/\/app\.lincotalk\.com\/socket\/ai\/claude/);
   assert.match(output, /Channel linco-demo: preset=linco-demo/);
-  assert.match(output, /Channel linco-demo\/codex\/default: wss:\/\/demo\.lincotalk\.com\/socket\/ai\/codex/);
+  assert.match(output, new RegExp(`Channel linco-demo/codex/default: ${lincoDemoCodexWsUrl}`));
   assert.match(output, /Channel custom-im: preset=none/);
   assert.match(output, /Channel custom-im\/claude\/default: missing wsUrl/);
   assert.match(output, /Channel missing-channel: missing from config\.channels/);

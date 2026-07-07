@@ -7,7 +7,7 @@ const {
   resolveCommand,
   saveUserConfig,
 } = require('../config');
-const { ensureLocalToken } = require('../app/localAuth');
+const { ensureLocalToken } = require('../local/auth');
 const { commandExists } = require('./utils');
 
 function initCommand(options, context = {}) {

@@ -14,13 +14,16 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | --- | --- |
 | `bin/` | npm CLI 入口，当前暴露 `linco-connect` 命令。 |
 | `src/cli/` | CLI 入口和本机操作。`index.js` 保持为命令分发入口，初始化、账号、ws-prefix、后台进程、doctor 和帮助输出按职责拆到独立模块。 |
-| `src/app/` | 本地服务生命周期、静态测试页、WebSocket、本地控制端口、日志和自更新。 |
+| `src/service/` | 本地服务启动、关闭和生命周期编排。 |
+| `src/local/` | 本地测试页、本地 WebSocket 接入和本地访问鉴权。 |
+| `src/daemon/` | 后台进程控制通道和运行时配置热加载。 |
+| `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
 | `src/channels/` | 远端 channel 注册、连接器和 Linco 协议适配。 |
 | `src/agents/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器。 |
 | `src/runtime/` | Agent 运行环境、进程 runner、Claude 历史和项目路径辅助逻辑。 |
 | `src/commands/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
-| `src/core/` | session、协议发送、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
+| `src/core/` | session、协议发送、日志、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
 | `src/attachments/` | 入站附件落盘、类型检查和图片处理。 |
 | `src/gateways/` | Hermes/OpenClaw Gateway 启动、健康检查和客户端封装。 |
 | `packages/protocol/` | 可复用的消息、文件、channel 规范化工具。 |
@@ -40,7 +43,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 ## 模块边界
 
-`src/core` 不应该依赖具体 Agent。它提供 session、权限、文件和通用协议能力。
+`src/core` 不应该依赖具体 Agent。它提供 session、日志、权限、文件和通用协议能力。
 
 `src/agents` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。
 

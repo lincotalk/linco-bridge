@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { stopServer } = require('../../src/app/serverApp');
+const { stopServer } = require('../../src/service/server');
 
 function createChild() {
   let ended = false;

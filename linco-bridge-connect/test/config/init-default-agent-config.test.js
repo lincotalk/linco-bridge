@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { loadConfig } = require('../../src/config');
+const { OFFICIAL_LINCO_DEMO_AGENT_WS_URLS } = require('../../src/channels/presets/lincoDemo');
 
 function withTempConfig(config, fn, env = {}) {
   const envNames = ['LINCO_HOME', 'LINCO_AGENT', 'LINCO_CHANNEL', 'LINCO_ACCOUNT', 'LINCO_APP_ID', 'LINCO_APP_SECRET', 'LINCO_TOKEN'];
@@ -195,7 +196,7 @@ withTempConfig({
       agentType: 'codex',
       account: 'default',
       appId: 'demo-app',
-      wsUrl: 'wss://demo.lincotalk.com/socket/ai/codex',
+      wsUrl: OFFICIAL_LINCO_DEMO_AGENT_WS_URLS.codex,
     },
   ]);
 });
@@ -240,7 +241,7 @@ withTempConfig({
     channel: 'linco-demo',
     account: 'default',
     appId: 'demo-app',
-    wsUrl: 'wss://demo.lincotalk.com/socket/ai/claude',
+    wsUrl: OFFICIAL_LINCO_DEMO_AGENT_WS_URLS.claude,
   }]);
 }, { LINCO_CHANNEL: 'linco-demo' });
 
