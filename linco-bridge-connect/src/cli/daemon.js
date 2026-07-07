@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { startServer, stopServer } = require('../app/serverApp');
+const { startServer, stopServer } = require('../service/server');
 const { ensureDir, loadConfig } = require('../config');
-const { ensureLocalToken } = require('../app/localAuth');
-const { sendControlCommand } = require('../app/controlServer');
+const { ensureLocalToken } = require('../local/auth');
+const { sendControlCommand } = require('../daemon/control');
 const pkg = require('../../package.json');
 
 async function startCommand(options = {}, context = {}) {

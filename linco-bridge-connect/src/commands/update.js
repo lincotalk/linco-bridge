@@ -5,7 +5,7 @@ const {
   requestCurrentProcessShutdown,
   resolveTargetVersion,
   scheduleSelfUpdate,
-} = require('../app/selfUpdate');
+} = require('../update');
 const { sendError, sendSystem } = require('../core/protocol');
 const { splitCommandArgs } = require('./args');
 

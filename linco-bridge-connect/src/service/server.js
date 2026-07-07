@@ -1,11 +1,11 @@
 const { ensureDir, loadConfig } = require('../config');
-const { ensureLocalToken, localUrlWithToken } = require('./localAuth');
-const { createStaticServer } = require('./httpStatic');
-const { startControlServer, stopControlServer } = require('./controlServer');
+const { ensureLocalToken, localUrlWithToken } = require('../local/auth');
+const { createStaticServer } = require('../local/static');
+const { startControlServer, stopControlServer } = require('../daemon/control');
 const { startImConnectors } = require('../channels/bridge/connector');
-const { startConfigReloadWatcher, stopConfigReloadWatcher } = require('./configRuntime');
-const { createLogger } = require('./logger');
-const { attachWebSocketServer } = require('./wsServer');
+const { startConfigReloadWatcher, stopConfigReloadWatcher } = require('../daemon/reload');
+const { createLogger } = require('../core/logger');
+const { attachWebSocketServer } = require('../local/websocket');
 const { cleanupSession } = require('../core/session');
 
 async function prewarmHermesGateway(config) {

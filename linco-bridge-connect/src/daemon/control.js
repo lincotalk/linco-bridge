@@ -1,7 +1,7 @@
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
-const { reloadRuntimeConfig } = require('./configRuntime');
+const { reloadRuntimeConfig } = require('./reload');
 
 function startControlServer(rootDir, config, options = {}) {
   if (config._controlServer || options.enabled === false) return null;

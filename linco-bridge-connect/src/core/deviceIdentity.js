@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { isSourceCheckout } = require('../app/selfUpdate')._internal;
+const { isSourceCheckout } = require('../update')._internal;
 
 const DEVICE_FILE = 'device.json';
 

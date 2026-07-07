@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { isLocalRequestAuthorized } = require('./localAuth');
+const { isLocalRequestAuthorized } = require('./auth');
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',

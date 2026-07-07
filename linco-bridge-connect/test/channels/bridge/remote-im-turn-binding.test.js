@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 
 const { _internal } = require('../../../src/channels/bridge/connector');
-const { _internal: wsServerInternals } = require('../../../src/app/wsServer');
+const { _internal: wsServerInternals } = require('../../../src/local/websocket');
 
 function createConnector() {
   const sent = [];
