@@ -17,6 +17,7 @@ export interface BridgeCommandParams {
   accountId: string
   /** IM channel for linco-connect; defaults to {@link BRIDGE_CONNECT_CHANNEL}. */
   channel?: string
+  /** Optional WS override; omit to use linco-connect channel preset wsUrl. */
   wsUrl?: string
 }
 
@@ -54,15 +55,21 @@ export function defaultAccountId(type: AgentBridgeType): string {
 export function buildInitCommand(type: AgentBridgeType, params: BridgeCommandParams): string {
   const agentFlag = getConnectAgentFlag(type)
   const channel = params.channel?.trim() || BRIDGE_CONNECT_CHANNEL
-  const wsUrl = params.wsUrl?.trim() || `${DEFAULT_BRIDGE_WS_URL}/${agentFlag}`
-  return [
+  const parts = [
     `linco-connect init --token "${params.appId}:${params.appSecret}"`,
     `--agent ${agentFlag}`,
     `--channel ${channel}`,
     `--account ${params.accountId}`,
-    `--ws-url ${wsUrl}`,
-    '--allow-insecure-ws',
-  ].join(' ')
+  ]
+  const wsOverride = params.wsUrl?.trim()
+  if (wsOverride) {
+    parts.push(`--ws-url ${wsOverride}`)
+  }
+  // linco-demo preset uses ws://127.0.0.1:3300/bridge/ws/{agent}; local init needs explicit opt-in.
+  if (channel === BRIDGE_CONNECT_CHANNEL || !wsOverride || wsOverride.startsWith('ws://')) {
+    parts.push('--allow-insecure-ws')
+  }
+  return parts.join(' ')
 }
 
 /**

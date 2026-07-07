@@ -19,6 +19,8 @@ export interface BridgeConnectionRow {
   account_id: string
   bound_context_id: string | null
   bound_context_name: string | null
+  bridge_project_path: string | null
+  bridge_agent_session_id: string | null
   session_id: string | null
   create_time: number
   update_time: number
@@ -29,6 +31,8 @@ export interface ChatSessionRow {
   agent_type: AgentBridgeType
   title: string
   bridge_connection_id: string | null
+  bridge_project_path: string | null
+  bridge_agent_session_id: string | null
   last_message: string
   update_time: number
 }
@@ -95,6 +99,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       CREATE INDEX IF NOT EXISTS idx_bridge_connections_type ON bridge_connections(bridge_type);
       CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
     `)
+
+    this.ensureColumn('bridge_connections', 'bridge_project_path', 'TEXT')
+    this.ensureColumn('bridge_connections', 'bridge_agent_session_id', 'TEXT')
+    this.ensureColumn('chat_sessions', 'bridge_project_path', 'TEXT')
+    this.ensureColumn('chat_sessions', 'bridge_agent_session_id', 'TEXT')
+  }
+
+  private ensureColumn(table: string, column: string, definition: string): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+    if (columns.some((item) => item.name === column)) return
+    this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 
   private seed(): void {
@@ -110,8 +125,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       this.db
         .prepare(
           `INSERT INTO bridge_connections
-          (id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, session_id, create_time, update_time)
-          VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)`,
+          (id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, bridge_project_path, bridge_agent_session_id, session_id, create_time, update_time)
+          VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
         )
         .run(id, bridgeType, appId, appSecret, accountId, now, now)
 
@@ -161,18 +176,30 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   bindConnectionContext(
     connectionId: string,
-    contextId: string,
-    contextName: string,
-    sessionId: string,
+    input: {
+      contextId: string
+      contextName: string
+      sessionId: string
+      projectPath?: string | null
+      agentSessionId?: string | null
+    },
   ): BridgeConnectionRow | undefined {
     const now = Date.now()
     this.db
       .prepare(
         `UPDATE bridge_connections
-         SET bound_context_id = ?, bound_context_name = ?, session_id = ?, update_time = ?
+         SET bound_context_id = ?, bound_context_name = ?, bridge_project_path = ?, bridge_agent_session_id = ?, session_id = ?, update_time = ?
          WHERE id = ?`,
       )
-      .run(contextId, contextName, sessionId, now, connectionId)
+      .run(
+        input.contextId,
+        input.contextName,
+        input.projectPath ?? null,
+        input.agentSessionId ?? input.contextId,
+        input.sessionId,
+        now,
+        connectionId,
+      )
     return this.getConnectionById(connectionId)
   }
 
@@ -189,8 +216,61 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   getSessionByConnectionId(connectionId: string): ChatSessionRow | undefined {
     return this.db
-      .prepare(`SELECT * FROM chat_sessions WHERE bridge_connection_id = ?`)
+      .prepare(`SELECT * FROM chat_sessions WHERE bridge_connection_id = ? ORDER BY update_time DESC`)
       .get(connectionId) as unknown as ChatSessionRow | undefined
+  }
+
+  findSessionByBridgeBinding(
+    connectionId: string,
+    projectPath: string,
+    agentSessionId: string,
+  ): ChatSessionRow | undefined {
+    const normalizedProjectPath = projectPath.trim()
+    const normalizedAgentSessionId = agentSessionId.trim()
+    if (!normalizedAgentSessionId) return undefined
+
+    if (normalizedProjectPath) {
+      return this.db
+        .prepare(
+          `SELECT * FROM chat_sessions
+           WHERE bridge_connection_id = ?
+             AND COALESCE(bridge_agent_session_id, '') = ?
+             AND COALESCE(bridge_project_path, '') = ?
+           ORDER BY update_time DESC
+           LIMIT 1`,
+        )
+        .get(connectionId, normalizedAgentSessionId, normalizedProjectPath) as unknown as
+        | ChatSessionRow
+        | undefined
+    }
+
+    return this.db
+      .prepare(
+        `SELECT * FROM chat_sessions
+         WHERE bridge_connection_id = ?
+           AND COALESCE(bridge_agent_session_id, '') = ?
+           AND COALESCE(bridge_project_path, '') = ''
+         ORDER BY update_time DESC
+         LIMIT 1`,
+      )
+      .get(connectionId, normalizedAgentSessionId) as unknown as ChatSessionRow | undefined
+  }
+
+  updateSessionBridgeBinding(
+    sessionId: string,
+    input: {
+      projectPath?: string | null
+      agentSessionId?: string | null
+    },
+  ): void {
+    const now = Date.now()
+    this.db
+      .prepare(
+        `UPDATE chat_sessions
+         SET bridge_project_path = ?, bridge_agent_session_id = ?, update_time = ?
+         WHERE id = ?`,
+      )
+      .run(input.projectPath ?? null, input.agentSessionId ?? null, now, sessionId)
   }
 
   linkConnectionSession(connectionId: string, sessionId: string): void {
@@ -200,6 +280,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(sessionId, now, connectionId)
   }
 
+  updateConnectionWorkspace(connectionId: string, projectPath: string): void {
+    const now = Date.now()
+    this.db
+      .prepare(
+        `UPDATE bridge_connections SET bridge_project_path = ?, update_time = ? WHERE id = ?`,
+      )
+      .run(projectPath.trim(), now, connectionId)
+  }
+
   touchSession(sessionId: string, lastMessage: string): void {
     const now = Date.now()
     this.db
@@ -207,10 +296,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(lastMessage, now, sessionId)
   }
 
+  updateSessionTitle(sessionId: string, title: string): void {
+    const normalized = title.trim()
+    if (!normalized) return
+    const now = Date.now()
+    this.db
+      .prepare(`UPDATE chat_sessions SET title = ?, update_time = ? WHERE id = ?`)
+      .run(normalized, now, sessionId)
+  }
+
   createSession(input: {
     agentType: AgentBridgeType
     title: string
     bridgeConnectionId?: string | null
+    bridgeProjectPath?: string | null
+    bridgeAgentSessionId?: string | null
     lastMessage?: string
   }): ChatSessionRow {
     const id = randomUUID()
@@ -218,15 +318,27 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const lastMessage = input.lastMessage ?? ''
     this.db
       .prepare(
-        `INSERT INTO chat_sessions (id, agent_type, title, bridge_connection_id, last_message, update_time)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO chat_sessions
+         (id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, last_message, update_time)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, input.agentType, input.title, input.bridgeConnectionId ?? null, lastMessage, now)
+      .run(
+        id,
+        input.agentType,
+        input.title,
+        input.bridgeConnectionId ?? null,
+        input.bridgeProjectPath ?? null,
+        input.bridgeAgentSessionId ?? null,
+        lastMessage,
+        now,
+      )
     return {
       id,
       agent_type: input.agentType,
       title: input.title,
       bridge_connection_id: input.bridgeConnectionId ?? null,
+      bridge_project_path: input.bridgeProjectPath ?? null,
+      bridge_agent_session_id: input.bridgeAgentSessionId ?? null,
       last_message: lastMessage,
       update_time: now,
     }

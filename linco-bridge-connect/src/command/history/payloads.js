@@ -84,6 +84,16 @@ function formatHistoryRounds(agentType, sessionId, rounds, requestedLimit) {
   return `当前 ${agentType} session 最近 ${rounds.length} 轮聊天（请求 ${requestedLimit} 轮）：\nAgent session: ${sessionId}\n\n${lines.join('\n\n')}`;
 }
 
+function mapRoundFiles(files) {
+  if (!Array.isArray(files) || files.length === 0) return undefined;
+  return files.map((file, index) => ({
+    name: file.name || file.mediaName || `attachment-${index + 1}`,
+    mimeType: file.mimeType || file.type || file.mediaType || 'application/octet-stream',
+    base64: file.base64 || file.mediaBase64 || undefined,
+    url: file.url || file.mediaUrl || undefined,
+  }));
+}
+
 function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, options = {}) {
   return {
     version: 1,
@@ -102,12 +112,14 @@ function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, optio
         text: round.user || '',
         timestamp: round.userTimestamp || null,
         timestampMs: timestampToMs(round.userTimestamp),
+        files: mapRoundFiles(round.userFiles),
       },
       assistant: {
         text: round.assistant || '',
         missing: !round.assistant,
         timestamp: round.assistantTimestamp || null,
         timestampMs: timestampToMs(round.assistantTimestamp),
+        files: mapRoundFiles(round.assistantFiles),
       },
     })),
   };

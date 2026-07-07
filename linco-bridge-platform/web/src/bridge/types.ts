@@ -20,6 +20,45 @@ export interface AgentBridgeBindableContext {
   id: string
   label: string
   description?: string
+  bindCommand?: string
+  projectPath?: string
+  agentSessionId?: string
+}
+
+export interface BridgeProjectItem {
+  id: string
+  name: string
+  path: string
+  selectCommand?: string
+  sessionsCommand?: string
+}
+
+export interface BridgeWorkspaceSession {
+  id: string
+  title: string
+  timeText?: string
+  bindCommand?: string
+  historyCommand?: string
+  updatedAt?: number
+}
+
+export interface BridgeWorkspaceSelection {
+  sessionId: string
+  title: string
+  projectPath: string
+  projectName: string
+  agentSessionId?: string
+}
+
+export interface BridgeWorkspaceApplyInput {
+  projectPath?: string
+  projectName?: string
+  agentSessionId?: string
+  sessionTitle?: string
+  bindCommand?: string
+  selectProjectCommand?: string
+  platformSessionId?: string
+  connectionId?: string
 }
 
 export interface BridgeSourceCard {
@@ -41,6 +80,12 @@ export interface ChatSessionItem {
 
 export type ChatMessageRole = 'user' | 'assistant' | 'system'
 
+export interface ChatMessageAttachment {
+  name: string
+  mimeType?: string
+  previewUrl?: string
+}
+
 export interface ChatMessage {
   id: string
   sessionId: string
@@ -48,6 +93,7 @@ export interface ChatMessage {
   content: string
   createdAt: number
   streaming?: boolean
+  attachments?: ChatMessageAttachment[]
 }
 
 export interface BridgeStatusResult {
@@ -96,8 +142,9 @@ export interface AgentLandingHeader {
 
 export interface StartConversationInput {
   agentType: AgentBridgeType
-  message: string
+  message?: string
   tempSession?: boolean
+  title?: string
 }
 
 export interface StartConversationResult {

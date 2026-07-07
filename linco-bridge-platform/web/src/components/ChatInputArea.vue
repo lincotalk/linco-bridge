@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ChatInputActionButton from '@/components/ChatInputActionButton.vue'
+import PendingAttachmentList from '@/components/PendingAttachmentList.vue'
+import type { OutboundChatFile } from '@/api/session-api'
 import { CHAT_ICON } from '@/constants/chat-icons'
 
 const props = withDefaults(
@@ -11,6 +13,7 @@ const props = withDefaults(
     sending?: boolean
     isSendDisabled?: boolean
     isUploading?: boolean
+    pendingFiles?: OutboundChatFile[]
   }>(),
   {
     modelValue: '',
@@ -19,6 +22,7 @@ const props = withDefaults(
     sending: false,
     isSendDisabled: false,
     isUploading: false,
+    pendingFiles: () => [],
   },
 )
 
@@ -28,11 +32,14 @@ const emit = defineEmits<{
   stop: []
   add: []
   voice: []
+  'remove-file': [number]
 }>()
 
 const draft = ref(props.modelValue)
 
-const canSend = computed(() => draft.value.trim().length > 0)
+const canSend = computed(
+  () => draft.value.trim().length > 0 || (props.pendingFiles?.length ?? 0) > 0,
+)
 const canSubmit = computed(
   () => canSend.value && !props.isSendDisabled && !props.disabled && !props.sending,
 )
@@ -71,6 +78,11 @@ function handleVoice() {
 <template>
   <view class="chat-input">
     <view class="chat-input__shell">
+      <PendingAttachmentList
+        v-if="pendingFiles.length > 0"
+        :files="pendingFiles"
+        @remove="(index) => emit('remove-file', index)"
+      />
       <textarea
         class="chat-input__field"
         :value="draft"

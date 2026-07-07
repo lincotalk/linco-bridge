@@ -1,18 +1,32 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import { ref } from 'vue'
 import SessionListItem from '@/components/SessionListItem.vue'
 import { switchRootTab } from '@/constants/tabbar'
 import { useSessionStore } from '@/stores'
 import type { ChatSessionItem } from '@/bridge/types'
+import { showToast } from '@/utils/format'
 
 const sessionStore = useSessionStore()
+const refreshing = ref(false)
 
 onShow(() => {
   void sessionStore.loadSessions()
 })
 
+async function handleRefresh() {
+  refreshing.value = true
+  try {
+    await sessionStore.loadSessions()
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : '刷新失败')
+  } finally {
+    refreshing.value = false
+  }
+}
+
 function openChat(item: ChatSessionItem) {
-  uni.navigateTo({ url: `/pages/chat/landing?agentType=${item.agentType}` })
+  uni.navigateTo({ url: `/pages/chat/index?sessionId=${encodeURIComponent(item.id)}` })
 }
 
 function goBridge() {
@@ -22,23 +36,45 @@ function goBridge() {
 
 <template>
   <view class="page-container messages-page">
-    <view v-if="sessionStore.sessions.length === 0" class="empty">
-      <text class="empty__title">暂无桥接会话</text>
-      <text class="empty__desc">前往「桥接」连接本机 Agent</text>
-      <view class="empty__action" @tap="goBridge">去桥接</view>
-    </view>
-    <view v-else class="messages-page__list">
-      <SessionListItem
-        v-for="item in sessionStore.sessions"
-        :key="item.id"
-        :item="item"
-        @tap="openChat(item)"
-      />
-    </view>
+    <scroll-view
+      class="messages-page__scroll"
+      scroll-y
+      refresher-enabled
+      :refresher-triggered="refreshing"
+      @refresherrefresh="handleRefresh"
+    >
+      <view v-if="sessionStore.loadingSessions && sessionStore.sessions.length === 0" class="empty">
+        <text class="empty__desc">加载中…</text>
+      </view>
+
+      <view v-else-if="sessionStore.sessions.length === 0" class="empty">
+        <text class="empty__title">暂无桥接会话</text>
+        <text class="empty__desc">前往「桥接」连接本机 Agent</text>
+        <view class="empty__action" @tap="goBridge">去桥接</view>
+      </view>
+
+      <view v-else class="messages-page__list">
+        <SessionListItem
+          v-for="item in sessionStore.sessions"
+          :key="item.id"
+          :item="item"
+          @tap="openChat(item)"
+        />
+      </view>
+    </scroll-view>
   </view>
 </template>
 
 <style scoped lang="scss">
+.messages-page {
+  height: 100vh;
+  background: #ffffff;
+}
+
+.messages-page__scroll {
+  height: 100%;
+}
+
 .messages-page__list {
   margin-top: calc(env(safe-area-inset-top) + 8rpx);
   background: #ffffff;

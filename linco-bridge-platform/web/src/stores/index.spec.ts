@@ -14,13 +14,26 @@ vi.mock('@/api/session-api', () => ({
     },
   ]),
   fetchMessages: vi.fn(async () => []),
-  sendSessionMessage: vi.fn(async () => ({
-    id: 'm-assistant',
-    sessionId: 'session-1',
-    role: 'assistant',
-    content: 'ack',
-    createdAt: 2,
-  })),
+  streamSessionMessage: vi.fn(async (_sessionId, _content, handlers) => {
+    handlers.onUserMessage?.({
+      id: 'm-user',
+      sessionId: 'session-1',
+      role: 'user',
+      content: 'hi',
+      createdAt: 1,
+    })
+    handlers.onChunk?.({ fullText: 'ack' })
+    const reply = {
+      id: 'm-assistant',
+      sessionId: 'session-1',
+      role: 'assistant' as const,
+      content: 'ack',
+      createdAt: 2,
+    }
+    handlers.onDone?.(reply)
+    return reply
+  }),
+  cancelStreamMessage: vi.fn(async () => null),
 }))
 
 describe('useSessionStore', () => {

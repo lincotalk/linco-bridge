@@ -33,16 +33,108 @@ export class BridgeController {
   }
 
   @Get(':type/contexts')
-  listContexts(
+  async listContexts(
     @Param('type') type: string,
     @Query('connectionId') connectionId?: string,
     @Query('connection_id') snakeConnectionId?: string,
   ) {
-    return ok(this.bridgeService.listContexts(type, (connectionId ?? snakeConnectionId)?.trim()))
+    return ok(
+      await this.bridgeService.listContexts(type, (connectionId ?? snakeConnectionId)?.trim()),
+    )
+  }
+
+  @Get(':type/projects')
+  async listProjects(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+  ) {
+    return ok(
+      await this.bridgeService.listProjects(type, (connectionId ?? snakeConnectionId)?.trim()),
+    )
+  }
+
+  @Post(':type/select-project')
+  async selectProject(
+    @Param('type') type: string,
+    @Body()
+    body: {
+      projectPath?: string
+      project_path?: string
+      connectionId?: string
+      connection_id?: string
+    },
+  ) {
+    const projectPath = (body.projectPath ?? body.project_path)?.trim()
+    if (!projectPath) {
+      throw new NotFoundException('projectPath 不能为空')
+    }
+    return ok(
+      await this.bridgeService.selectProject(
+        type,
+        (body.connectionId ?? body.connection_id)?.trim(),
+        projectPath,
+      ),
+    )
+  }
+
+  @Get(':type/sessions')
+  async listProjectSessions(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+    @Query('projectPath') projectPath?: string,
+    @Query('project_path') snakeProjectPath?: string,
+    @Query('limit') limitRaw?: string,
+  ) {
+    const path = (projectPath ?? snakeProjectPath)?.trim()
+    if (!path) {
+      throw new NotFoundException('projectPath 不能为空')
+    }
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 10
+    return ok(
+      await this.bridgeService.listProjectSessions(
+        type,
+        (connectionId ?? snakeConnectionId)?.trim(),
+        path,
+        Number.isFinite(limit) && limit > 0 ? limit : 10,
+      ),
+    )
+  }
+
+  @Get(':type/chats')
+  async listChats(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+    @Query('limit') limitRaw?: string,
+  ) {
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 10
+    return ok(
+      await this.bridgeService.listChats(
+        type,
+        (connectionId ?? snakeConnectionId)?.trim(),
+        Number.isFinite(limit) && limit > 0 ? limit : 10,
+      ),
+    )
+  }
+
+  @Post(':type/workspace/apply')
+  async applyWorkspace(
+    @Param('type') type: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return ok(
+      await this.bridgeService.applyWorkspaceSelection(
+        type,
+        (body.connectionId as string | undefined) ?? (body.connection_id as string | undefined),
+        body,
+      ),
+    )
   }
 
   @Post(':type/bind-context')
-  bindContext(
+  async bindContext(
     @Param('type') type: string,
     @Body()
     body: {
@@ -57,7 +149,7 @@ export class BridgeController {
       throw new NotFoundException('contextId 不能为空')
     }
     return ok(
-      this.bridgeService.bindContext(
+      await this.bridgeService.bindContext(
         type,
         (body.connectionId ?? body.connection_id)?.trim(),
         contextId,

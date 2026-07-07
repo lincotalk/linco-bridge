@@ -297,6 +297,7 @@ module.exports = {
   buildFileReferenceHint,
   buildFileReferenceSystemPrompt,
   buildOutboundFileMessage,
+  candidatePathsFromMarkdownLinks,
   extractFileReferences,
   kindFromFilename,
   mimeFromFilename,

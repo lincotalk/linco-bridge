@@ -5,8 +5,15 @@ import AgentHistoryRow from '@/components/AgentHistoryRow.vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
 import AgentLandingInput from '@/components/AgentLandingInput.vue'
 import { useAgentLanding } from '@/composables/useAgentLanding'
+import { useAgentPanel } from '@/composables/useAgentPanel'
+import { useAttachmentPicker } from '@/composables/useAttachmentPicker'
+import { useVoiceInput } from '@/composables/useVoiceInput'
+import { stashPendingFiles } from '@/composables/pendingAttachmentTransfer'
 import type { AgentBridgeType, AgentHistoryItem } from '@/bridge/types'
+import { useSessionStore } from '@/stores'
 import { showToast } from '@/utils/format'
+import { isBoundWorkspacePick } from '@/utils/pick-workspace'
+import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 
 const VISIBLE_COUNT = 3
 
@@ -15,6 +22,7 @@ const draft = ref('')
 const tempSession = ref(false)
 
 const landing = useAgentLanding()
+const sessionStore = useSessionStore()
 const {
   header,
   subtitle,
@@ -24,9 +32,14 @@ const {
   loadLanding,
   startConversation,
   pickWorkspace,
-  openAgentPanel,
   dispose,
 } = landing
+
+const agentPanel = useAgentPanel({ agentType })
+const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
+const { startVoice } = useVoiceInput((text) => {
+  draft.value = draft.value ? `${draft.value} ${text}` : text
+})
 
 const visibleItems = computed(() => history.value.slice(0, VISIBLE_COUNT))
 const hasMore = computed(() => history.value.length > VISIBLE_COUNT)
@@ -46,44 +59,54 @@ function openHistoryItem(item: AgentHistoryItem) {
 }
 
 function viewAllHistory() {
-  showToast('历史搜索页待 SDK 接入')
+  uni.navigateTo({ url: `/pages/chat/history?agentType=${encodeURIComponent(agentType.value)}` })
 }
 
 async function handleWorkspace() {
-  const picked = await pickWorkspace(agentType.value)
-  if (picked) {
+  try {
+    const picked = await pickWorkspace(agentType.value)
+    if (!picked) return
+    if (isBoundWorkspacePick(picked)) {
+      await openBoundBridgeChat(picked)
+      return
+    }
     showToast(`已选择 ${picked.name}`)
-  } else {
-    showToast('工作区选择待插件接入')
+    await loadLanding(agentType.value)
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '切换工作区失败')
   }
 }
 
 function handleMore() {
-  openAgentPanel(agentType.value)
-  showToast('Agent 侧栏待 SDK 接入')
+  agentPanel.openPanel()
 }
 
-function handleAdd() {
-  showToast('附件选择待 SDK 接入')
+async function handleAdd() {
+  await pickFiles()
 }
 
 function handleVoice() {
-  showToast('语音输入待 SDK 接入')
+  startVoice()
 }
 
 async function handleSend() {
   const message = draft.value.trim()
-  if (!message || starting.value) return
+  const files = pendingFiles.value
+  if ((!message && files.length === 0) || starting.value) return
 
   try {
     const result = await startConversation({
       agentType: agentType.value,
-      message,
       tempSession: tempSession.value,
+      title: message.slice(0, 40) || '附件会话',
     })
+    stashPendingFiles(result.sessionId, files)
     draft.value = ''
+    clearFiles()
+    await sessionStore.loadSessions().catch(() => undefined)
+    const draftParam = message ? `&draft=${encodeURIComponent(message)}` : ''
     uni.navigateTo({
-      url: `/pages/chat/index?sessionId=${encodeURIComponent(result.sessionId)}&draft=${encodeURIComponent(message)}`,
+      url: `/pages/chat/index?sessionId=${encodeURIComponent(result.sessionId)}${draftParam}`,
     })
   } catch (error) {
     showToast(error instanceof Error ? error.message : '发起会话失败')
@@ -130,10 +153,12 @@ async function handleSend() {
       v-model="draft"
       :disabled="starting"
       :temp-session="tempSession"
+      :pending-files="pendingFiles"
       @send="handleSend"
       @add="handleAdd"
       @voice="handleVoice"
       @toggle-temp="tempSession = !tempSession"
+      @remove-file="removeFile"
     />
   </view>
 </template>

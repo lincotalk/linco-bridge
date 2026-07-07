@@ -20,6 +20,10 @@ defineProps<{
   tipTitle?: string
   tipDesc?: string
   contextTitle?: string
+  contextSubtitle?: string
+  contextNote?: string
+  bindButtonText?: string
+  contextEmptyText?: string
 }>()
 
 const emit = defineEmits<{
@@ -27,6 +31,7 @@ const emit = defineEmits<{
   refresh: []
   check: []
   continue: []
+  bind: []
   'select-context': [string]
 }>()
 </script>
@@ -45,7 +50,7 @@ const emit = defineEmits<{
       <template v-else>
         <view class="connect-page__tip card">
           <view class="connect-page__tip-head">
-            <text class="connect-page__tip-title">{{ tipTitle ?? '在电脑上执行以下命令' }}</text>
+            <text class="connect-page__tip-title">{{ tipTitle ?? '复制本机连接配置' }}</text>
             <view
               v-if="!loading"
               class="connect-page__refresh"
@@ -58,7 +63,7 @@ const emit = defineEmits<{
           <text class="connect-page__tip-desc">
             {{
               tipDesc ??
-                '使用 linco-demo 通道连接本机 Bridge。若 npm 全局安装的 linco-connect 预设指向远程，init 命令会显式指定 --ws-url 覆盖到本地服务。'
+                `完成本机配置并连接成功后，${agentName} 会自动出现在 Agent 列表。`
             }}
           </text>
         </view>
@@ -70,6 +75,8 @@ const emit = defineEmits<{
           class="context card"
         >
           <text class="context__title">{{ contextTitle ?? '选择绑定上下文' }}</text>
+          <text v-if="contextSubtitle" class="context__subtitle">{{ contextSubtitle }}</text>
+          <text v-if="contextNote" class="context__note">{{ contextNote }}</text>
           <view
             v-for="item in contexts"
             :key="item.id"
@@ -80,45 +87,56 @@ const emit = defineEmits<{
             <text class="context__label">{{ item.label }}</text>
             <text v-if="item.description" class="context__desc">{{ item.description }}</text>
           </view>
+          <view
+            class="btn btn--primary context__bind"
+            :class="{ 'btn--disabled': binding || completing || !selectedContextId }"
+            @tap="emit('bind')"
+          >
+            {{ binding || completing ? '处理中…' : bindButtonText ?? '绑定选中的上下文' }}
+          </view>
         </view>
 
-        <view v-if="hasCopied" class="connect-page__status">
+        <view
+          v-else-if="needsContextBinding && connected && !contexts.length"
+          class="context card"
+        >
+          <text class="context__empty">
+            {{ contextEmptyText ?? '未检测到可绑定的上下文，请先在电脑端完成配置' }}
+          </text>
+        </view>
+
+        <view v-if="hasCopied" class="connect-page__actions">
           <view
-            class="connect-page__status-pill"
-            :class="{
-              'connect-page__status-pill--online': connected === true,
-              'connect-page__status-pill--offline': connected === false,
-            }"
+            v-if="!needsContextBinding || connected !== true"
+            class="btn btn--primary btn--full"
+            :class="{ 'btn--disabled': checking }"
+            @tap="emit('check')"
           >
             {{
               checking
                 ? '检测中…'
                 : connected === true
                   ? `已连接 ${agentName}`
-                  : '等待本机连接…'
+                  : '我已复制，获取连接状态'
             }}
           </view>
-          <text v-if="connected === false" class="connect-page__status-hint">
-            未检测到 {{ agentName }} 在线，请确认已在电脑终端执行命令并重试
-          </text>
-        </view>
 
-        <view class="connect-page__actions">
           <view
-            class="btn btn--ghost"
-            :class="{ 'btn--disabled': checking }"
-            @tap="emit('check')"
-          >
-            {{ checking ? '检测中…' : '检测连接' }}
-          </view>
-          <view
-            class="btn btn--primary"
-            :class="{ 'btn--disabled': completing || binding }"
+            v-if="!needsContextBinding && connected === true"
+            class="btn btn--primary btn--full"
+            :class="{ 'btn--disabled': completing }"
             @tap="emit('continue')"
           >
-            {{ completing || binding ? '处理中…' : '继续' }}
+            {{ completing ? '处理中…' : `进入 ${agentName}` }}
           </view>
         </view>
+
+        <text
+          v-if="hasCopied && connected === false"
+          class="connect-page__status-hint"
+        >
+          未检测到 {{ agentName }} 在线，请确认已在电脑终端执行命令并重试
+        </text>
       </template>
     </view>
   </view>
@@ -195,9 +213,25 @@ const emit = defineEmits<{
 
 .context__title {
   display: block;
-  margin-bottom: 16rpx;
+  margin-bottom: 8rpx;
   font-size: 28rpx;
   font-weight: 600;
+}
+
+.context__subtitle,
+.context__note {
+  display: block;
+  margin-bottom: 8rpx;
+  font-size: 26rpx;
+  color: #8c8c8c;
+  line-height: 1.5;
+}
+
+.context__empty {
+  display: block;
+  font-size: 26rpx;
+  color: #8c8c8c;
+  line-height: 1.5;
 }
 
 .context__item {
@@ -226,25 +260,8 @@ const emit = defineEmits<{
   color: #8c8c8c;
 }
 
-.connect-page__status {
-  margin-top: 32rpx;
-}
-
-.connect-page__status-pill {
-  padding: 20rpx 24rpx;
-  border-radius: 999rpx;
-  text-align: center;
-  font-size: 28rpx;
-  color: #ffffff;
-  background: #00754a;
-}
-
-.connect-page__status-pill--online {
-  background: #00754a;
-}
-
-.connect-page__status-pill--offline {
-  background: #00754a;
+.context__bind {
+  margin-top: 16rpx;
 }
 
 .connect-page__status-hint {
@@ -258,22 +275,20 @@ const emit = defineEmits<{
 
 .connect-page__actions {
   display: flex;
+  flex-direction: column;
   gap: 20rpx;
   margin-top: 32rpx;
 }
 
 .btn {
-  flex: 1;
   padding: 22rpx 0;
-  border-radius: 16rpx;
+  border-radius: 999rpx;
   text-align: center;
   font-size: 28rpx;
 }
 
-.btn--ghost {
-  background: #ffffff;
-  color: #1a1a1a;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+.btn--full {
+  width: 100%;
 }
 
 .btn--primary {

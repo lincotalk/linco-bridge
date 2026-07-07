@@ -41,6 +41,14 @@
         "navigationStyle": "custom",
         "backgroundColor": "#ffffff"
       }
+    },
+    {
+      "path": "pages/chat/history",
+      "style": {
+        "navigationBarTitleText": "历史对话",
+        "navigationStyle": "custom",
+        "backgroundColor": "#ffffff"
+      }
     }
   ],
   "globalStyle": {

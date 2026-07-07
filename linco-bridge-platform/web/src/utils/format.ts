@@ -47,3 +47,18 @@ export function copyToClipboard(text: string): Promise<void> {
 export function showToast(title: string, icon: 'success' | 'none' = 'none') {
   uni.showToast({ title, icon, duration: 2000 })
 }
+
+/** Session list preview — single line, markdown stripped (aligned with Flutter preview). */
+export function formatSessionPreview(content: string): string {
+  let text = content.trim()
+  if (!text) return ''
+
+  text = text.replace(/\r\n/g, '\n')
+  text = text.replace(/```[\s\S]*?```/g, '[代码]')
+  text = text.replace(/`([^`\n]+)`/g, '$1')
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  text = text.replace(/\n+/g, ' ')
+  text = text.replace(/\s+/g, ' ').trim()
+
+  return text
+}

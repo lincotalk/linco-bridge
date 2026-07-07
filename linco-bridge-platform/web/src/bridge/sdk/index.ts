@@ -11,8 +11,12 @@ import type {
   AgentBridgeType,
   ApiResponse,
   BridgeBindContextResult,
+  BridgeProjectItem,
   BridgeStatusResult,
   BridgeSyncResult,
+  BridgeWorkspaceApplyInput,
+  BridgeWorkspaceSelection,
+  BridgeWorkspaceSession,
 } from '../types'
 import type { BridgeHttpClient, BridgeSdk } from './types'
 
@@ -63,6 +67,65 @@ export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
       )
       if (!res.success || !res.data) {
         throw new Error(res.message || '获取可绑定上下文失败')
+      }
+      return res.data
+    },
+
+    async listProjects(type, connectionId) {
+      const res = await client.get<BridgeProjectItem[]>(
+        withConnectionQuery(`/api/agent-bridges/${type}/projects`, connectionId),
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '获取工作区列表失败')
+      }
+      return res.data
+    },
+
+    async selectProject(type, projectPath, connectionId) {
+      const res = await client.post<{ projectPath: string; projectName: string }>(
+        `/api/agent-bridges/${type}/select-project`,
+        { projectPath, connectionId },
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '切换工作区失败')
+      }
+      return res.data
+    },
+
+    async listProjectSessions(type, projectPath, connectionId, limit = 10) {
+      const params = new URLSearchParams({
+        projectPath,
+        limit: String(limit),
+      })
+      if (connectionId?.trim()) params.set('connectionId', connectionId.trim())
+      const res = await client.get<BridgeWorkspaceSession[]>(
+        `/api/agent-bridges/${type}/sessions?${params.toString()}`,
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '获取项目会话失败')
+      }
+      return res.data
+    },
+
+    async listChats(type, connectionId, limit = 10) {
+      const params = new URLSearchParams({ limit: String(limit) })
+      if (connectionId?.trim()) params.set('connectionId', connectionId.trim())
+      const res = await client.get<BridgeWorkspaceSession[]>(
+        `/api/agent-bridges/${type}/chats?${params.toString()}`,
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '获取对话列表失败')
+      }
+      return res.data
+    },
+
+    async applyWorkspaceSelection(type, input) {
+      const res = await client.post<BridgeWorkspaceSelection>(
+        `/api/agent-bridges/${type}/workspace/apply`,
+        input,
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '绑定工作区失败')
       }
       return res.data
     },
@@ -122,7 +185,6 @@ export function createMockBridgeSdk(options?: {
         appSecret,
         accountId,
         channel: BRIDGE_CONNECT_CHANNEL,
-        wsUrl: `${DEFAULT_BRIDGE_WS_URL}/${type}`,
       }),
       ...setupOverrides?.[type],
     }
@@ -185,6 +247,52 @@ export function createMockBridgeSdk(options?: {
         return ok(mockContexts[type] ?? []) as ApiResponse<T>
       }
 
+      const projectsMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/projects/)
+      if (projectsMatch) {
+        const type = projectsMatch[1] as AgentBridgeType
+        if (!online.has(type)) {
+          return { code: 409, success: false, data: null, message: '本机 Agent 尚未连接' }
+        }
+        return ok([
+          {
+            id: 'D:\\project\\demo',
+            name: 'demo',
+            path: 'D:\\project\\demo',
+            selectCommand: '/project --select "D:\\project\\demo"',
+            sessionsCommand: '/sessions --project "D:\\project\\demo" 10',
+          },
+          {
+            id: 'D:\\project\\aichat',
+            name: 'aichat',
+            path: 'D:\\project\\aichat',
+            selectCommand: '/project --select "D:\\project\\aichat"',
+            sessionsCommand: '/sessions --project "D:\\project\\aichat" 10',
+          },
+        ]) as ApiResponse<T>
+      }
+
+      const sessionsMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/sessions/)
+      if (sessionsMatch) {
+        return ok([
+          {
+            id: 'session-a',
+            title: 'First session',
+            bindCommand: '/bind --project "D:\\project\\demo" session-a',
+          },
+        ]) as ApiResponse<T>
+      }
+
+      const chatsMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/chats/)
+      if (chatsMatch) {
+        return ok([
+          {
+            id: 'chat-a',
+            title: 'Codex chat',
+            bindCommand: '/bind --chat chat-a',
+          },
+        ]) as ApiResponse<T>
+      }
+
       return { code: 404, success: false, data: null, message: `Mock route not found: ${path}` }
     },
 
@@ -202,7 +310,6 @@ export function createMockBridgeSdk(options?: {
             appSecret: nextSecret,
             accountId: setup.accountId,
             channel: setup.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
-            wsUrl: setup.wsUrl ?? setup.wsBaseUrl ?? `${DEFAULT_BRIDGE_WS_URL}/${type}`,
           }),
         }
         store.set(type, next)
@@ -221,6 +328,16 @@ export function createMockBridgeSdk(options?: {
         ) as ApiResponse<T>
       }
 
+      const selectProjectMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/select-project$/)
+      if (selectProjectMatch) {
+        const payload = (body ?? {}) as { projectPath?: string }
+        const projectPath = payload.projectPath ?? 'D:\\project\\demo'
+        return ok({
+          projectPath,
+          projectName: projectPath.split(/[/\\]/).pop() ?? projectPath,
+        }) as ApiResponse<T>
+      }
+
       const syncMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/sync$/)
       if (syncMatch) {
         const type = syncMatch[1] as AgentBridgeType
@@ -231,6 +348,20 @@ export function createMockBridgeSdk(options?: {
           connectionId: setup.connectionId,
           sessionId: sessionByType.get(type) ?? `mock-session-${type}`,
           agentName: getAgentDisplayName(type),
+        }) as ApiResponse<T>
+      }
+
+      const applyMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/workspace\/apply$/)
+      if (applyMatch) {
+        const type = applyMatch[1] as AgentBridgeType
+        const payload = (body ?? {}) as BridgeWorkspaceApplyInput
+        const sessionId = payload.platformSessionId ?? sessionByType.get(type) ?? `mock-session-${type}`
+        return ok({
+          sessionId,
+          title: payload.sessionTitle ?? payload.projectName ?? 'demo',
+          projectPath: payload.projectPath ?? '',
+          projectName: payload.projectName ?? payload.projectPath ?? 'demo',
+          agentSessionId: payload.agentSessionId,
         }) as ApiResponse<T>
       }
 

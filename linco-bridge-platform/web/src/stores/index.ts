@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { createAppBridgeSdk } from '@/api'
-import { fetchMessages, fetchSessions, sendSessionMessage } from '@/api/session-api'
+import {
+  cancelStreamMessage,
+  fetchMessages,
+  fetchSessions,
+  streamSessionMessage,
+  type OutboundChatFile,
+} from '@/api/session-api'
 import type { BridgeSdk } from '@/bridge/sdk/types'
 import type { AgentBridgeSetup, AgentBridgeType, BridgeStatusResult } from '@/bridge/types'
 import type { ChatMessage, ChatSessionItem } from '@/bridge/types'
@@ -60,7 +66,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function loadMessages(sessionId: string) {
+  async function loadMessages(sessionId: string, limit?: number) {
     loadingMessages.value = {
       ...loadingMessages.value,
       [sessionId]: true,
@@ -68,7 +74,7 @@ export const useSessionStore = defineStore('session', () => {
     try {
       messagesBySession.value = {
         ...messagesBySession.value,
-        [sessionId]: await fetchMessages(sessionId),
+        [sessionId]: await fetchMessages(sessionId, limit),
       }
     } finally {
       loadingMessages.value = {
@@ -78,30 +84,104 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function sendMessage(sessionId: string, content: string) {
-    const reply = await sendSessionMessage(sessionId, content)
-    const current = messagesBySession.value[sessionId] ?? []
+  function setMessages(sessionId: string, messages: ChatMessage[]) {
     messagesBySession.value = {
       ...messagesBySession.value,
-      [sessionId]: [
-        ...current,
-        {
-          id: `local-user-${Date.now()}`,
-          sessionId,
-          role: 'user',
-          content,
-          createdAt: Date.now(),
-        },
-        reply,
-      ],
+      [sessionId]: messages,
     }
+  }
 
-    const session = getSession(sessionId)
-    if (session) {
-      session.lastMessage = reply.content
-      session.updatedAt = reply.createdAt
+  function upsertMessage(sessionId: string, message: ChatMessage) {
+    const current = messagesBySession.value[sessionId] ?? []
+    const index = current.findIndex((item) => item.id === message.id)
+    const next =
+      index >= 0
+        ? current.map((item, idx) => (idx === index ? message : item))
+        : [...current, message]
+    messagesBySession.value = {
+      ...messagesBySession.value,
+      [sessionId]: next,
     }
+  }
+
+  function patchStreamingAssistant(sessionId: string, assistantId: string, content: string) {
+    const current = messagesBySession.value[sessionId] ?? []
+    const index = current.findIndex((item) => item.id === assistantId)
+    const nextMessage: ChatMessage = {
+      id: assistantId,
+      sessionId,
+      role: 'assistant',
+      content,
+      createdAt: Date.now(),
+      streaming: true,
+    }
+    const next =
+      index >= 0
+        ? current.map((item, idx) => (idx === index ? { ...nextMessage, createdAt: item.createdAt } : item))
+        : [...current, nextMessage]
+    messagesBySession.value = {
+      ...messagesBySession.value,
+      [sessionId]: next,
+    }
+  }
+
+  async function sendMessageStream(
+    sessionId: string,
+    content: string,
+    options?: {
+      signal?: AbortSignal
+      onStreamId?: (streamId: string) => void
+      files?: OutboundChatFile[]
+    },
+  ) {
+    const assistantPlaceholderId = `stream-assistant-${Date.now()}`
+    let assistantStarted = false
+
+    const reply = await streamSessionMessage(
+      sessionId,
+      content,
+      {
+        onStart: ({ streamId }) => {
+          if (streamId) options?.onStreamId?.(streamId)
+          if (!assistantStarted) {
+            assistantStarted = true
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, '')
+          }
+        },
+        onUserMessage: (message) => {
+          const current = messagesBySession.value[sessionId] ?? []
+          messagesBySession.value = {
+            ...messagesBySession.value,
+            [sessionId]: [...current, message],
+          }
+        },
+        onChunk: ({ fullText }) => {
+          if (!assistantStarted) {
+            assistantStarted = true
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, fullText)
+            return
+          }
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, fullText)
+        },
+        onDone: (message) => {
+          upsertMessage(sessionId, { ...message, streaming: false })
+        },
+      },
+      options?.signal,
+      options?.files ?? [],
+    )
+
+    await loadSessions().catch(() => undefined)
     return reply
+  }
+
+  async function cancelActiveStream(sessionId: string, streamId: string) {
+    const message = await cancelStreamMessage(sessionId, streamId)
+    if (message) {
+      upsertMessage(sessionId, message)
+    }
+    await loadSessions().catch(() => undefined)
+    return message
   }
 
   function appendDemoExchange(sessionId: string, content: string) {
@@ -129,13 +209,6 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  function setMessages(sessionId: string, messages: ChatMessage[]) {
-    messagesBySession.value = {
-      ...messagesBySession.value,
-      [sessionId]: messages,
-    }
-  }
-
   return {
     sessions,
     messagesBySession,
@@ -145,8 +218,12 @@ export const useSessionStore = defineStore('session', () => {
     getMessages,
     loadSessions,
     loadMessages,
-    sendMessage,
+    sendMessage: sendMessageStream,
+    sendMessageStream,
+    cancelActiveStream,
     appendDemoExchange,
     setMessages,
+    upsertMessage,
+    patchStreamingAssistant,
   }
 })

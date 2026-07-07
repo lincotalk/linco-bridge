@@ -4,8 +4,12 @@ import type {
   AgentBridgeType,
   ApiResponse,
   BridgeBindContextResult,
+  BridgeProjectItem,
   BridgeStatusResult,
   BridgeSyncResult,
+  BridgeWorkspaceApplyInput,
+  BridgeWorkspaceSelection,
+  BridgeWorkspaceSession,
 } from '../types'
 
 /** HTTP transport for bridge SDK — swappable when real backend is wired. */
@@ -19,6 +23,23 @@ export interface BridgeSdk {
   refreshSetup(type: AgentBridgeType, connectionId: string): Promise<AgentBridgeSetup>
   checkStatus(type: AgentBridgeType, connectionId?: string): Promise<BridgeStatusResult>
   listContexts(type: AgentBridgeType, connectionId?: string): Promise<AgentBridgeBindableContext[]>
+  listProjects(type: AgentBridgeType, connectionId?: string): Promise<BridgeProjectItem[]>
+  selectProject(
+    type: AgentBridgeType,
+    projectPath: string,
+    connectionId?: string,
+  ): Promise<{ projectPath: string; projectName: string }>
+  listProjectSessions(
+    type: AgentBridgeType,
+    projectPath: string,
+    connectionId?: string,
+    limit?: number,
+  ): Promise<BridgeWorkspaceSession[]>
+  listChats(type: AgentBridgeType, connectionId?: string, limit?: number): Promise<BridgeWorkspaceSession[]>
+  applyWorkspaceSelection(
+    type: AgentBridgeType,
+    input: BridgeWorkspaceApplyInput,
+  ): Promise<BridgeWorkspaceSelection>
   bindContext(
     type: AgentBridgeType,
     contextId: string,

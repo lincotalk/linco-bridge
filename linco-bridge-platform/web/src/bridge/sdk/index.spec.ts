@@ -38,6 +38,8 @@ describe('createMockBridgeSdk', () => {
     expect(setup.appId).toContain('demo-codex-app')
     expect(setup.setupCommands).toContain('npm install -g linco-connect')
     expect(setup.setupCommands).toContain('--channel linco-demo')
+    expect(setup.setupCommands).toContain('--allow-insecure-ws')
+    expect(setup.setupCommands).not.toContain('--ws-url')
     expect(setup.setupCommands).toContain('--agent codex')
     expect(setup.setupCommands).toContain('linco-connect start --daemon')
   })
