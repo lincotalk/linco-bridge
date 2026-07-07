@@ -160,7 +160,7 @@ Exact compatibility should follow release notes and each subproject README.
 
 ## Community
 
-For technical discussion, Linco Lab updates, and official Linco App download links, see [COMMUNITY.md](COMMUNITY.md).
+For technical discussion, Linco Lab updates, and official Linco App download links, see [COMMUNITY.md](COMMUNITY.md). For Chinese community information, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
 
 ## Contributing
 
