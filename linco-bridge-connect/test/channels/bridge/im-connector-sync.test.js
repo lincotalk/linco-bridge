@@ -30,11 +30,11 @@ try {
   const claudeMain = new ImConnector(config, 'claude', config.agents.claude, config.im.connectors[0]);
   const claudeBackup = new ImConnector(config, 'claude', config.agents.claude, config.im.connectors[1]);
   const codex = new ImConnector(config, 'codex', config.agents.codex, config.im.connectors[2]);
-  assert.strictEqual(claudeMain.logPrefix, '[IM:claude/main]');
-  assert.strictEqual(claudeBackup.logPrefix, '[IM:claude/backup]');
-  assert.strictEqual(codex.logPrefix, '[IM:codex/main]');
-  assert.strictEqual(_internal.imLogPrefix('codex', { account: 'codex_1' }), '[IM:codex/codex_1]');
-  assert.strictEqual(_internal.imLogPrefix('codex', { account: '  ' }), '[IM:codex/default]');
+  assert.strictEqual(claudeMain.logPrefix, '[IM:linco/claude/main]');
+  assert.strictEqual(claudeBackup.logPrefix, '[IM:linco/claude/backup]');
+  assert.strictEqual(codex.logPrefix, '[IM:linco/codex/main]');
+  assert.strictEqual(_internal.imLogPrefix('codex', { channel: 'custom-im', account: 'codex_1' }), '[IM:custom-im/codex/codex_1]');
+  assert.strictEqual(_internal.imLogPrefix('codex', { channel: '  ', account: '  ' }), '[IM:linco/codex/default]');
   config._imConnectors = [claudeMain, claudeBackup, codex];
 
   config.agents = {
