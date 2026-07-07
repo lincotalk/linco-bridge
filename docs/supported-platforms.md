@@ -2,16 +2,17 @@
 
 [简体中文](zh-CN/supported-platforms.md)
 
-> Replace every `TBD` with a tested result before release.
+This page documents release intent and compatibility-reporting rules for the first open-source release.
 
-| Agent | Status | Tested versions | macOS | Linux | Windows | Known limitations |
-| --- | --- | --- | --- | --- | --- | --- |
-| Codex | Stable target | TBD | TBD | TBD | TBD | TBD |
-| Claude Code | Stable target | TBD | TBD | TBD | TBD | TBD |
-| OpenClaw | Experimental / Planned | TBD | TBD | TBD | TBD | TBD |
-| Hermes | Experimental / Planned | TBD | TBD | TBD | TBD | TBD |
+| Agent | Release scope | Compatibility reporting | Notes |
+| --- | --- | --- | --- |
+| Codex CLI | Included in the first open-source release | Exact tested versions and operating-system coverage should be published in release notes | Supports the reference bridge flow and reference platform integration |
+| Claude Code | Included in the first open-source release | Exact tested versions and operating-system coverage should be published in release notes | Supports the reference bridge flow and reference platform integration |
+| Hermes | Included in the first open-source release | Exact tested versions and operating-system coverage should be published in release notes | Includes profile-binding flow in compatible clients |
+| OpenClaw | Included in the first open-source release | Exact tested versions and operating-system coverage should be published in release notes | Includes agent-binding flow in compatible clients |
 
-- **Stable:** Covered by release compatibility tests.
-- **Experimental:** Usable with documented limitations.
-- **Planned:** Not included in the current release.
+## Publishing rule
 
+- Keep README, release notes, and compatibility statements aligned.
+- Publish exact tested versions in releases once validation is complete.
+- If a specific agent or operating system is shipped with limitations, list them in release notes and troubleshooting docs rather than leaving the release scope ambiguous.

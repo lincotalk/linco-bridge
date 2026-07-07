@@ -19,7 +19,6 @@ We want Linco Connect to be a respectful, technically honest, and welcoming proj
 - Spam, misleading promotion, undisclosed paid recommendations, or repeated disruption.
 - Deliberately submitting malicious code, dependencies, or security bypasses.
 
-Report conduct issues privately to **[CONTACT TO BE CONFIRMED]**. Maintainers may edit, hide, reject, or ban participation when needed to protect the community.
+Report conduct issues privately to the maintainers through repository contact channels or platform moderation tools. Maintainers may edit, hide, reject, or ban participation when needed to protect the community.
 
-行为问题请私密联系 **[待确认联系方式]**。为保护社区，维护者可编辑、隐藏、拒绝内容或限制参与。
-
+行为问题请通过仓库私密联系渠道或平台治理工具联系维护者。为保护社区，维护者可编辑、隐藏、拒绝内容或限制参与。

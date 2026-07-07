@@ -13,7 +13,6 @@ Community support is best effort. The project does not guarantee fixed availabil
 
 ## Commercial support / 商业支持
 
-Enterprise deployment, custom adapters, integration consulting, and contractual support may be available separately. Contact: **[COMMERCIAL CONTACT TO BE CONFIRMED]**.
+Enterprise deployment, custom adapters, integration consulting, or contractual support are not included by default in the open-source repository workflow. If such offerings are introduced later, they will be announced separately through official Linco channels.
 
-企业部署、定制 Adapter、集成咨询和合同支持可作为独立服务。联系方式：**[待确认商业合作入口]**。
-
+企业部署、定制 Adapter、集成咨询或合同支持不属于本开源仓库默认支持范围。如后续提供相关服务，会通过 Linco 官方渠道单独公布。

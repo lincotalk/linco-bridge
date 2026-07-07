@@ -8,18 +8,20 @@ All notable user-visible changes should be documented in this file.
 
 - Initial open-source repository structure.
 - CLI and local bridge.
-- Codex and Claude Code adapters.
+- Codex, Claude Code, Hermes, and OpenClaw adapters.
 - Protocol documentation.
-- Reference Web and Minimal Server examples.
+- Reference Web and reference platform examples.
+- Connector SDK and reference Bridge SDK / AgentChat SDK implementation.
 
 ### Changed
 
-- [TBD after the final audit and migration decision]
+- Project-level README, support language, and release-scope documentation were aligned for the first open-source release.
 
 ### Known limitations
 
 - Open Source Alpha; interfaces and compatibility may change with documented migration notes.
-- OpenClaw, Hermes, SDK, self-hosting, official hosted web, and mini program availability must match the final release status.
+- The reference platform is intended for development, testing, and integration validation rather than production hosting guidance.
+- Tested version matrices, platform coverage, and protocol details must stay aligned with release notes and audited implementation.
 
 ## Release checklist
 
@@ -27,4 +29,3 @@ All notable user-visible changes should be documented in this file.
 - Link the GitHub comparison or release page.
 - List breaking changes and migration steps.
 - Ensure the English and Chinese release announcements describe the same scope.
-

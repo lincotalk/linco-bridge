@@ -1,93 +1,132 @@
-# linco-bridge
+# Linco Bridge
 
+[简体中文](README.zh-CN.md)
 
+> An open bridge layer for connecting local AI agent tools to web, mobile, and IM clients.
 
-## Getting started
+**Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change, but the first open-source release targets all four supported agents and a usable SDK surface.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## What It Is
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Linco Bridge helps teams expose local AI agent tools beyond a single desktop. It provides an open connector, a reference platform, and reusable SDK/protocol layers so you can:
 
-## Add your files
+- verify the full bridge flow with a reference web client;
+- connect local agents to your own web, app, or IM product;
+- build compatible integrations on top of the public protocol and SDK surface.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## Repository Scope
 
+This repository currently contains:
+
+- `linco-bridge-connect`: the local connector CLI that runs on the user's computer and bridges agent sessions to compatible clients and servers;
+- `linco-bridge-platform`: a self-hosted demo/reference platform with a NestJS backend and UniApp frontend;
+- `docs/`: project-level documentation for setup, architecture, protocol, security, and troubleshooting.
+
+This repository does **not** include the full Linco App product or hosted cloud services.
+
+## How It Works
+
+```text
+Local agent CLI
+    ↕ local process, gateway, or session files
+linco-bridge-connect on the user's computer
+    ↕ authenticated bridge connection
+Reference server or compatible backend
+    ↕
+Reference web, Linco App, or a third-party client
 ```
-cd existing_repo
-git remote add origin http://10.1.108.137/AI-project/linco-bridge.git
-git branch -M master
-git push -uf origin master
+
+`linco-bridge-connect` runs on the user's computer, adapts a local agent, and relays sessions, messages, permissions, attachments, and generated files to compatible products.
+
+## Typical Use Cases
+
+- Developers who want to validate a complete local-agent-to-client bridge flow.
+- Product teams that want to integrate local AI tools into their own app, web, or IM experience.
+- Engineering teams that want a reference implementation before building their own bridge-compatible stack.
+
+## Quick Start
+
+Install the local connector:
+
+```bash
+npm install -g linco-connect
 ```
 
-## Integrate with your tools
+Initialize a device with an issued credential:
 
-- [ ] [Set up project integrations](http://10.1.108.137/AI-project/linco-bridge/-/settings/integrations)
+```bash
+linco-connect init \
+  --token "<app-id>:<app-secret>" \
+  --agent codex \
+  --device-name codex1
+```
 
-## Collaborate with your team
+Start the connector:
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```bash
+linco-connect start --daemon
+```
 
-## Test and Deploy
+Then open a compatible client, confirm the device is online, enter a session, and send a short test message.
 
-Use the built-in continuous integration in GitLab.
+For the detailed flow, see [Quick Start](docs/quick-start.md).
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## Supported Agents
 
-***
+| Agent | Status | Notes |
+| --- | --- | --- |
+| Codex CLI | Supported in first release | Connector, reference platform, and bridge flow are included in the first open-source release. |
+| Claude Code | Supported in first release | Connector, reference platform, and bridge flow are included in the first open-source release. |
+| Hermes | Supported in first release | Connector, profile binding flow, and reference platform support are included in the first open-source release. |
+| OpenClaw | Supported in first release | Connector, agent binding flow, and reference platform support are included in the first open-source release. |
 
-# Editing this README
+## SDK Surface
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+The first open-source release includes two SDK layers with different goals:
 
-## Suggestions for a good README
+- `packages/connector-sdk` in `linco-bridge-connect`: a reusable connector client for authenticated bridge WebSocket connectivity;
+- `linco-bridge-platform/web/src/bridge/sdk`: usable Bridge SDK and AgentChat SDK reference implementations for web integration against the reference platform REST APIs.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+The connector SDK is a reusable package surface. The web Bridge/AgentChat SDK is currently positioned as a reference implementation for integration teams building on the open protocol and demo platform.
 
-## Name
-Choose a self-explaining name for your project.
+## Project Boundaries
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+| Path | Intended user | Availability |
+| --- | --- | --- |
+| Reference Web | Developers validating the bridge flow | Included with the open-source release |
+| Linco App | Users who want the full product experience | Official product |
+| Protocol integration | Teams building their own client | Included with the open-source release |
+| Connector SDK | Teams that want reusable bridge client connectivity | Included with the open-source release |
+| Bridge SDK / AgentChat SDK | Teams integrating with the reference platform or adapting the flow to their own client | Included as a usable reference implementation |
+| Self-hosting | Teams that need their own deployment | Initial release is for reference/dev validation, not production guidance |
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Security and Privacy
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- Never commit credentials or write secrets to logs.
+- TLS/WSS transport encryption does not by itself mean end-to-end encryption.
+- Session index synchronization does not necessarily mean full message-history upload.
+- Review [Security and Privacy](docs/security-and-privacy.md) before connecting real data.
+- Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Documentation
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+- [Quick Start](docs/quick-start.md)
+- [How It Works](docs/how-it-works.md)
+- [CLI Reference](docs/cli.md)
+- [Public Protocol](docs/protocol.md)
+- [Reference Web](docs/reference-web.md)
+- [Supported Platforms](docs/supported-platforms.md)
+- [Security and Privacy](docs/security-and-privacy.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Support Boundary](SUPPORT.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Issues, discussions, and pull requests are welcome. For contribution expectations and reporting guidance, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+This project is licensed under the [MIT License](LICENSE).
+
+The MIT license applies to the code and included documentation in this repository. It does not grant rights to use the Linco name, logo, or other brand assets outside normal nominative reference.
