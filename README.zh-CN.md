@@ -8,11 +8,13 @@
 
 ## 为什么做 Linco Connect
 
-本地 AI 工具很强大，但会话通常停留在一台电脑上。Linco Connect 提供一层可控连接，让这些工具可以在其他产品入口中使用。
+本地 AI 工具很强大，但会话通常停留在一台电脑上。很多桥接项目会接入飞书、微信、钉钉等既有协作平台，这种方式接入成本低，但展示和交互形式受平台限制，工具进度、权限确认、生成文件、长会话和多 Agent 状态往往很难做出舒适体验。
 
-- 使用 Reference Web 验证完整连接链路。
-- 将 Protocol 和 Adapter 集成到自有 Web、App 或 IM 产品。
-- 通过 Linco App 获得更完整的设备、会话、同步和 IM 体验。
+Linco Connect 提供一层开放、可控的桥接能力，让本地 Agent 可以在其他产品入口中使用。仓库同时包含一个参考 platform 项目，对应连接器插件里的 `lincoDemo` 通道，用来展示一套更适合 Agent 的交互界面。你可以先部署参考实现体验完整流程，也可以基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter，获得更个性化、更舒适的交互体验。
+
+- 使用参考 platform / Reference Web 验证完整连接链路。
+- 将 Protocol 和 Adapter 集成到自有 H5、小程序、App 或 IM 产品。
+- 通过 Linco App 或官方 Linco 通道获得完整官方产品体验。
 
 ## 支持工具
 
@@ -47,7 +49,7 @@ Codex / Claude Code / 其他本地 Agent
                     ↕
               linco-connect
                     ↕
-        Minimal Server 或 Linco Cloud
+       Reference Platform 或 Linco Cloud
                     ↕
        Reference Web / Linco App / 第三方应用
 ```
@@ -58,9 +60,10 @@ Codex / Claude Code / 其他本地 Agent
 
 | 路径 | 适用用户 | 可用状态 |
 | --- | --- | --- |
-| Reference Web | 验证桥接链路的开发者 | 随开源版提供 |
-| Linco App | 希望获得完整产品体验的用户 | 官方产品 |
-| Protocol 集成 | 构建自有客户端的团队 | 随开源版提供 |
+| Reference Platform / Reference Web | 验证桥接链路或构建自定义体验的开发者 | 随开源版提供 |
+| 自定义 channel adapter | 构建自有 H5、小程序、App 或 IM 客户端的团队 | 随开源协议和连接器提供 |
+| Linco App / 官方 Linco 通道 | 希望获得完整官方产品体验的用户 | 官方产品 |
+| Protocol 集成 | 构建自有客户端或服务端的团队 | 随开源版提供 |
 | SDK | 需要高层封装的集成团队 | 仅在标记 Released 时可用，否则为 Planned |
 | 自托管 | 需要独立部署的团队 | 首期仅最小开发验证，生产参考部署见 Roadmap |
 | 官方 Web / 小程序 | 不希望部署的用户 | Planned，上线前不放置无效链接 |

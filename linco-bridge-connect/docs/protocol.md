@@ -4,6 +4,8 @@
 
 `linco` 和 `linco-demo` 是两个独立 channel。当前 `linco-demo` 采用 Linco 兼容协议，后续可以在自己的 adapter 内独立演进，不应反向修改官方 `linco` adapter。
 
+开源参考 platform 对应 `linco-demo`。它用于展示一套更适合 Agent 的 H5 交互形态，第三方也可以实现自己的 H5、小程序、App 或其他前端 channel，并在自己的 adapter 内定义外部消息类型和展示结构。
+
 ## 公共层与 Channel Adapter
 
 公共连接器不定义新的外部网络协议。它只处理稳定的内部输入和 Agent 输出事件：
