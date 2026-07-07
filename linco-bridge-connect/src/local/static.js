@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { isLocalRequestAuthorized } = require('./auth');
+const { isLocalRequestAuthorized, setLocalTokenCookie } = require('./auth');
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -18,6 +18,7 @@ function createStaticServer(config) {
     if (!isLocalRequestAuthorized(req, config, url)) {
       return rejectUnauthorized(res);
     }
+    setLocalTokenCookie(res, config);
 
     if (url.pathname === '/api/client-config') {
       return handleClientConfigRequest(req, res, config);

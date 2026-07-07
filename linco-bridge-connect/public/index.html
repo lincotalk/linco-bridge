@@ -1051,7 +1051,7 @@
     let currentSessionKey = '';
     let currentAgentType = loadAgentTypeFromUrlOrStorage();
     let reconnectTimer = null;
-    let localToken = loadLocalToken();
+    let localToken = '';
     let currentAssistantMsg = null;
     let currentAssistantTurn = null;
     let thinkingMsg = null;
@@ -2544,6 +2544,20 @@
       return token;
     }
 
+    function rememberLocalToken(token) {
+      if (!token) return;
+      localToken = token;
+      localStorage.setItem('linco.localToken', token);
+    }
+
+    function rememberLocalTokenFromUrl(urlString) {
+      try {
+        const url = new URL(urlString, location.href);
+        if (url.host !== location.host) return;
+        rememberLocalToken(url.searchParams.get('localToken') || url.searchParams.get('token') || '');
+      } catch {}
+    }
+
     function hideLocalTokenFromAddressBar(params) {
       params.delete('localToken');
       params.delete('token');
@@ -2587,16 +2601,21 @@
     }
 
     async function loadClientConfig() {
-      if (!ensureLocalTokenForUi()) return {};
       try {
+        const headers = {};
+        if (localToken) headers.Authorization = `Bearer ${localToken}`;
         const res = await fetch('/api/client-config', {
           cache: 'no-store',
-          headers: {
-            Authorization: `Bearer ${localToken}`,
-          },
+          headers,
         });
+        if (res.status === 401) {
+          ensureLocalTokenForUi();
+          return {};
+        }
         if (!res.ok) return {};
-        return await res.json();
+        const config = await res.json();
+        rememberLocalTokenFromUrl(config.wsUrl);
+        return config;
       } catch {
         return {};
       }
@@ -2634,7 +2653,6 @@
     }
 
     async function connectWebSocket(config) {
-      if (!ensureLocalTokenForUi()) return;
       const clientConfig = config || await loadClientConfig();
       initializeAgentSelector(clientConfig);
       if (!clientConfig.localImEnabled) {
@@ -2801,6 +2819,7 @@
 
     agentSelect.addEventListener('change', handleAgentChange);
     setAgentSelection(currentAgentType, { persist: false });
+    localToken = loadLocalToken();
     initLocalTestPage();
 
     function extensionOf(name) {
