@@ -12,6 +12,16 @@ import type { BridgeSdk } from '@/bridge/sdk/types'
 import type { AgentBridgeSetup, AgentBridgeType, BridgeStatusResult } from '@/bridge/types'
 import type { ChatMessage, ChatSessionItem } from '@/bridge/types'
 
+const STREAMING_ASSISTANT_ID_PREFIX = 'stream-assistant-'
+
+function isStreamingAssistantPlaceholder(message: ChatMessage): boolean {
+  return (
+    message.role === 'assistant' &&
+    message.streaming === true &&
+    message.id.startsWith(STREAMING_ASSISTANT_ID_PREFIX)
+  )
+}
+
 export const useBridgeStore = defineStore('bridge', () => {
   const sdk = ref<BridgeSdk>(createAppBridgeSdk())
   const setupByType = ref<Partial<Record<AgentBridgeType, AgentBridgeSetup>>>({})
@@ -104,20 +114,63 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  function patchStreamingAssistant(sessionId: string, assistantId: string, content: string) {
+  function findStreamingAssistantPlaceholder(sessionId: string) {
+    const current = messagesBySession.value[sessionId] ?? []
+    return current.find((item) => isStreamingAssistantPlaceholder(item))
+  }
+
+  function finalizeStreamingAssistant(
+    sessionId: string,
+    placeholderId: string,
+    message: ChatMessage,
+  ) {
+    const current = messagesBySession.value[sessionId] ?? []
+    const existing = current.find((item) => item.id === placeholderId)
+    const withoutPlaceholder = current.filter((item) => item.id !== placeholderId)
+    messagesBySession.value = {
+      ...messagesBySession.value,
+      [sessionId]: [
+        ...withoutPlaceholder,
+        {
+          ...message,
+          streaming: false,
+          reasoningStreaming: false,
+          reasoning: existing?.reasoning
+            ? {
+                ...existing.reasoning,
+                endedAt: existing.reasoning.endedAt ?? Date.now(),
+              }
+            : undefined,
+        },
+      ],
+    }
+  }
+
+  function patchStreamingAssistant(
+    sessionId: string,
+    assistantId: string,
+    patch: {
+      content?: string
+      reasoning?: ChatMessage['reasoning']
+      reasoningStreaming?: boolean
+    },
+  ) {
     const current = messagesBySession.value[sessionId] ?? []
     const index = current.findIndex((item) => item.id === assistantId)
+    const existing = index >= 0 ? current[index] : undefined
     const nextMessage: ChatMessage = {
       id: assistantId,
       sessionId,
       role: 'assistant',
-      content,
-      createdAt: Date.now(),
+      content: patch.content ?? existing?.content ?? '',
+      createdAt: existing?.createdAt ?? Date.now(),
       streaming: true,
+      reasoning: patch.reasoning ?? existing?.reasoning,
+      reasoningStreaming: patch.reasoningStreaming ?? existing?.reasoningStreaming,
     }
     const next =
       index >= 0
-        ? current.map((item, idx) => (idx === index ? { ...nextMessage, createdAt: item.createdAt } : item))
+        ? current.map((item, idx) => (idx === index ? nextMessage : item))
         : [...current, nextMessage]
     messagesBySession.value = {
       ...messagesBySession.value,
@@ -135,7 +188,20 @@ export const useSessionStore = defineStore('session', () => {
     },
   ) {
     const assistantPlaceholderId = `stream-assistant-${Date.now()}`
+    const optimisticUserId = `optimistic-user-${Date.now()}`
+    const trimmed = content.trim()
     let assistantStarted = false
+    const reasoningStartedAt = Date.now()
+
+    if (trimmed) {
+      upsertMessage(sessionId, {
+        id: optimisticUserId,
+        sessionId,
+        role: 'user',
+        content: trimmed,
+        createdAt: Date.now(),
+      })
+    }
 
     const reply = await streamSessionMessage(
       sessionId,
@@ -145,26 +211,52 @@ export const useSessionStore = defineStore('session', () => {
           if (streamId) options?.onStreamId?.(streamId)
           if (!assistantStarted) {
             assistantStarted = true
-            patchStreamingAssistant(sessionId, assistantPlaceholderId, '')
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: '' })
           }
         },
         onUserMessage: (message) => {
           const current = messagesBySession.value[sessionId] ?? []
+          const withoutOptimistic = current.filter((item) => item.id !== optimisticUserId)
           messagesBySession.value = {
             ...messagesBySession.value,
-            [sessionId]: [...current, message],
+            [sessionId]: [...withoutOptimistic, message],
           }
+        },
+        onReasoning: ({ fullText }) => {
+          if (!assistantStarted) {
+            assistantStarted = true
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: '' })
+          }
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, {
+            reasoning: {
+              content: fullText,
+              startedAt: reasoningStartedAt,
+            },
+            reasoningStreaming: true,
+          })
+        },
+        onReasoningEnd: () => {
+          const current = messagesBySession.value[sessionId] ?? []
+          const existing = current.find((item) => item.id === assistantPlaceholderId)
+          if (!existing?.reasoning) return
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, {
+            reasoning: {
+              ...existing.reasoning,
+              endedAt: Date.now(),
+            },
+            reasoningStreaming: false,
+          })
         },
         onChunk: ({ fullText }) => {
           if (!assistantStarted) {
             assistantStarted = true
-            patchStreamingAssistant(sessionId, assistantPlaceholderId, fullText)
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: fullText })
             return
           }
-          patchStreamingAssistant(sessionId, assistantPlaceholderId, fullText)
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: fullText })
         },
         onDone: (message) => {
-          upsertMessage(sessionId, { ...message, streaming: false })
+          finalizeStreamingAssistant(sessionId, assistantPlaceholderId, message)
         },
       },
       options?.signal,
@@ -176,9 +268,20 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function cancelActiveStream(sessionId: string, streamId: string) {
+    const placeholder = findStreamingAssistantPlaceholder(sessionId)
     const message = await cancelStreamMessage(sessionId, streamId)
     if (message) {
-      upsertMessage(sessionId, message)
+      if (placeholder) {
+        finalizeStreamingAssistant(sessionId, placeholder.id, message)
+      } else {
+        upsertMessage(sessionId, { ...message, streaming: false, reasoningStreaming: false })
+      }
+    } else if (placeholder) {
+      const current = messagesBySession.value[sessionId] ?? []
+      messagesBySession.value = {
+        ...messagesBySession.value,
+        [sessionId]: current.filter((item) => item.id !== placeholder.id),
+      }
     }
     await loadSessions().catch(() => undefined)
     return message

@@ -4,6 +4,8 @@ export const CHAT_ICON = {
   voice: '/static/icons/chat/home_input_voice.png',
   skill: '/static/icons/chat/home_input_skill.png',
   folder: '/static/icons/chat/folder.png',
+  /** AppBar 工作区 — Flutter folder.png + textPrimary 着色 */
+  workspaceFolder: '/static/icons/chat/workspace_folder.png',
   /** Full green circle + up arrow — Flutter p2p_input_send.png */
   send: '/static/icons/chat/p2p_input_send.png',
   /** Disabled send — generated from p2p_input_send (bgOverlay + textGhost) */

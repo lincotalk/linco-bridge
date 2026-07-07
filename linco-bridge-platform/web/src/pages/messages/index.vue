@@ -6,6 +6,7 @@ import { switchRootTab } from '@/constants/tabbar'
 import { useSessionStore } from '@/stores'
 import type { ChatSessionItem } from '@/bridge/types'
 import { showToast } from '@/utils/format'
+import { openAgentLanding } from '@/utils/open-agent-landing'
 
 const sessionStore = useSessionStore()
 const refreshing = ref(false)
@@ -25,8 +26,11 @@ async function handleRefresh() {
   }
 }
 
-function openChat(item: ChatSessionItem) {
-  uni.navigateTo({ url: `/pages/chat/index?sessionId=${encodeURIComponent(item.id)}` })
+function openSession(item: ChatSessionItem) {
+  openAgentLanding({
+    agentType: item.agentType,
+    connectionId: item.connectionId,
+  })
 }
 
 function goBridge() {
@@ -58,7 +62,7 @@ function goBridge() {
           v-for="item in sessionStore.sessions"
           :key="item.id"
           :item="item"
-          @tap="openChat(item)"
+          @tap="openSession(item)"
         />
       </view>
     </scroll-view>

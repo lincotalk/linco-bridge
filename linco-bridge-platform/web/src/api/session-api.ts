@@ -1,10 +1,20 @@
-import type { ChatMessage, ChatSessionItem } from '@/bridge/types'
+import type { ChatMessage, ChatSessionItem, ResumeSessionResult } from '@/bridge/types'
 import { apiGet, apiPost, getApiBaseUrl } from './http-client'
 
 export async function fetchSessions(): Promise<ChatSessionItem[]> {
   const res = await apiGet<ChatSessionItem[]>('/api/sessions')
   if (!res.success || !res.data) {
     throw new Error(res.message || '加载会话失败')
+  }
+  return res.data
+}
+
+export async function resumeSession(sessionId: string): Promise<ResumeSessionResult> {
+  const res = await apiPost<ResumeSessionResult>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/resume`,
+  )
+  if (!res.success || !res.data?.sessionId) {
+    throw new Error(res.message || '打开会话失败')
   }
   return res.data
 }
@@ -50,10 +60,17 @@ export interface StreamChunkPayload {
   fullText: string
 }
 
+export interface StreamReasoningPayload {
+  delta?: string
+  fullText: string
+}
+
 export interface StreamMessageHandlers {
   onStart?: (payload: { streamId: string }) => void
   onUserMessage?: (message: ChatMessage) => void
   onChunk?: (payload: StreamChunkPayload) => void
+  onReasoning?: (payload: StreamReasoningPayload) => void
+  onReasoningEnd?: () => void
   onDone?: (message: ChatMessage) => void
   onError?: (message: string) => void
 }
@@ -133,6 +150,15 @@ export async function streamSessionMessage(
             fullText: typeof payload.fullText === 'string' ? payload.fullText : '',
           })
           break
+        case 'reasoning':
+          handlers.onReasoning?.({
+            delta: typeof payload.delta === 'string' ? payload.delta : '',
+            fullText: typeof payload.fullText === 'string' ? payload.fullText : '',
+          })
+          break
+        case 'reasoning_end':
+          handlers.onReasoningEnd?.()
+          break
         case 'done': {
           const message = payload.message as ChatMessage | undefined
           if (message) {
@@ -186,9 +212,11 @@ export async function runSessionBridgeCommand(
 export async function runAgentBridgeCommand(
   agentType: string,
   command: string,
+  connectionId?: string,
 ): Promise<BridgeCommandResult> {
   const res = await apiPost<BridgeCommandResult>(`/api/agent-chat/${agentType}/bridge-command`, {
     command,
+    connectionId: connectionId?.trim() || undefined,
   })
   if (!res.success || !res.data) {
     throw new Error(res.message || '命令执行失败')

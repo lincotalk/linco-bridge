@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
 import ChatInputArea from '@/components/ChatInputArea.vue'
@@ -11,9 +11,11 @@ import { useProjectPicker } from '@/composables/useProjectPicker'
 import { useAgentPanel } from '@/composables/useAgentPanel'
 import { useAttachmentPicker } from '@/composables/useAttachmentPicker'
 import { useVoiceInput } from '@/composables/useVoiceInput'
+import { useSessionStore } from '@/stores'
 import { showToast } from '@/utils/format'
 import { isBoundWorkspacePick } from '@/utils/pick-workspace'
 import { openBoundBridgeChat, reloadBoundChatSession } from '@/utils/open-bound-chat'
+import { resolveBridgeProjectLabel } from '@/utils/bridge-project-label'
 
 const chat = useChatSession()
 const { pickWorkspace } = useProjectPicker()
@@ -33,9 +35,19 @@ const {
   reloadHistory,
 } = chat
 
+const sessionStore = useSessionStore()
+const connectionId = computed(
+  () => sessionStore.getSession(chat.sessionId.value)?.connectionId,
+)
+
+const bridgeProjectLabel = computed(() =>
+  resolveBridgeProjectLabel(sessionStore.getSession(chat.sessionId.value)),
+)
+
 const agentPanel = useAgentPanel({
   sessionId: chat.sessionId,
   agentType,
+  connectionId,
   onReloadHistory: reloadHistory,
 })
 const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
@@ -92,11 +104,10 @@ async function handleWorkspace() {
       return
     }
     if (picked.sessionId && picked.sessionId !== chat.sessionId.value) {
-      uni.redirectTo({
-        url: `/pages/chat/index?sessionId=${encodeURIComponent(picked.sessionId)}`,
-      })
+      await openBoundBridgeChat(picked)
       return
     }
+    await sessionStore.loadSessions().catch(() => undefined)
     await chat.loadSession(chat.sessionId.value)
     showToast(`已选择 ${picked.name}`)
   } catch (error) {
@@ -158,11 +169,11 @@ function handleStop() {
       :scroll-into-view="scrollAnchor"
       @refresherrefresh="handleRefresh"
     >
-      <view v-if="loading" class="chat-page__state">
+      <view v-if="loading && messages.length === 0 && !sending" class="chat-page__state">
         <text class="chat-page__state-text">加载中…</text>
       </view>
 
-      <view v-else-if="messages.length === 0" class="chat-page__state">
+      <view v-else-if="messages.length === 0 && !sending" class="chat-page__state">
         <text class="chat-page__state-text">发送消息开始对话</text>
       </view>
 
@@ -175,10 +186,11 @@ function handleStop() {
 
     <ChatInputArea
       v-model="draft"
-      :disabled="loading"
+      :disabled="loading && !sending"
       :sending="sending"
-      :is-send-disabled="loading"
+      :is-send-disabled="loading && !sending"
       :pending-files="pendingFiles"
+      :bridge-project-name="bridgeProjectLabel"
       @send="handleSend"
       @stop="handleStop"
       @add="handleAdd"

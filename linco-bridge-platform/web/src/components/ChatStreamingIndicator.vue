@@ -1,28 +1,13 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-
-const activeDot = ref(0)
-let timer: ReturnType<typeof setInterval> | null = null
-
-onMounted(() => {
-  timer = setInterval(() => {
-    activeDot.value = (activeDot.value + 1) % 3
-  }, 420)
-})
-
-onBeforeUnmount(() => {
-  if (timer) clearInterval(timer)
-})
+defineProps<{
+  label?: string
+}>()
 </script>
 
 <template>
   <view class="streaming-indicator">
-    <view
-      v-for="index in 3"
-      :key="index"
-      class="streaming-indicator__dot"
-      :class="{ 'streaming-indicator__dot--active': activeDot === index - 1 }"
-    />
+    <view class="streaming-indicator__spinner" />
+    <text v-if="label" class="streaming-indicator__label">{{ label }}</text>
   </view>
 </template>
 
@@ -30,21 +15,29 @@ onBeforeUnmount(() => {
 .streaming-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 12rpx;
   min-height: 40rpx;
   padding: 8rpx 0;
 }
 
-.streaming-indicator__dot {
-  width: 12rpx;
-  height: 12rpx;
+.streaming-indicator__spinner {
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid rgba(0, 0, 0, 0.12);
+  border-top-color: rgba(0, 0, 0, 0.45);
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.18);
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  animation: streaming-spin 0.9s linear infinite;
 }
 
-.streaming-indicator__dot--active {
-  transform: scale(1.2);
-  background: #00754a;
+.streaming-indicator__label {
+  font-size: 30rpx;
+  line-height: 1.4;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+@keyframes streaming-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

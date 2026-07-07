@@ -10,6 +10,7 @@ import {
   agentDisplayName,
   defaultAccountId,
 } from '../shared/constants'
+import { normalizeSessionPreview } from '../chat/session-preview.util'
 
 export interface BridgeConnectionRow {
   id: string
@@ -22,6 +23,8 @@ export interface BridgeConnectionRow {
   bridge_project_path: string | null
   bridge_agent_session_id: string | null
   session_id: string | null
+  device_id: string | null
+  device_name: string | null
   create_time: number
   update_time: number
 }
@@ -33,8 +36,11 @@ export interface ChatSessionRow {
   bridge_connection_id: string | null
   bridge_project_path: string | null
   bridge_agent_session_id: string | null
+  bridge_device_name: string | null
   last_message: string
   update_time: number
+  hidden_from_history?: number
+  is_temp_session?: number
 }
 
 export interface ChatMessageRow {
@@ -102,8 +108,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
     this.ensureColumn('bridge_connections', 'bridge_project_path', 'TEXT')
     this.ensureColumn('bridge_connections', 'bridge_agent_session_id', 'TEXT')
+    this.ensureColumn('bridge_connections', 'device_id', 'TEXT')
+    this.ensureColumn('bridge_connections', 'device_name', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_project_path', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_agent_session_id', 'TEXT')
+    this.ensureColumn('chat_sessions', 'bridge_device_name', 'TEXT')
+    this.ensureColumn('chat_sessions', 'hidden_from_history', 'INTEGER NOT NULL DEFAULT 0')
+    this.ensureColumn('chat_sessions', 'is_temp_session', 'INTEGER NOT NULL DEFAULT 0')
   }
 
   private ensureColumn(table: string, column: string, definition: string): void {
@@ -205,7 +216,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   listSessions(): ChatSessionRow[] {
     return this.db
-      .prepare(`SELECT * FROM chat_sessions ORDER BY update_time DESC`)
+      .prepare(
+        `SELECT * FROM chat_sessions
+         WHERE COALESCE(hidden_from_history, 0) = 0
+         ORDER BY update_time DESC`,
+      )
       .all() as unknown as ChatSessionRow[]
   }
 
@@ -218,6 +233,25 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return this.db
       .prepare(`SELECT * FROM chat_sessions WHERE bridge_connection_id = ? ORDER BY update_time DESC`)
       .get(connectionId) as unknown as ChatSessionRow | undefined
+  }
+
+  findSessionByProjectOnlyBinding(
+    connectionId: string,
+    projectPath: string,
+  ): ChatSessionRow | undefined {
+    const normalizedProjectPath = projectPath.trim()
+    if (!normalizedProjectPath) return undefined
+
+    return this.db
+      .prepare(
+        `SELECT * FROM chat_sessions
+         WHERE bridge_connection_id = ?
+           AND COALESCE(bridge_project_path, '') = ?
+           AND COALESCE(bridge_agent_session_id, '') = ''
+         ORDER BY update_time DESC
+         LIMIT 1`,
+      )
+      .get(connectionId, normalizedProjectPath) as unknown as ChatSessionRow | undefined
   }
 
   findSessionByBridgeBinding(
@@ -261,16 +295,38 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     input: {
       projectPath?: string | null
       agentSessionId?: string | null
+      deviceName?: string | null
     },
   ): void {
     const now = Date.now()
     this.db
       .prepare(
         `UPDATE chat_sessions
-         SET bridge_project_path = ?, bridge_agent_session_id = ?, update_time = ?
+         SET bridge_project_path = ?, bridge_agent_session_id = ?,
+             bridge_device_name = COALESCE(?, bridge_device_name),
+             update_time = ?
          WHERE id = ?`,
       )
-      .run(input.projectPath ?? null, input.agentSessionId ?? null, now, sessionId)
+      .run(
+        input.projectPath ?? null,
+        input.agentSessionId ?? null,
+        input.deviceName?.trim() || null,
+        now,
+        sessionId,
+      )
+  }
+
+  updateSessionDeviceName(sessionId: string, deviceName: string): void {
+    const normalized = deviceName.trim()
+    if (!normalized) return
+    const now = Date.now()
+    this.db
+      .prepare(
+        `UPDATE chat_sessions
+         SET bridge_device_name = ?, update_time = ?
+         WHERE id = ? AND COALESCE(bridge_device_name, '') = ''`,
+      )
+      .run(normalized, now, sessionId)
   }
 
   linkConnectionSession(connectionId: string, sessionId: string): void {
@@ -289,6 +345,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(projectPath.trim(), now, connectionId)
   }
 
+  updateConnectionDevice(
+    connectionId: string,
+    input: { id?: string; name?: string },
+  ): void {
+    const deviceId = input.id?.trim() || null
+    const deviceName = input.name?.trim() || null
+    if (!deviceId && !deviceName) return
+    const now = Date.now()
+    this.db
+      .prepare(
+        `UPDATE bridge_connections SET device_id = COALESCE(?, device_id), device_name = COALESCE(?, device_name), update_time = ? WHERE id = ?`,
+      )
+      .run(deviceId, deviceName, now, connectionId)
+  }
+
   touchSession(sessionId: string, lastMessage: string): void {
     const now = Date.now()
     this.db
@@ -305,6 +376,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(normalized, now, sessionId)
   }
 
+  hideSessionsFromHistory(sessionIds: string[]): string[] {
+    const unique = [...new Set(sessionIds.map((id) => id.trim()).filter(Boolean))]
+    if (unique.length === 0) return []
+
+    const now = Date.now()
+    const stmt = this.db.prepare(
+      `UPDATE chat_sessions SET hidden_from_history = 1, update_time = ? WHERE id = ?`,
+    )
+    for (const sessionId of unique) {
+      stmt.run(now, sessionId)
+    }
+    return unique
+  }
+
   createSession(input: {
     agentType: AgentBridgeType
     title: string
@@ -312,15 +397,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     bridgeProjectPath?: string | null
     bridgeAgentSessionId?: string | null
     lastMessage?: string
+    isTempSession?: boolean
   }): ChatSessionRow {
     const id = randomUUID()
     const now = Date.now()
     const lastMessage = input.lastMessage ?? ''
+    const isTempSession = input.isTempSession ? 1 : 0
     this.db
       .prepare(
         `INSERT INTO chat_sessions
-         (id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, last_message, update_time)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, last_message, update_time, is_temp_session)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -331,6 +418,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         input.bridgeAgentSessionId ?? null,
         lastMessage,
         now,
+        isTempSession,
       )
     return {
       id,
@@ -339,24 +427,40 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       bridge_connection_id: input.bridgeConnectionId ?? null,
       bridge_project_path: input.bridgeProjectPath ?? null,
       bridge_agent_session_id: input.bridgeAgentSessionId ?? null,
+      bridge_device_name: null,
       last_message: lastMessage,
       update_time: now,
+      is_temp_session: isTempSession,
     }
   }
 
-  listMessages(sessionId: string): ChatMessageRow[] {
+  listMessages(sessionId: string, limit?: number): ChatMessageRow[] {
+    if (limit && limit > 0) {
+      const rows = this.db
+        .prepare(
+          `SELECT * FROM chat_messages WHERE session_id = ? ORDER BY create_time DESC LIMIT ?`,
+        )
+        .all(sessionId, limit) as unknown as ChatMessageRow[]
+      return rows.reverse()
+    }
+
     return this.db
       .prepare(`SELECT * FROM chat_messages WHERE session_id = ? ORDER BY create_time ASC`)
       .all(sessionId) as unknown as ChatMessageRow[]
   }
 
   insertMessage(input: {
+    id?: string
     sessionId: string
     role: ChatMessageRow['role']
     content: string
+    createTime?: number
   }): ChatMessageRow {
-    const id = randomUUID()
-    const now = Date.now()
+    const id = input.id?.trim() || randomUUID()
+    const existing = this.getMessageById(id)
+    if (existing) return existing
+
+    const now = input.createTime ?? Date.now()
     this.db
       .prepare(
         `INSERT INTO chat_messages (id, session_id, role, content, create_time) VALUES (?, ?, ?, ?, ?)`,
@@ -364,7 +468,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(id, input.sessionId, input.role, input.content, now)
     this.db
       .prepare(`UPDATE chat_sessions SET last_message = ?, update_time = ? WHERE id = ?`)
-      .run(input.content, now, input.sessionId)
+      .run(normalizeSessionPreview(input.content) || input.content.trim(), now, input.sessionId)
     return {
       id,
       session_id: input.sessionId,
@@ -372,6 +476,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       content: input.content,
       create_time: now,
     }
+  }
+
+  getMessageById(messageId: string): ChatMessageRow | undefined {
+    const id = messageId.trim()
+    if (!id) return undefined
+    const row = this.db.prepare(`SELECT * FROM chat_messages WHERE id = ?`).get(id) as
+      | ChatMessageRow
+      | undefined
+    return row
   }
 
   static createInMemory(): DatabaseService {
