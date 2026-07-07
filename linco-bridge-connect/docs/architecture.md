@@ -14,9 +14,8 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | --- | --- |
 | `bin/` | npm CLI 入口，当前暴露 `linco-connect` 命令。 |
 | `src/cli/` | CLI 入口和本机操作。`index.js` 保持为命令分发入口，初始化、账号、ws-prefix、后台进程、doctor 和帮助输出按职责拆到独立模块。 |
-| `src/service/` | 本地服务启动、关闭和生命周期编排。 |
+| `src/service/` | 本地服务启动、关闭和生命周期编排；包含后台控制通道和运行时配置热加载。 |
 | `src/local/` | 本地测试页、本地访问鉴权和本地 WebSocket 接入；WebSocket 连接生命周期、消息分发、Linco 本地协议、presence 和 turn 控制按模块拆分。 |
-| `src/daemon/` | 后台进程控制通道和运行时配置热加载。 |
 | `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
 | `src/channels/` | 远端 channel 注册、连接器和 Linco 协议适配。 |

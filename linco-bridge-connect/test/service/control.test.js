@@ -7,7 +7,7 @@ const {
   sendControlCommand,
   startControlServer,
   stopControlServer,
-} = require('../../src/daemon/control');
+} = require('../../src/service/control');
 
 const rootDir = path.resolve(__dirname, '..', '..');
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-control-server-'));

@@ -1,9 +1,9 @@
 const { ensureDir, loadConfig } = require('../config');
 const { ensureLocalToken, localUrlWithToken } = require('../local/auth');
 const { createStaticServer } = require('../local/static');
-const { startControlServer, stopControlServer } = require('../daemon/control');
+const { startControlServer, stopControlServer } = require('./control');
 const { startImConnectors } = require('../channels/bridge/connector');
-const { startConfigReloadWatcher, stopConfigReloadWatcher } = require('../daemon/reload');
+const { startConfigReloadWatcher, stopConfigReloadWatcher } = require('./reload');
 const { createLogger } = require('../core/logger');
 const { attachWebSocketServer } = require('../local/websocket');
 const { cleanupSession } = require('../core/session');
