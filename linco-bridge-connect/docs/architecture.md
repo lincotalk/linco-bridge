@@ -15,7 +15,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | `bin/` | npm CLI 入口，当前暴露 `linco-connect` 命令。 |
 | `src/cli/` | CLI 入口和本机操作。`index.js` 保持为命令分发入口，初始化、账号、ws-prefix、后台进程、doctor 和帮助输出按职责拆到独立模块。 |
 | `src/service/` | 本地服务启动、关闭和生命周期编排。 |
-| `src/local/` | 本地测试页、本地 WebSocket 接入和本地访问鉴权。 |
+| `src/local/` | 本地测试页、本地访问鉴权和本地 WebSocket 接入；WebSocket 连接生命周期、消息分发、Linco 本地协议、presence 和 turn 控制按模块拆分。 |
 | `src/daemon/` | 后台进程控制通道和运行时配置热加载。 |
 | `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
@@ -48,6 +48,8 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 `src/agents` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。
 
 `src/channels` 负责远端连接和协议适配，不应该包含具体 Agent CLI 的启动细节。
+
+`src/local` 只处理本机测试页和本地 WebSocket 接入。`websocket.js` 保持为连接入口，session 建立、消息分发、Linco 本地消息、presence 事件和 stop turn 控制分别放在独立模块中。
 
 `packages/protocol` 和 `packages/connector-sdk` 应尽量保持轻量、可复用，避免反向依赖 `src/`。
 
