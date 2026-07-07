@@ -4,7 +4,7 @@ const {
   connectorKey,
   remoteSessionScope,
   safeUrlForLog,
-} = require('../src');
+} = require('../../../src/package/protocol');
 
 test('builds stable connector keys and session scopes', () => {
   assert.equal(connectorKey('claude', { channel: 'linco-demo', account: 'main' }), 'claude:linco-demo:main');

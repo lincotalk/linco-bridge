@@ -9,10 +9,10 @@
   "files": [
     "bin",
     "docs",
-    "packages/connector-sdk/package.json",
-    "packages/connector-sdk/src",
-    "packages/protocol/package.json",
-    "packages/protocol/src",
+    "src/package/connector/package.json",
+    "src/package/connector/src",
+    "src/package/protocol/package.json",
+    "src/package/protocol/src",
     "src",
     "public",
     "server.js",
@@ -21,7 +21,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node bin/linco-connect.js start",
-    "test": "node --test \"test/**/*.test.js\" \"packages/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\""
   },
   "engines": {
     "node": "20.x || 22.x || 23.x || 24.x || 25.x || 26.x"

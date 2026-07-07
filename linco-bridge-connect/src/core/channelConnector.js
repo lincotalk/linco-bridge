@@ -11,7 +11,7 @@ const { buildPresenceEvent } = require('./channelPresence');
 const {
   connectorKey,
   remoteSessionScope,
-} = require('../../packages/protocol');
+} = require('../package/protocol');
 
 const {
   buildStreamId,

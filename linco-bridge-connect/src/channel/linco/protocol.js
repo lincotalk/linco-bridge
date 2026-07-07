@@ -7,7 +7,7 @@ const {
   buildStreamId,
   lincoMetaDefaults,
   pruneUndefined,
-} = require("../../../packages/protocol");
+} = require("../../package/protocol");
 
 function toInternal(msg) {
   if (msg.type === "inbound_message") {

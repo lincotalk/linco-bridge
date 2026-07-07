@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { WebSocketServer } = require('ws');
-const { BridgeConnectorClient } = require('../src');
+const { BridgeConnectorClient } = require('../../../src/package/connector');
 
 test('builds authenticated websocket urls and redacts appSecret params', () => {
   const client = new BridgeConnectorClient({
