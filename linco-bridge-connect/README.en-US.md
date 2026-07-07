@@ -151,13 +151,17 @@ Remote upgrade and downgrade commands from IM:
 
 `/update latest` or `/update <version>` installs the selected npm version. After installation, the connector restarts as a daemon whether it was originally started in the foreground or background.
 
-The local test page does not connect to the mock IM by default. Enable it explicitly for local integration:
+### Local Simulator
+
+The built-in local simulator is a browser-based IM debugging surface for connector development and self-testing. It is not the open-source `linco-demo` channel, not a production Web service, and should not be exposed to the public internet.
+
+The local simulator is disabled by default. Enable it explicitly for local integration:
 
 ```bash
 linco-connect start --local-im
 ```
 
-The terminal prints a local test-page URL with an access token. Do not share that URL or token with untrusted users.
+The terminal prints a local test-page URL with an access token. Open that full URL the first time; after a successful visit, the browser stores a local access cookie so refreshes and same-origin reopens keep working. Do not share the URL or token with untrusted users.
 
 ## Configuration
 
