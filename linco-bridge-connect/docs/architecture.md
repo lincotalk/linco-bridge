@@ -48,7 +48,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 `src/agent` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。新增 Agent 时优先使用 `src/agent/<agent>/index.js` 作为 provider 入口，并在目录内继续按进程启动、事件解析、权限处理、模型/设置等职责拆分。Codex 适配器已将输入构造放在 `src/agent/codex/input.js`，模型和推理选项放在 `src/agent/codex/options.js`；Claude 将输入 payload 和模型/effort 选项拆到 `input.js`、`options.js`；Hermes 将 profile/model 解析拆到 `options.js`；OpenClaw 将 agent/session 标识处理拆到 `identity.js`。
 
-`src/channel` 只放具体 channel adapter，不应该包含公共连接器、注册表或具体 Agent CLI 的启动细节。公共连接流程放在 `src/core/channelConnector.js`，channel 注册放在 `src/core/channelRegistry.js`，presence 构造放在 `src/core/channelPresence.js`；官方 Linco IM 协议放在 `src/channel/linco/`，开源 H5 示例协议放在 `src/channel/lincoDemo/`。新增第三方 channel 时优先新增 `src/channel/<channel>/`，并通过 `registerChannelAdapter()` 注册，不应修改官方 `linco` channel。
+`src/channel` 只放具体 channel adapter，不应该包含公共连接器、注册表或具体 Agent CLI 的启动细节。公共连接流程放在 `src/core/channelConnector.js`，channel 注册放在 `src/core/channelRegistry.js`，presence 构造放在 `src/core/channelPresence.js`；连接器配置签名、远端 metadata 和 Agent 账号标识解析分别放在 `src/core/channelConnectorConfig.js`、`src/core/channelConnectorMeta.js`、`src/core/channelConnectorIdentity.js`。官方 Linco IM 协议放在 `src/channel/linco/`，开源 H5 示例协议放在 `src/channel/lincoDemo/`。新增第三方 channel 时优先新增 `src/channel/<channel>/`，并通过 `registerChannelAdapter()` 注册，不应修改官方 `linco` channel。
 
 `src/local` 只处理本机测试页和本地 WebSocket 接入。`websocket.js` 保持为连接入口，session 建立、消息分发、Linco 本地消息、presence 事件和 stop turn 控制分别放在独立模块中。
 

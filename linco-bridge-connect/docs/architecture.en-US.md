@@ -48,7 +48,7 @@ From an open-source perspective, Linco Connect is not limited to the official Li
 
 `src/agent` may depend on `src/core` and `src/runtime`, but it should not handle remote IM channel/account connection details directly.
 
-`src/channel` should only contain concrete channel adapters. Shared connection flow belongs in `src/core/channelConnector.js`, channel registration in `src/core/channelRegistry.js`, and presence construction in `src/core/channelPresence.js`. The official Linco IM protocol lives in `src/channel/linco/`; the open-source H5 demo channel lives in `src/channel/lincoDemo/`. Third-party channels should add `src/channel/<channel>/` and register through `registerChannelAdapter()` instead of modifying the official `linco` channel.
+`src/channel` should only contain concrete channel adapters. Shared connection flow belongs in `src/core/channelConnector.js`, channel registration in `src/core/channelRegistry.js`, and presence construction in `src/core/channelPresence.js`; connector config signatures, remote metadata, and Agent account identity resolution live in `src/core/channelConnectorConfig.js`, `src/core/channelConnectorMeta.js`, and `src/core/channelConnectorIdentity.js`. The official Linco IM protocol lives in `src/channel/linco/`; the open-source H5 demo channel lives in `src/channel/lincoDemo/`. Third-party channels should add `src/channel/<channel>/` and register through `registerChannelAdapter()` instead of modifying the official `linco` channel.
 
 `src/local` only handles the local test page and local WebSocket access.
 
