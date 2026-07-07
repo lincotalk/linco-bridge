@@ -7,7 +7,7 @@ Local agent
     ↕ local process, gateway, or session files
 linco-connect on the user's computer
     ↕ authenticated WSS connection
-Minimal Server or Linco Cloud
+Reference platform, compatible backend, or Linco Cloud
     ↕
 Reference Web, Linco App, or a third-party client
 ```
@@ -21,8 +21,7 @@ Reference Web, Linco App, or a third-party client
 
 ## Boundaries
 
-- Minimal Server is a development reference, not a production self-hosted service.
+- The reference platform is a development and integration reference, not production hosting guidance.
 - TLS/WSS protects transport but does not by itself provide end-to-end encryption.
 - Synchronizing a session index does not mean uploading all historical messages.
-- The final release must document data visibility, retention, and deletion.
-
+- Data visibility, retention, and deletion depend on the connector, backend deployment, and client flow in use; review the security and privacy documentation before connecting real data.

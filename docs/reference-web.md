@@ -7,11 +7,12 @@ Reference Web is the open client for verifying the Linco Connect flow. Its respo
 ## Included
 
 - Select a supported agent.
-- Create or enter connection credentials.
-- Copy installation and startup commands.
+- Display or use issued connection credentials.
+- Copy installation, initialization, and startup commands.
 - Detect connection state.
-- Synchronize and search the session index.
-- Open a session and perform limited testing.
+- Bind a profile or agent where the selected local tool requires it.
+- Synchronize and search the session index where supported by the selected flow.
+- Open a session and perform bridge validation testing.
 - Display data-path, privacy, and product-status notices.
 
 ## Not included
@@ -20,4 +21,3 @@ Reference Web is the open client for verifying the Linco Connect flow. Its respo
 - Production-grade multi-device administration.
 - A production self-hosted control plane.
 - An official hosted service unless a live URL is explicitly published.
-

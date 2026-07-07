@@ -1,6 +1,6 @@
 # Contributing / 参与贡献
 
-Thank you for helping improve Linco Connect. / 感谢你帮助改进 Linco Connect。
+Thank you for helping improve Linco Bridge. / 感谢你帮助改进 Linco Bridge。
 
 ## Before opening an issue / 提交 Issue 前
 
@@ -17,9 +17,12 @@ Thank you for helping improve Linco Connect. / 感谢你帮助改进 Linco Conne
 - Never include secrets, user data, internal documents, or unlicensed assets.
 - Breaking changes require an explicit migration plan.
 
-## Contributor authorization / 贡献授权
+## Rights and authorization / 权利与授权
 
-The final DCO or CLA requirement must be inserted after legal review. Do not publish this draft without choosing one.
+By submitting a contribution, you confirm that you have the right to submit the code, documentation, or other materials under the repository license.
 
-法务评审后在此填入最终 DCO 或 CLA 要求。未确定前不得直接公开本草稿。
+If the project later adopts an additional DCO, CLA, or contributor sign-off requirement, it will be announced in the repository workflow before enforcement.
 
+提交贡献即表示你确认自己有权按本仓库许可证提交相关代码、文档或其他材料。
+
+如果项目后续引入额外的 DCO、CLA 或签署要求，会先在仓库流程中公开说明，再正式执行。

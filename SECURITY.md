@@ -6,9 +6,9 @@ Do not open a public issue for vulnerabilities involving credentials, authentica
 
 如问题涉及凭证、鉴权绕过、远程执行、未授权文件访问、会话串线或私密数据暴露，请不要提交公开 Issue。
 
-Use GitHub Private Vulnerability Reporting or contact: **[SECURITY CONTACT TO BE CONFIRMED]**.
+Use GitHub Private Vulnerability Reporting for this repository. If private reporting is unavailable in your environment, contact the maintainers through a private repository contact channel instead of opening a public issue.
 
-请使用 GitHub Private Vulnerability Reporting，或联系：**[待确认安全联系方式]**。
+请优先使用本仓库的 GitHub Private Vulnerability Reporting。如果当前环境无法使用私密报告能力，请通过仓库提供的私密联系渠道联系维护者，不要提交公开 Issue。
 
 Include:
 
@@ -20,7 +20,10 @@ Include:
 
 ## Scope / 范围
 
-Supported versions and response expectations must be added before publication. Community support is best effort and does not provide a contractual SLA.
+Security fixes are prioritized for the latest released version and the current supported release line announced in repository releases or release notes.
 
-发布前需填写实际支持版本和响应预期。社区安全支持尽力而为，不构成合同 SLA。
+Community security support is best effort and does not provide a contractual SLA.
 
+安全修复优先覆盖最新正式发布版本，以及仓库 Release 或发布说明中声明的当前支持版本线。
+
+社区安全支持尽力而为，不构成合同 SLA。

@@ -109,6 +109,6 @@ cd server && npm run check
 
 ## Phase status
 
-- Phase 1 — UniApp UI + bridge SDK placeholder ✅
+- Phase 1 — UniApp UI + bridge SDK reference implementation ✅
 - Phase 2 — Demo backend + API integration ✅
 - Phase 3 — `linco-bridge-connect` 插件联调（WS relay + AgentChat REST）✅

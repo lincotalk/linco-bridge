@@ -2,12 +2,10 @@
 
 [简体中文](zh-CN/quick-start.md)
 
-> Verify every command against the final release before publication.
-
 ## Prerequisites
 
 - A supported operating system and Node.js version.
-- Codex or Claude Code installed and working locally.
+- At least one supported local agent CLI installed and working locally.
 - Credentials created in the Reference Web or Linco App.
 
 ## Install and connect
@@ -20,11 +18,10 @@ linco-connect start --daemon
 
 Return to the client, confirm the device is online, open a recent session, and send a short test message.
 
+For Hermes or OpenClaw, complete the additional profile or agent binding step shown in the client after the connector comes online.
+
 ## Stop
 
 ```bash
 linco-connect stop
 ```
-
-If the final command, package name, or flow changes, update this file, README, CLI `--help`, and the demo together.
-

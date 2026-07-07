@@ -7,7 +7,7 @@
     ↕ 本地进程、Gateway 或 session 文件
 用户电脑上的 linco-connect
     ↕ 已鉴权 WSS 连接
-Minimal Server 或 Linco Cloud
+Reference Platform、兼容后端或 Linco Cloud
     ↕
 Reference Web、Linco App 或第三方客户端
 ```
@@ -21,8 +21,7 @@ Reference Web、Linco App 或第三方客户端
 
 ## 边界
 
-- Minimal Server 是开发参考，不是生产自托管服务。
+- Reference Platform 用于开发和集成验证，不构成生产部署指南。
 - TLS / WSS 保护传输，不代表已实现端到端加密。
 - 同步会话索引不等于上传全部历史消息。
-- 最终发布必须说明数据可见性、保留和删除。
-
+- 数据可见性、保留和删除策略取决于连接器、后端部署方式和客户端链路；连接真实数据前请先阅读安全与隐私文档。
