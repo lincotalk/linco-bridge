@@ -1,30 +1,27 @@
 const fs = require('fs');
 const path = require('path');
+const { buildAgentSystemPrompt, buildFileDeliveryInstructions } = require('./agentPrompt');
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const FILE_REFERENCE_HINT_MARKER = 'System note: The user is asking to send or deliver a file/image.';
 
 function buildFileReferenceSystemPrompt(session, config) {
-  const agentType = session.agentType || 'claude';
-  const instructions = config.agents?.[agentType]?.instructions || '';
-  return `${instructions}
-
-如果你需要把生成的文件或图片交给用户，请保存到当前工作目录或会话运行目录中，并且必须在回复里用 Markdown 文件引用返回，链接目标必须是原始本机绝对路径，例如 [report.md](D:\\path\\report.md)。不要只返回裸文件路径，不要使用相对路径作为链接目标，也不要使用 file://、file:/// 或其他 URL 形式。用户点击引用后，Linco 会通过 /get <路径> 按需取回文件。
-
-当前工作目录: ${session.workspace}
-会话运行目录: ${session.runtimeDir}
-附件目录: ${session.attachmentsDir}
-
-请使用有意义的文件名，不要引用敏感文件，除非用户明确要求。`;
+  return buildAgentSystemPrompt(session, config);
 }
 
 function buildFileReferenceHint(input, session) {
   const text = extractText(input);
   if (!shouldAddFileReferenceHint(text)) return input;
 
-  const hint = `系统提示：用户正在要求发送或获取文件/图片。请将最终文件保存到当前工作目录或会话运行目录，并且必须在回复中用 Markdown 文件引用返回，链接目标必须是原始本机绝对路径，例如 [report.md](D:\\path\\report.md)。不要只返回裸文件路径，不要使用相对路径作为链接目标，也不要使用 file://、file:/// 或其他 URL 形式；用户点击引用后会自动触发 /get <路径> 下发文件。
-当前工作目录: ${session.workspace}
-会话运行目录: ${session.runtimeDir}
-附件目录: ${session.attachmentsDir}`;
+  const hint = `${FILE_REFERENCE_HINT_MARKER}
+Save the final file in the current workspace or conversation runtime directory, then return it using this exact Markdown file reference format:
+[filename.ext](absolute-local-path)
+
+The link target must be the original local absolute path. Do not return bare file paths, relative paths, file:// URLs, download commands, or delivery implementation details.
+
+Current workspace: ${session.workspace}
+Conversation runtime directory: ${session.runtimeDir}
+Attachment directory: ${session.attachmentsDir}`;
 
   if (Array.isArray(input)) {
     return [...input, { type: 'text', text: hint }];
@@ -36,7 +33,11 @@ function buildImageGenerationDeliveryHint(input) {
   const text = extractText(input);
   if (!isImageGenerationRequest(text)) return input;
 
-  const hint = '系统提示：这是一条图片生成请求。如果你使用了内置图片生成工具，生成的图片会由桥接层自动作为图片附件发送给用户，不要在正文中输出本地文件路径、Markdown 文件链接、/get 命令或下载说明，只简短确认图片已生成。如果没有可用的图片生成工具、只能通过保存或下载图片文件交付，则必须把最终图片保存到当前工作目录或会话运行目录，并在回复中用 Markdown 文件引用返回本机绝对路径。';
+  const hint = `System note: This is an image generation request.
+If you used a built-in image generation tool, the bridge will deliver the generated image automatically. Reply briefly, and do not include local paths, Markdown file links, download commands, or delivery instructions.
+
+If you can only deliver the image as a saved file, save it in the current workspace or conversation runtime directory, then return it using this exact Markdown file reference format:
+[filename.ext](absolute-local-path)`;
   if (Array.isArray(input)) {
     return [...input, { type: 'text', text: hint }];
   }
@@ -308,5 +309,7 @@ module.exports = {
     isImageGenerationRequest,
     hasHiddenPathSegment,
     shouldAddFileReferenceHint,
+    FILE_REFERENCE_HINT_MARKER,
+    buildFileDeliveryInstructions,
   },
 };

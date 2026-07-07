@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { isDangerousCommand } = require('../../core/danger');
 const { buildClaudeEnv } = require('../../runtime/agentEnv');
-const { buildFileReferenceSystemPrompt } = require('../../core/fileReferences');
+const { buildAgentSystemPrompt } = require('../../core/agentPrompt');
 const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../../core/protocol');
 const {
   markClaudeResumeEntrypointFixPending,
@@ -634,7 +634,7 @@ function ensureClaudeProcess(ws, session, config) {
     '--output-format', 'stream-json',
     '--include-partial-messages',
     '--verbose',
-    '--append-system-prompt', buildFileReferenceSystemPrompt(session, config),
+    '--append-system-prompt', buildAgentSystemPrompt(session, config),
   ];
   if (session.approveMode === 'yolo') {
     args.push('--permission-mode', 'bypassPermissions');

@@ -2,6 +2,7 @@
 const { isDangerousCommand } = require('../../core/danger');
 const { send, sendError, sendSystem, sendTurnEnd } = require('../../core/protocol');
 const { persistAgentSessionId, stopAgentProcess: stopSessionProcess, updateAgentSessionHistory, createAgentSessionEntry, saveSessionMetadata } = require('../../core/session');
+const { buildAgentSystemPrompt } = require('../../core/agentPrompt');
 const { buildFileReferenceHint } = require('../../core/fileReferences');
 const { createTextStreamBuffer, appendTextStream, flushTextStream, resetTextStream } = require('../../core/streamBuffer');
 const { captureAssistantReplyText, startAssistantReplyLog } = require('../../core/conversationLog');
@@ -110,7 +111,13 @@ async function createRun(gatewayUrl, agentConfig, input, sessionId, session) {
   };
   const model = currentHermesModel(session, agentConfig);
   if (model) body.model = model;
-  if (agentConfig.instructions) body.instructions = agentConfig.instructions;
+  const agentType = session.agentType || agentConfig.type || 'hermes';
+  const instructions = buildAgentSystemPrompt(session, {
+    agents: {
+      [agentType]: agentConfig,
+    },
+  }, { agentType });
+  if (instructions) body.instructions = instructions;
 
   const response = await fetchJson(`${gatewayUrl}/v1/runs`, agentConfig, {
     method: 'POST',

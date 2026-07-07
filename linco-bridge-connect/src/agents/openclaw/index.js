@@ -9,6 +9,7 @@ const {
   stopAgentProcess: stopSessionProcess,
   updateAgentSessionHistory,
 } = require('../../core/session');
+const { appendBridgeContextHint } = require('../../core/agentPrompt');
 const { buildFileReferenceHint } = require('../../core/fileReferences');
 const { createTextStreamBuffer, appendTextStream, flushTextStream, resetTextStream } = require('../../core/streamBuffer');
 const { captureAssistantReplyText, startAssistantReplyLog } = require('../../core/conversationLog');
@@ -1235,7 +1236,7 @@ function stringifyInput(input) {
 }
 
 function maybeAddOutboxHint(input, session, config) {
-  return buildFileReferenceHint(input, session);
+  return appendBridgeContextHint(buildFileReferenceHint(input, session));
 }
 
 function armOpenClawTurnTimeout(ws, session, config, agentConfig = {}) {
@@ -1405,6 +1406,7 @@ module.exports = {
     buildOpenClawSessionKey,
     buildOpenClawSessionLabel,
     sanitizeOpenClawErrorMessage,
+    stripInternalOutboxHint,
     isSessionKeyForAgent,
     handleOpenClawGatewayClose,
     handleOpenClawEvent,

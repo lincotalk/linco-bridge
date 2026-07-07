@@ -135,7 +135,7 @@ Agent 适配器可能发送 `permission_request` 或 `danger_warning`。远端 I
 
 ## 文件下发
 
-Agent 生成文件时通常先在回复中返回文件路径引用。远端 IM 点击引用后可以发送 `/get <路径>`，连接器校验路径、文件类型和大小后返回 `outbound_message`，其中包含 `mediaBase64` 或 `files`。
+Agent 生成文件时通常先在回复中返回文件路径引用。Agent 可见提示词只要求返回 `[filename.ext](absolute-local-path)` 这类 Markdown 绝对路径引用，不暴露 `/get` 命令或下发实现细节。远端 IM 点击引用后可以发送 `/get <路径>`，连接器校验路径、文件类型和大小后返回 `outbound_message`，其中包含 `mediaBase64` 或 `files`。
 
 连接器只应下发当前工作目录、会话运行目录或附件目录内的普通非隐藏文件，默认拒绝 `.env`、`.git/config`、`.ssh/*` 等隐藏路径。
 

@@ -32,10 +32,12 @@ Linco Connect 是运行在用户电脑上的本机 Agent 连接器，用于把 L
 
 | Agent | 已验证版本 | 适配说明 |
 | --- | --- | --- |
-| Claude Code | `2.1.159 (Claude Code)` | 使用 stream-json 输入/输出、stdio 权限确认和 `--append-system-prompt`；配置统一走 `agents.claude.*`，会话 ID 统一保存为 `agentSessionId`。 |
-| Codex CLI | `codex-cli 0.128.0` | 默认使用 `codex app-server --listen stdio://`；工作区沙箱为 `workspace-write`，默认允许网络访问，可用 `LINCO_CODEX_NETWORK_ACCESS=0` 关闭。 |
+| Claude Code | `2.1.198 (Claude Code)` | 使用 stream-json 输入/输出、stdio 权限确认和 `--append-system-prompt`；配置统一走 `agents.claude.*`，会话 ID 统一保存为 `agentSessionId`。 |
+| Codex CLI | `codex-cli 0.142.5` | 默认使用 `codex app-server --listen stdio://`；工作区沙箱为 `workspace-write`，默认允许网络访问，可用 `LINCO_CODEX_NETWORK_ACCESS=0` 关闭。 |
 | OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | 支持 Gateway agent session、`openclaw agents list --json` / `openclaw gateway call --json agents.list`；Linco 会话内可用 `/agent` 查看/绑定后续 OpenClaw Agent。 |
 | Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | 支持 Hermes Gateway `/v1/runs` 和 `hermes profile list`；Linco 会话内可用 `/profile` 查看/绑定后续 Hermes Profile。 |
+
+连接器会向 Agent 注入统一的 Linco Connect 桥接身份说明：Agent 正在通过 Linco Connect 连接 Linco IM，普通文本回复会自动发送给用户，不需要额外调用发送机制。Claude/Hermes 走系统级或 `instructions` 注入，Codex/OpenClaw 保持现有协议字段结构并在输入层追加提示。
 
 ## 安装
 
@@ -212,7 +214,7 @@ linco-connect start --local-im
 | 单文件大小 | 50 MB |
 | 单次附件总大小 | 250 MB |
 
-Agent 需要把文件发给用户时，应将文件保存到当前工作目录或会话运行目录，并且必须在回复中返回 Markdown 文件引用，链接目标必须是绝对路径，例如 `[report.md](D:\path\report.md)`，不要只返回裸文件路径或相对路径。远端 IM 点击引用后会发送 `/get <路径>`，连接器校验后返回文件 base64。
+Agent 需要把文件发给用户时，应将文件保存到当前工作目录或会话运行目录，并且必须在回复中返回 Markdown 文件引用，链接目标必须是绝对路径，例如 `[report.md](D:\path\report.md)`，不要只返回裸文件路径或相对路径。Agent 可见提示词只描述这个返回格式，不暴露 `/get` 命令或下发实现细节；远端 IM 点击引用后会发送 `/get <路径>`，连接器校验后返回文件 base64。
 
 连接器会判断路径是绝对路径还是相对当前工作目录的路径，并校验文件位于当前工作目录、运行目录或附件目录内，且满足普通文件、大小限制、隐藏路径和危险扩展名规则；校验通过后，远端 IM 会收到带 `mediaName`、`mediaType`、`mediaBase64`、`size` 和 `references` 的 `outbound_message`。
 

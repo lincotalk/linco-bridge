@@ -46,11 +46,14 @@ const directorySymlinkSupported = canCreateDirectorySymlink();
   };
 
   assert.strictEqual(buildFileReferenceHint('生成一张小鹿的图片给我', session), '生成一张小鹿的图片给我');
-  assert.match(buildImageGenerationDeliveryHint('生成一张小鹿的图片给我', session), /内置图片生成工具/);
+  assert.match(buildImageGenerationDeliveryHint('生成一张小鹿的图片给我', session), /built-in image generation tool/);
+  assert.doesNotMatch(buildImageGenerationDeliveryHint('生成一张小鹿的图片给我', session), /\/get/);
   assert.strictEqual(fileReferenceInternals.isImageGenerationRequest('帮我改代码，让页面可以生成图片'), false);
   assert.strictEqual(fileReferenceInternals.isImageGenerationRequest('现在给我生成一张图片'), true);
-  assert.match(buildFileReferenceHint('生成一个 report.md 文件发给我', session), /系统提示/);
-  assert.match(buildFileReferenceHint('download the generated report file', session), /系统提示/);
+  assert.match(buildFileReferenceHint('生成一个 report.md 文件发给我', session), /System note: The user is asking to send or deliver a file\/image\./);
+  assert.match(buildFileReferenceHint('生成一个 report.md 文件发给我', session), /\[filename\.ext\]\(absolute-local-path\)/);
+  assert.doesNotMatch(buildFileReferenceHint('生成一个 report.md 文件发给我', session), /\/get/);
+  assert.match(buildFileReferenceHint('download the generated report file', session), /System note: The user is asking to send or deliver a file\/image\./);
 }
 
 {

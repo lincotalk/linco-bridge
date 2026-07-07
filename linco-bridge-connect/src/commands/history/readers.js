@@ -1,11 +1,17 @@
 
 const fs = require('fs');
 const { StringDecoder } = require('string_decoder');
+const { _internal: agentPromptInternals } = require('../../core/agentPrompt');
 const { SESSION_SUMMARY_SCAN_LIMIT } = require('./constants');
 const {
   extractHistoryTimestamp,
   stringOrEmpty,
 } = require('./utils');
+
+const INTERNAL_HINT_PATTERN = new RegExp(
+  `\\n\\s*(?:${escapeRegExp(agentPromptInternals.BRIDGE_INPUT_HINT_MARKER)}|System note: The user is asking to send or deliver a file\\/image\\.|系统提示：用户正在要求发送或获取文件\\/图片。)`,
+  'u'
+);
 
 function readClaudeSessionSummary(filePath) {
   const result = { firstMessage: '', lastMessage: '', title: '' };
@@ -155,7 +161,7 @@ function unwrapCodexUserRequest(text) {
 function stripCodexFileReferenceHint(text) {
   const value = stringOrEmpty(text);
   if (!value) return '';
-  return value.split(/\n\s*系统提示：用户正在要求发送或获取文件\/图片。/u)[0].trim();
+  return value.split(INTERNAL_HINT_PATTERN)[0].trim();
 }
 
 function normalizeCodexTitle(text) {
@@ -303,6 +309,10 @@ function isCodexHostDirectiveLine(line) {
 
 function isMarkdownFenceLine(line) {
   return /^[ \t]{0,3}(```+|~~~+)/.test(line);
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 module.exports = {

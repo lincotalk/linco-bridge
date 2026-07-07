@@ -107,16 +107,21 @@ const { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, string
     attachmentsDir: 'C:\\runtime\\attachments',
   };
   const imageInput = buildCodexDeliveryInput('生成一张小蜜蜂的图片发给我', session);
-  assert.match(imageInput, /内置图片生成工具/);
-  assert.match(imageInput, /如果没有可用的图片生成工具/);
-  assert.doesNotMatch(imageInput, /用户正在要求发送或获取文件\/图片/);
+  assert.match(imageInput, /built-in image generation tool/);
+  assert.match(imageInput, /If you can only deliver the image as a saved file/);
+  assert.doesNotMatch(imageInput, /The user is asking to send or deliver a file\/image/);
+  assert.doesNotMatch(imageInput, /\/get/);
 
   const codeInput = buildCodexDeliveryInput('帮我改代码，让页面可以生成图片', session);
-  assert.doesNotMatch(codeInput, /内置图片生成工具/);
-  assert.doesNotMatch(codeInput, /用户正在要求发送或获取文件\/图片/);
+  assert.doesNotMatch(codeInput, /built-in image generation tool/);
+  assert.doesNotMatch(codeInput, /The user is asking to send or deliver a file\/image/);
+  assert.match(codeInput, /You are running inside Linco Connect/);
 
   const fileInput = buildCodexDeliveryInput('生成一个 report.md 文件发给我', session);
-  assert.match(fileInput, /用户正在要求发送或获取文件\/图片/);
+  assert.match(fileInput, /The user is asking to send or deliver a file\/image/);
+  assert.match(fileInput, /You are running inside Linco Connect/);
+  assert.match(fileInput, /\[filename\.ext\]\(absolute-local-path\)/);
+  assert.doesNotMatch(fileInput, /\/get/);
 }
 
 {
