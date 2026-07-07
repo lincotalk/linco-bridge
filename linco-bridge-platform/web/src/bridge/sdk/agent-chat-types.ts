@@ -12,11 +12,15 @@ import type {
  * Methods marked optional are Phase 2 (native bridge plugin).
  */
 export interface AgentChatSdk {
-  getLandingHeader(agentType: AgentBridgeType): Promise<AgentLandingHeader>
+  getLandingHeader(
+    agentType: AgentBridgeType,
+    connectionId?: string,
+  ): Promise<AgentLandingHeader>
   listHistory(
     agentType: AgentBridgeType,
-    options?: { limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number; connectionId?: string },
   ): Promise<AgentHistoryItem[]>
+  hideHistorySessions(agentType: AgentBridgeType, sessionIds: string[]): Promise<number>
   startConversation(input: StartConversationInput): Promise<StartConversationResult>
 
   /** Workspace picker — bridge plugin will implement. */
@@ -29,5 +33,6 @@ export interface AgentChatSdk {
   watchLandingHeader?(
     agentType: AgentBridgeType,
     listener: (header: AgentLandingHeader) => void,
+    connectionId?: string,
   ): () => void
 }

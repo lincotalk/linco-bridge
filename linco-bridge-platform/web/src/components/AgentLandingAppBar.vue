@@ -6,6 +6,7 @@ defineProps<{
   subtitle?: string
   avatar: string
   showWorkspace?: boolean
+  showMore?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -43,10 +44,14 @@ function handleBack() {
           class="landing-bar__action"
           @tap="emit('workspace')"
         >
-          <image class="landing-bar__folder" :src="CHAT_ICON.folder" mode="aspectFit" />
+          <image class="landing-bar__folder" :src="CHAT_ICON.workspaceFolder" mode="aspectFit" />
         </view>
-        <view class="landing-bar__action" @tap="emit('more')">
-          <text class="landing-bar__more">···</text>
+        <view v-if="showMore !== false" class="landing-bar__action" @tap="emit('more')">
+          <view class="landing-bar__more-dots" aria-label="更多">
+            <view class="landing-bar__more-dot" />
+            <view class="landing-bar__more-dot" />
+            <view class="landing-bar__more-dot" />
+          </view>
         </view>
       </view>
     </view>
@@ -55,14 +60,15 @@ function handleBack() {
 
 <style scoped lang="scss">
 .landing-bar {
+  flex-shrink: 0;
   background: #ffffff;
 }
 
 .landing-bar__inner {
   display: flex;
   align-items: center;
-  height: 88rpx;
-  padding: 0 32rpx 0 16rpx;
+  min-height: 88rpx;
+  padding: 12rpx 16rpx 12rpx 16rpx;
   box-sizing: border-box;
 }
 
@@ -126,8 +132,9 @@ function handleBack() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80rpx;
-  height: 88rpx;
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
 }
 
 .landing-bar__folder {
@@ -135,10 +142,19 @@ function handleBack() {
   height: 40rpx;
 }
 
-.landing-bar__more {
-  font-size: 40rpx;
-  line-height: 1;
-  color: #1a1a1a;
-  letter-spacing: 2rpx;
+.landing-bar__more-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.landing-bar__more-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: #1a1a1a;
 }
 </style>

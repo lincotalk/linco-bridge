@@ -90,6 +90,7 @@ export function createMockAgentChatSdk(options?: {
   const online = new Map<AgentBridgeType, boolean>(
     Object.entries(options?.online ?? {}) as [AgentBridgeType, boolean][],
   )
+  const hiddenIds = new Set<string>()
 
   return {
     async getLandingHeader(agentType) {
@@ -106,7 +107,15 @@ export function createMockAgentChatSdk(options?: {
     async listHistory(agentType, opts) {
       const limit = opts?.limit ?? 50
       const offset = opts?.offset ?? 0
-      return (MOCK_HISTORY[agentType] ?? []).slice(offset, offset + limit)
+      return (MOCK_HISTORY[agentType] ?? [])
+        .filter((item) => !hiddenIds.has(item.id))
+        .slice(offset, offset + limit)
+    },
+
+    async hideHistorySessions(_agentType, sessionIds) {
+      const unique = [...new Set(sessionIds.map((id) => id.trim()).filter(Boolean))]
+      unique.forEach((id) => hiddenIds.add(id))
+      return unique.length
     },
 
     async startConversation(input: StartConversationInput): Promise<StartConversationResult> {

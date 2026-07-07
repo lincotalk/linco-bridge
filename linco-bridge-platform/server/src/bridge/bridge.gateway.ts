@@ -75,7 +75,7 @@ export class BridgeGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const device = frame.device
       if (device && typeof device === 'object') {
         const record = device as Record<string, unknown>
-        this.presence.updateDeviceInfo(client.__connectionId, {
+        this.bridgeService.persistConnectionDeviceInfo(client.__connectionId, {
           id: typeof record.id === 'string' ? record.id : undefined,
           name: typeof record.name === 'string' ? record.name : undefined,
         })

@@ -72,10 +72,17 @@ export interface BridgeSourceCard {
 export interface ChatSessionItem {
   id: string
   agentType: AgentBridgeType
+  connectionId?: string
+  /** Message tab row title: agent name + device. */
   title: string
+  /** Conversation title for chat page header. */
+  conversationTitle?: string
   lastMessage: string
   updatedAt: number
   online: boolean
+  bridgeProjectPath?: string
+  isTempSession?: boolean
+  deviceName?: string
 }
 
 export type ChatMessageRole = 'user' | 'assistant' | 'system'
@@ -86,6 +93,12 @@ export interface ChatMessageAttachment {
   previewUrl?: string
 }
 
+export interface ChatMessageReasoning {
+  content: string
+  startedAt: number
+  endedAt?: number
+}
+
 export interface ChatMessage {
   id: string
   sessionId: string
@@ -93,6 +106,8 @@ export interface ChatMessage {
   content: string
   createdAt: number
   streaming?: boolean
+  reasoning?: ChatMessageReasoning
+  reasoningStreaming?: boolean
   attachments?: ChatMessageAttachment[]
 }
 
@@ -101,6 +116,7 @@ export interface BridgeStatusResult {
   bridgeType: AgentBridgeType
   accountId?: string
   connectionId?: string
+  deviceName?: string
 }
 
 export interface BridgeBindContextResult {
@@ -126,9 +142,17 @@ export interface AgentHistoryItem {
   preview: string
   updatedAt: number
   projectPath?: string
+  agentSessionId?: string
   pinned?: boolean
   unread?: boolean
   working?: boolean
+}
+
+export interface ResumeSessionResult {
+  sessionId: string
+  title: string
+  projectPath?: string
+  agentSessionId?: string
 }
 
 /** Agent landing header (aligned with Flutter ConversationChatAppBar + bridge status). */
@@ -145,6 +169,7 @@ export interface StartConversationInput {
   message?: string
   tempSession?: boolean
   title?: string
+  connectionId?: string
 }
 
 export interface StartConversationResult {

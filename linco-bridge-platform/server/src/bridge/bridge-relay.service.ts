@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 
 import { parseHistoryReloadPayload, type HistoryReloadPayload } from './history.util'
+import { isBridgeSessionStatusMessage } from './bridge-status-message.util'
 import { BRIDGE_CONNECT_CHANNEL } from './bridge.commands'
 
 export type SlashCommandPayload = Record<string, unknown>
@@ -12,8 +13,15 @@ export interface StreamChunkPayload {
   fullText: string
 }
 
+export interface StreamReasoningPayload {
+  delta: string
+  fullText: string
+}
+
 export interface ForwardTurnOptions {
   onChunk?: (chunk: StreamChunkPayload) => void
+  onReasoning?: (payload: StreamReasoningPayload) => void
+  onReasoningClear?: () => void
 }
 
 export interface ForwardTurnHandle {
@@ -41,9 +49,12 @@ interface PendingTurn {
   reject: (error: Error) => void
   timeout: NodeJS.Timeout
   accumulatedText: string
+  accumulatedReasoning: string
   systemTexts: string[]
   collectSystem: boolean
   onChunk?: (chunk: StreamChunkPayload) => void
+  onReasoning?: (payload: StreamReasoningPayload) => void
+  onReasoningClear?: () => void
   cancelled: boolean
   allowEmptyTurnEnd: boolean
   outboundFile?: ConnectorFileInput
@@ -100,6 +111,37 @@ export class BridgeRelayService {
     const pending = this.pendingTurns.get(streamId)
     if (!pending) return
 
+    if (frame.type === 'thinking') {
+      const delta = typeof frame.delta === 'string' ? frame.delta : ''
+      const fullTextFromFrame = typeof frame.fullText === 'string' ? frame.fullText : ''
+      const text = typeof frame.text === 'string' ? frame.text : ''
+      const mode = typeof frame.mode === 'string' ? frame.mode : ''
+
+      if (fullTextFromFrame.trim()) {
+        pending.accumulatedReasoning = fullTextFromFrame
+      } else if (mode === 'progress' && (delta || text)) {
+        pending.accumulatedReasoning = delta || text
+      } else if (delta || text) {
+        pending.accumulatedReasoning = pending.accumulatedReasoning
+          ? `${pending.accumulatedReasoning}${delta || text}`
+          : delta || text
+      }
+
+      if (pending.accumulatedReasoning.trim()) {
+        pending.onReasoning?.({
+          delta: delta || text,
+          fullText: pending.accumulatedReasoning,
+        })
+      }
+      return
+    }
+
+    if (frame.type === 'thinking_clear') {
+      pending.accumulatedReasoning = ''
+      pending.onReasoningClear?.()
+      return
+    }
+
     if (frame.type === 'stream_chunk') {
       const delta = typeof frame.delta === 'string' ? frame.delta : ''
       const fullText = typeof frame.fullText === 'string' ? frame.fullText : ''
@@ -127,6 +169,15 @@ export class BridgeRelayService {
       if (!text.trim()) {
         text = pending.accumulatedText
       }
+
+      if (
+        frame.type === 'outbound_message' &&
+        !pending.allowEmptyTurnEnd &&
+        isBridgeSessionStatusMessage(text)
+      ) {
+        return
+      }
+
       if (!text.trim() && !pending.allowEmptyTurnEnd) return
 
       clearTimeout(pending.timeout)
@@ -176,6 +227,8 @@ export class BridgeRelayService {
   ): ForwardTurnHandle {
     return this.createTurn(send, input, input.text, {
       onChunk: options?.onChunk,
+      onReasoning: options?.onReasoning,
+      onReasoningClear: options?.onReasoningClear,
       allowEmptyTurnEnd: false,
       timeoutMs: 120_000,
     })
@@ -264,6 +317,8 @@ export class BridgeRelayService {
     text: string,
     options: {
       onChunk?: (chunk: StreamChunkPayload) => void
+      onReasoning?: (payload: StreamReasoningPayload) => void
+      onReasoningClear?: () => void
       allowEmptyTurnEnd: boolean
       timeoutMs: number
       collectSystem?: boolean
@@ -292,9 +347,12 @@ export class BridgeRelayService {
         reject,
         timeout,
         accumulatedText: '',
+        accumulatedReasoning: '',
         systemTexts: [],
         collectSystem: options.collectSystem ?? false,
         onChunk: options.onChunk,
+        onReasoning: options.onReasoning,
+        onReasoningClear: options.onReasoningClear,
         cancelled: false,
         allowEmptyTurnEnd: options.allowEmptyTurnEnd,
       })

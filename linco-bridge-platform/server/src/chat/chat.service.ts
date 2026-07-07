@@ -1,21 +1,52 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
-import { DatabaseService, type BridgeConnectionRow } from '../database/database.service'
+import {
+  DatabaseService,
+  type BridgeConnectionRow,
+  type ChatMessageRow,
+  type ChatSessionRow,
+} from '../database/database.service'
 import { BridgePresenceService } from '../bridge/bridge-presence.service'
 import { BridgeRelayService } from '../bridge/bridge-relay.service'
 import { BridgeService } from '../bridge/bridge.service'
-import { buildHistoryReloadCommand, formatSlashPayload } from '../bridge/bridge.commands.util'
-import { createEphemeralMessage, roundsToMessages, type ChatMessageAttachmentDto } from '../bridge/history.util'
+import {
+  buildHistoryReloadCommand,
+  formatSlashPayload,
+  quoteBridgeCommandArg,
+} from '../bridge/bridge.commands.util'
+import { createEphemeralMessage, roundsToMessages, type ChatMessageAttachmentDto, type HistoryReloadPayload } from '../bridge/history.util'
 import { normalizeSessionPreview } from './session-preview.util'
+import { importBridgeHistoryRounds } from './bridge-history-import.util'
+import { shouldPersistSessionMessages } from './session-message-storage.util'
+import {
+  buildTempSessionTitle,
+  isTempSessionPlaceholderTitle,
+  resolveTempSessionTitle,
+} from './temp-session-title.util'
+import { shouldShowSessionInList } from './session-list-filter.util'
+import {
+  formatSessionListTitle,
+  resolveConnectionDeviceName,
+  resolveSessionDeviceName,
+  stripDeviceSuffixFromTitle,
+} from './session-list-title.util'
+import { groupSessionsForMessageList } from './session-list-group.util'
 import { type AgentBridgeType, agentDisplayName, isAgentBridgeType } from '../shared/constants'
 import type { ConnectorFileInput, ConnectorSendInput } from '../bridge/bridge-relay.service'
 
 export interface ChatSessionDto {
   id: string
   agentType: string
+  connectionId?: string
+  /** Message tab row title: agent name + device. */
   title: string
+  /** Conversation title for chat page header. */
+  conversationTitle?: string
   lastMessage: string
   updatedAt: number
   online: boolean
+  bridgeProjectPath?: string
+  isTempSession?: boolean
+  deviceName?: string
 }
 
 export interface ChatMessageDto {
@@ -41,6 +72,14 @@ export interface AgentHistoryItemDto {
   preview: string
   updatedAt: number
   projectPath?: string
+  agentSessionId?: string
+}
+
+export interface ResumeSessionResultDto {
+  sessionId: string
+  title: string
+  projectPath?: string
+  agentSessionId?: string
 }
 
 export interface ChatFileInput {
@@ -71,6 +110,7 @@ export interface CreateSessionInput {
   title?: string
   tempSession?: boolean
   message?: string
+  connectionId?: string
 }
 
 @Injectable()
@@ -83,25 +123,59 @@ export class ChatService {
   ) {}
 
   listSessions(): ChatSessionDto[] {
-    return this.database.listSessions().map((row) => {
+    const items = this.database
+      .listSessions()
+      .filter((row) => {
+        const connection = row.bridge_connection_id
+          ? this.database.getConnectionById(row.bridge_connection_id)
+          : undefined
+        return shouldShowSessionInList(row, connection)
+      })
+      .map((row) => {
       const connection = row.bridge_connection_id
         ? this.database.getConnectionById(row.bridge_connection_id)
         : undefined
+      const deviceName = resolveSessionDeviceName(
+        row.bridge_device_name,
+        connection,
+        this.presence,
+      )
       return {
         id: row.id,
         agentType: row.agent_type,
-        title: row.title,
+        connectionId: connection?.id,
+        title: formatSessionListTitle(agentDisplayName(row.agent_type), deviceName),
+        conversationTitle: row.title.trim() || agentDisplayName(row.agent_type),
         lastMessage: row.last_message,
         updatedAt: row.update_time,
         online: connection ? this.presence.isOnline(connection.id) : false,
+        bridgeProjectPath: row.bridge_project_path?.trim() || undefined,
+        isTempSession: Number(row.is_temp_session ?? 0) === 1,
+        deviceName: deviceName || undefined,
       }
     })
+
+    return groupSessionsForMessageList(items)
   }
 
   async listMessages(sessionId: string, limit = DEFAULT_HISTORY_LIMIT): Promise<ChatMessageDto[]> {
     const session = this.database.getSession(sessionId)
     if (!session) {
       throw new NotFoundException('会话不存在')
+    }
+
+    if (shouldPersistSessionMessages(session)) {
+      const stored = this.database
+        .listMessages(sessionId, limit)
+        .map((row) => this.mapStoredMessage(row))
+      if (stored.length > 0) {
+        return stored
+      }
+
+      await this.maybeImportBridgeHistory(session, limit)
+      return this.database
+        .listMessages(sessionId, limit)
+        .map((row) => this.mapStoredMessage(row))
     }
 
     const connection = session.bridge_connection_id
@@ -112,30 +186,14 @@ export class ChatService {
       return []
     }
 
+    const agentSessionId = session.bridge_agent_session_id?.trim() ?? ''
+    if (!agentSessionId) {
+      return []
+    }
+
     try {
-      const command = buildHistoryReloadCommand({
-        limit,
-        projectPath: session.bridge_project_path ?? connection.bridge_project_path ?? undefined,
-        agentSessionId:
-          session.bridge_agent_session_id ??
-          connection.bridge_agent_session_id ??
-          connection.bound_context_id ??
-          undefined,
-      })
-      const { completed } = this.relay.forwardSlashCommand(
-        (payload) => this.presence.sendJson(connection.id, payload),
-        {
-          sessionId,
-          text: command,
-          bridgeType: connection.bridge_type,
-          accountId: connection.account_id,
-          boundContextId: connection.bound_context_id,
-          userId: this.database.demoUserId,
-        },
-        command,
-        'history',
-      )
-      const payload = await completed
+      const payload = await this.fetchBridgeHistoryPayload(session, connection, limit)
+      if (!payload) return []
       return roundsToMessages(sessionId, payload)
     } catch {
       return []
@@ -156,6 +214,13 @@ export class ChatService {
     const connection = session.bridge_connection_id
       ? this.database.getConnectionById(session.bridge_connection_id)
       : undefined
+
+    if (this.isTempSession(session)) {
+      this.maybeApplyTempSessionTitle(session, trimmed)
+    }
+    if (shouldPersistSessionMessages(session)) {
+      this.database.insertMessage({ sessionId, role: 'user', content: trimmed })
+    }
 
     let assistantText = ''
 
@@ -181,6 +246,12 @@ export class ChatService {
       }
     } else {
       assistantText = '本机 Agent 未连接，请先完成 bridge 配置并保持在线。'
+    }
+
+    if (shouldPersistSessionMessages(session)) {
+      return this.mapStoredMessage(
+        this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
+      )
     }
 
     this.database.touchSession(
@@ -209,12 +280,16 @@ export class ChatService {
     }
 
     const userAttachments = this.filesToAttachments(normalizedFiles)
-    const userDto = createEphemeralMessage(
-      sessionId,
-      'user',
-      trimmed || (userAttachments.length > 0 ? `[${userAttachments.length} 个附件]` : ''),
-      userAttachments,
-    )
+    const userContent =
+      trimmed || (userAttachments.length > 0 ? `[${userAttachments.length} 个附件]` : '')
+    if (this.isTempSession(session)) {
+      this.maybeApplyTempSessionTitle(session, userContent)
+    }
+    const userDto = shouldPersistSessionMessages(session)
+      ? this.mapStoredMessage(
+          this.database.insertMessage({ sessionId, role: 'user', content: userContent }),
+        )
+      : createEphemeralMessage(sessionId, 'user', userContent, userAttachments)
     emit('user', { message: userDto })
 
     const connection = session.bridge_connection_id
@@ -241,11 +316,18 @@ export class ChatService {
             onChunk: ({ delta, fullText }) => {
               emit('chunk', { delta, fullText })
             },
+            onReasoning: ({ delta, fullText }) => {
+              emit('reasoning', { delta, fullText })
+            },
+            onReasoningClear: () => {
+              emit('reasoning_end', {})
+            },
           },
         )
         streamId = turn.streamId
         emit('start', { streamId })
         assistantText = await turn.completed
+        emit('reasoning_end', {})
         if (!assistantText.trim()) {
           assistantText = '本机 Agent 暂未返回内容，请稍后重试。'
         }
@@ -259,12 +341,17 @@ export class ChatService {
       emit('chunk', { delta: assistantText, fullText: assistantText })
     }
 
-    this.database.touchSession(
-      sessionId,
-      normalizeSessionPreview(assistantText.trim() || trimmed),
-    )
-
-    const assistantDto = createEphemeralMessage(sessionId, 'assistant', assistantText)
+    const assistantDto = shouldPersistSessionMessages(session)
+      ? this.mapStoredMessage(
+          this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
+        )
+      : (() => {
+          this.database.touchSession(
+            sessionId,
+            normalizeSessionPreview(assistantText.trim() || trimmed),
+          )
+          return createEphemeralMessage(sessionId, 'assistant', assistantText)
+        })()
     emit('done', { message: assistantDto, streamId })
     return assistantDto
   }
@@ -296,6 +383,12 @@ export class ChatService {
       partialText.trim() ||
       '回复已中断，可重新发送消息继续。'
 
+    if (shouldPersistSessionMessages(session)) {
+      return this.mapStoredMessage(
+        this.database.insertMessage({ sessionId, role: 'assistant', content }),
+      )
+    }
+
     this.database.touchSession(sessionId, normalizeSessionPreview(content))
 
     return createEphemeralMessage(sessionId, 'assistant', content)
@@ -311,43 +404,145 @@ export class ChatService {
     }
   }
 
-  getLandingHeader(agentType: string): AgentLandingHeaderDto {
+  getLandingHeader(agentType: string, connectionId?: string): AgentLandingHeaderDto {
     if (!isAgentBridgeType(agentType)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = this.database.getConnectionByType(agentType)
+    const connection = connectionId?.trim()
+      ? this.database.getConnectionById(connectionId.trim())
+      : this.database.getConnectionByType(agentType)
+    if (connectionId?.trim() && (!connection || connection.bridge_type !== agentType)) {
+      throw new NotFoundException('连接不存在')
+    }
     const online = connection ? this.presence.isOnline(connection.id) : false
-    const device = connection ? this.presence.getDeviceInfo(connection.id) : undefined
+    const deviceName = connection
+      ? resolveConnectionDeviceName(connection.id, this.presence, connection)
+      : ''
 
     return {
       agentType,
       title: agentDisplayName(agentType),
       avatar: BRIDGE_AVATAR[agentType],
-      deviceId: device?.id ?? device?.name,
+      deviceId: deviceName || undefined,
       status: online ? 'online' : 'offline',
     }
   }
 
-  listAgentHistory(agentType: string, limit = 50, offset = 0): AgentHistoryItemDto[] {
+  listAgentHistory(
+    agentType: string,
+    limit = 50,
+    offset = 0,
+    connectionId?: string,
+  ): AgentHistoryItemDto[] {
     if (!isAgentBridgeType(agentType)) {
       throw new NotFoundException('不支持的 Agent 类型')
+    }
+    const normalizedConnectionId = connectionId?.trim() ?? ''
+    if (normalizedConnectionId) {
+      const connection = this.database.getConnectionById(normalizedConnectionId)
+      if (!connection || connection.bridge_type !== agentType) {
+        throw new NotFoundException('连接不存在')
+      }
     }
     return this.database
       .listSessions()
       .filter((row) => row.agent_type === agentType)
+      .filter(
+        (row) =>
+          !normalizedConnectionId || row.bridge_connection_id === normalizedConnectionId,
+      )
+      .filter((row) => {
+        const connection = row.bridge_connection_id
+          ? this.database.getConnectionById(row.bridge_connection_id)
+          : undefined
+        return shouldShowSessionInList(row, connection)
+      })
       .slice(offset, offset + limit)
       .map((row) => {
         const connection = row.bridge_connection_id
           ? this.database.getConnectionById(row.bridge_connection_id)
           : undefined
+        const deviceName = resolveSessionDeviceName(
+          row.bridge_device_name,
+          connection,
+          this.presence,
+        )
         return {
           id: row.id,
-          title: row.title,
-          preview: row.last_message || '暂无消息',
+          title: stripDeviceSuffixFromTitle(row.title.trim(), deviceName),
+          preview: normalizeSessionPreview(row.last_message) || '暂无消息',
           updatedAt: row.update_time,
-          projectPath: connection?.bridge_project_path ?? undefined,
+          projectPath: row.bridge_project_path?.trim() || undefined,
+          agentSessionId: row.bridge_agent_session_id?.trim() || undefined,
         }
       })
+  }
+
+  hideAgentHistorySessions(agentType: string, sessionIds: string[]): { hiddenCount: number } {
+    if (!isAgentBridgeType(agentType)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    const validIds = sessionIds
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .filter((id) => {
+        const row = this.database.getSession(id)
+        return row?.agent_type === agentType
+      })
+    const hidden = this.database.hideSessionsFromHistory(validIds)
+    return { hiddenCount: hidden.length }
+  }
+
+  async resumeSession(sessionId: string): Promise<ResumeSessionResultDto> {
+    const normalizedSessionId = sessionId.trim()
+    if (!normalizedSessionId) {
+      throw new BadRequestException('sessionId 不能为空')
+    }
+
+    const session = this.database.getSession(normalizedSessionId)
+    if (!session) {
+      throw new NotFoundException('会话不存在')
+    }
+
+    const connection = session.bridge_connection_id
+      ? this.database.getConnectionById(session.bridge_connection_id)
+      : undefined
+
+    const projectPath = session.bridge_project_path?.trim() ?? ''
+    const agentSessionId = session.bridge_agent_session_id?.trim() ?? ''
+    const title = session.title.trim()
+
+    if (!connection) {
+      return {
+        sessionId: session.id,
+        title,
+        projectPath: projectPath || undefined,
+        agentSessionId: agentSessionId || undefined,
+      }
+    }
+
+    if (agentSessionId && this.presence.isOnline(connection.id)) {
+      const bindCommand = projectPath
+        ? `/bind --project ${quoteBridgeCommandArg(projectPath)} ${quoteBridgeCommandArg(agentSessionId)}`
+        : `/bind --chat ${quoteBridgeCommandArg(agentSessionId)}`
+
+      return this.bridgeService.applyWorkspaceSelection(connection.bridge_type, connection.id, {
+        platformSessionId: session.id,
+        projectPath,
+        projectName: projectPath || title,
+        agentSessionId,
+        sessionTitle: title,
+        bindCommand,
+      })
+    }
+
+    this.database.linkConnectionSession(connection.id, session.id)
+    return {
+      sessionId: session.id,
+      title,
+      projectPath: projectPath || undefined,
+      agentSessionId: agentSessionId || undefined,
+    }
   }
 
   async createConversation(input: CreateSessionInput): Promise<{ sessionId: string }> {
@@ -355,16 +550,31 @@ export class ChatService {
       throw new NotFoundException('不支持的 Agent 类型')
     }
 
-    const connection = this.database.getConnectionByType(input.agentType)
-    const title =
-      input.title?.trim() ||
-      (input.tempSession ? '临时会话' : `与 ${agentDisplayName(input.agentType)} 的对话`)
+    const normalizedConnectionId = input.connectionId?.trim() ?? ''
+    const connection = normalizedConnectionId
+      ? this.database.getConnectionById(normalizedConnectionId)
+      : this.database.getConnectionByType(input.agentType)
+    if (
+      normalizedConnectionId &&
+      (!connection || connection.bridge_type !== input.agentType)
+    ) {
+      throw new NotFoundException('连接不存在')
+    }
+
+    const title = input.tempSession
+      ? resolveTempSessionTitle({
+          message: input.message,
+          title: input.title,
+          agentType: input.agentType,
+        })
+      : input.title?.trim() || `与 ${agentDisplayName(input.agentType)} 的对话`
 
     const session = this.database.createSession({
       agentType: input.agentType,
       title,
       bridgeConnectionId: connection?.id ?? null,
       lastMessage: '',
+      isTempSession: input.tempSession ?? false,
     })
 
     if (connection && !input.tempSession) {
@@ -394,13 +604,20 @@ export class ChatService {
   async runBridgeCommandByAgent(
     agentType: string,
     command: string,
+    connectionId?: string,
   ): Promise<BridgeCommandResult> {
     if (!isAgentBridgeType(agentType)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
 
-    const connection = this.database.getConnectionByType(agentType)
-    if (!connection || !this.presence.isOnline(connection.id)) {
+    const normalizedConnectionId = connectionId?.trim() ?? ''
+    const connection = normalizedConnectionId
+      ? this.database.getConnectionById(normalizedConnectionId)
+      : this.database.getConnectionByType(agentType)
+    if (!connection || connection.bridge_type !== agentType) {
+      throw new NotFoundException('连接不存在')
+    }
+    if (!this.presence.isOnline(connection.id)) {
       throw new BadRequestException('本机 Agent 未连接')
     }
 
@@ -485,5 +702,75 @@ export class ChatService {
         previewUrl,
       }
     })
+  }
+
+  private isTempSession(session: ChatSessionRow): boolean {
+    return Number(session.is_temp_session ?? 0) === 1
+  }
+
+  private async fetchBridgeHistoryPayload(
+    session: ChatSessionRow,
+    connection: BridgeConnectionRow,
+    limit: number,
+  ): Promise<HistoryReloadPayload | null> {
+    const agentSessionId = session.bridge_agent_session_id?.trim() ?? ''
+    if (!agentSessionId) return null
+    if (!this.presence.isOnline(connection.id)) return null
+
+    const command = buildHistoryReloadCommand({
+      limit,
+      projectPath: session.bridge_project_path ?? connection.bridge_project_path ?? undefined,
+      agentSessionId,
+    })
+    const { completed } = this.relay.forwardSlashCommand(
+      (payload) => this.presence.sendJson(connection.id, payload),
+      {
+        sessionId: session.id,
+        text: command,
+        bridgeType: connection.bridge_type,
+        accountId: connection.account_id,
+        boundContextId: connection.bound_context_id,
+        userId: this.database.demoUserId,
+      },
+      command,
+      'history',
+    )
+    return await completed
+  }
+
+  private async maybeImportBridgeHistory(session: ChatSessionRow, limit: number): Promise<void> {
+    const connection = session.bridge_connection_id
+      ? this.database.getConnectionById(session.bridge_connection_id)
+      : undefined
+    if (!connection) return
+
+    try {
+      const payload = await this.fetchBridgeHistoryPayload(session, connection, limit)
+      if (!payload) return
+      importBridgeHistoryRounds(this.database, session.id, payload)
+    } catch {
+      // Non-critical: local SQLite remains source when import fails.
+    }
+  }
+
+  private mapStoredMessage(row: ChatMessageRow): ChatMessageDto {
+    return {
+      id: row.id,
+      sessionId: row.session_id,
+      role: row.role,
+      content: row.content,
+      createdAt: row.create_time,
+    }
+  }
+
+  private maybeApplyTempSessionTitle(session: ChatSessionRow, userText: string): void {
+    if (!this.isTempSession(session)) return
+    if (!isTempSessionPlaceholderTitle(session.title, session.agent_type)) return
+
+    const title = buildTempSessionTitle(userText)
+    if (!title) return
+
+    this.database.updateSessionTitle(session.id, title)
+    session.title = title
   }
 }

@@ -23,6 +23,11 @@ export class ChatController {
     return ok(this.chatService.listSessions())
   }
 
+  @Post('sessions/:sessionId/resume')
+  async resumeSession(@Param('sessionId') sessionId: string) {
+    return ok(await this.chatService.resumeSession(sessionId))
+  }
+
   @Get('sessions/:sessionId/messages')
   async listMessages(
     @Param('sessionId') sessionId: string,
@@ -93,8 +98,11 @@ export class ChatController {
   }
 
   @Get('agent-chat/:type/landing-header')
-  getLandingHeader(@Param('type') type: string) {
-    return ok(this.chatService.getLandingHeader(type))
+  getLandingHeader(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+  ) {
+    return ok(this.chatService.getLandingHeader(type, connectionId))
   }
 
   @Get('agent-chat/:type/history')
@@ -102,6 +110,7 @@ export class ChatController {
     @Param('type') type: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('connectionId') connectionId?: string,
   ) {
     const parsedLimit = limit ? Number(limit) : 50
     const parsedOffset = offset ? Number(offset) : 0
@@ -110,8 +119,18 @@ export class ChatController {
         type,
         Number.isFinite(parsedLimit) ? parsedLimit : 50,
         Number.isFinite(parsedOffset) ? parsedOffset : 0,
+        connectionId,
       ),
     )
+  }
+
+  @Post('agent-chat/:type/history/hide')
+  hideAgentHistory(
+    @Param('type') type: string,
+    @Body() body: { sessionIds?: string[] },
+  ) {
+    const sessionIds = Array.isArray(body.sessionIds) ? body.sessionIds : []
+    return ok(this.chatService.hideAgentHistorySessions(type, sessionIds))
   }
 
   @Post('agent-chat/:type/conversations')
@@ -123,6 +142,7 @@ export class ChatController {
       tempSession?: boolean
       temp_session?: boolean
       title?: string
+      connectionId?: string
     },
   ) {
     if (!isAgentBridgeType(type)) {
@@ -134,6 +154,7 @@ export class ChatController {
         message: body.message,
         tempSession: body.tempSession ?? body.temp_session,
         title: body.title,
+        connectionId: body.connectionId,
       }),
     )
   }
@@ -141,12 +162,14 @@ export class ChatController {
   @Post('agent-chat/:type/bridge-command')
   async runAgentBridgeCommand(
     @Param('type') type: string,
-    @Body() body: { command?: string },
+    @Body() body: { command?: string; connectionId?: string },
   ) {
     const command = body.command?.trim() ?? ''
     if (!command) {
       throw new BadRequestException('command required')
     }
-    return ok(await this.chatService.runBridgeCommandByAgent(type, command))
+    return ok(
+      await this.chatService.runBridgeCommandByAgent(type, command, body.connectionId),
+    )
   }
 }

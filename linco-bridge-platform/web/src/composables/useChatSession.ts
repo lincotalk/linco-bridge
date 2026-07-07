@@ -3,6 +3,7 @@ import { parseAgentTypeFromSessionId } from '@/bridge/sdk/agent-chat'
 import type { OutboundChatFile } from '@/api/session-api'
 import { useBridgeStore, useSessionStore } from '@/stores'
 import { takePendingFiles } from '@/composables/pendingAttachmentTransfer'
+import { takePendingLaunch } from '@/composables/pendingLaunchTransfer'
 import { resolveChatHeader, type ChatHeaderView } from '@/utils/chat-header'
 import { showToast } from '@/utils/format'
 
@@ -33,13 +34,16 @@ export function useChatSession() {
     const agentType = session?.agentType ?? parseAgentTypeFromSessionId(sessionId.value)
 
     if (agentType && !bridgeStore.statusByType[agentType]) {
-      await bridgeStore.checkStatus(agentType).catch(() => undefined)
+      await bridgeStore
+        .checkStatus(agentType, session?.connectionId)
+        .catch(() => undefined)
     }
 
-    const online =
-      session?.online ?? (agentType ? bridgeStore.statusByType[agentType]?.connected : false)
+    const status = agentType ? bridgeStore.statusByType[agentType] : undefined
+    const online = session?.online ?? status?.connected ?? false
+    const deviceName = status?.deviceName ?? session?.deviceName
 
-    header.value = resolveChatHeader(sessionId.value, session, online)
+    header.value = resolveChatHeader(sessionId.value, session, online, deviceName)
   }
 
   async function loadSession(
@@ -52,7 +56,11 @@ export function useChatSession() {
         : { initialDraft: options?.initialDraft, reloadHistory: options?.reloadHistory ?? false }
 
     sessionId.value = id
-    pendingDraft.value = normalized.initialDraft?.trim() ?? ''
+    draft.value = ''
+    const launchMessage = takePendingLaunch(id)
+    const autoSendText = launchMessage ?? normalized.initialDraft?.trim() ?? ''
+    const hasAutoSend = autoSendText.length > 0
+    pendingDraft.value = autoSendText
     loading.value = true
 
     try {
@@ -60,30 +68,47 @@ export function useChatSession() {
         await sessionStore.loadSessions().catch(() => undefined)
       }
 
-      header.value = resolveChatHeader(id, sessionStore.getSession(id))
-
-      if (normalized.reloadHistory) {
-        sessionStore.setMessages(id, [])
+      const session = sessionStore.getSession(id)
+      const agentType = session?.agentType ?? parseAgentTypeFromSessionId(id)
+      if (agentType && !bridgeStore.statusByType[agentType]) {
+        await bridgeStore
+          .checkStatus(agentType, session?.connectionId)
+          .catch(() => undefined)
       }
 
-      try {
-        await sessionStore.loadMessages(id, normalized.reloadHistory ? 5 : undefined)
-      } catch {
+      const status = agentType ? bridgeStore.statusByType[agentType] : undefined
+      const deviceName = status?.deviceName ?? session?.deviceName
+      header.value = resolveChatHeader(id, session, session?.online ?? status?.connected, deviceName)
+
+      if (hasAutoSend) {
         sessionStore.setMessages(id, [])
-      }
+      } else {
+        if (normalized.reloadHistory) {
+          sessionStore.setMessages(id, [])
+        }
 
-      await refreshHeader()
-      scrollToBottom()
-
-      const pendingFiles = takePendingFiles(id)
-      if (pendingDraft.value || pendingFiles.length > 0) {
-        const text = pendingDraft.value
-        pendingDraft.value = ''
-        if (text) draft.value = text
-        await sendMessage(text, pendingFiles)
+        try {
+          await sessionStore.loadMessages(id, normalized.reloadHistory ? 5 : undefined)
+        } catch (err) {
+          sessionStore.setMessages(id, [])
+          const message = err instanceof Error ? err.message : '加载消息失败'
+          if (message.includes('会话不存在')) {
+            showToast(message)
+          }
+        }
       }
     } finally {
       loading.value = false
+    }
+
+    void refreshHeader()
+    scrollToBottom()
+
+    const pendingFiles = takePendingFiles(id)
+    if (pendingDraft.value || pendingFiles.length > 0) {
+      const text = pendingDraft.value
+      pendingDraft.value = ''
+      await sendMessage(text, pendingFiles)
     }
   }
 
@@ -100,7 +125,7 @@ export function useChatSession() {
 
     sending.value = true
     activeStreamId.value = ''
-    if (!contentOverride) draft.value = ''
+    draft.value = ''
 
     const controller = new AbortController()
     abortController.value = controller
@@ -124,6 +149,7 @@ export function useChatSession() {
       abortController.value = null
       activeStreamId.value = ''
       sending.value = false
+      await refreshHeader()
       scrollToBottom()
     }
   }

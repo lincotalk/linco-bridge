@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import ChatInputActionButton from '@/components/ChatInputActionButton.vue'
 import PendingAttachmentList from '@/components/PendingAttachmentList.vue'
 import type { OutboundChatFile } from '@/api/session-api'
 import { CHAT_ICON } from '@/constants/chat-icons'
@@ -9,14 +10,14 @@ const props = withDefaults(
     modelValue?: string
     placeholder?: string
     disabled?: boolean
-    tempSession?: boolean
+    starting?: boolean
     pendingFiles?: OutboundChatFile[]
   }>(),
   {
     modelValue: '',
     placeholder: '今天想做什么？',
     disabled: false,
-    tempSession: false,
+    starting: false,
     pendingFiles: () => [],
   },
 )
@@ -26,7 +27,6 @@ const emit = defineEmits<{
   send: []
   add: []
   voice: []
-  'toggle-temp': []
   'remove-file': [number]
 }>()
 
@@ -34,6 +34,8 @@ const draft = ref(props.modelValue)
 const canSend = computed(
   () => draft.value.trim().length > 0 || (props.pendingFiles?.length ?? 0) > 0,
 )
+const canSubmit = computed(() => canSend.value && !props.disabled && !props.starting)
+const addEnabled = computed(() => !props.disabled && !props.starting)
 
 watch(
   () => props.modelValue,
@@ -50,8 +52,18 @@ function onInput(event: InputEvent) {
 }
 
 function handleSend() {
-  if (props.disabled || !canSend.value) return
+  if (!canSubmit.value) return
   emit('send')
+}
+
+function handleAdd() {
+  if (!addEnabled.value) return
+  emit('add')
+}
+
+function handleVoice() {
+  if (props.disabled || props.starting) return
+  emit('voice')
 }
 </script>
 
@@ -67,7 +79,7 @@ function handleSend() {
         class="landing-input__field"
         :value="draft"
         :placeholder="placeholder"
-        :disabled="disabled"
+        :disabled="disabled || starting"
         placeholder-class="landing-input__placeholder"
         auto-height
         :maxlength="-1"
@@ -75,17 +87,27 @@ function handleSend() {
         @confirm="handleSend"
       />
       <view class="landing-input__toolbar">
-        <view class="landing-input__tool" @tap="emit('add')">
+        <view
+          class="landing-input__tool"
+          :class="{ 'landing-input__tool--disabled': !addEnabled }"
+          @tap="handleAdd"
+        >
           <image class="landing-input__icon" :src="CHAT_ICON.add" mode="aspectFit" />
         </view>
-        <view
-          class="landing-input__pill"
-          :class="{ 'landing-input__pill--active': tempSession }"
-          @tap="emit('toggle-temp')"
-        >
-          <text class="landing-input__pill-text">临时会话</text>
+
+        <view class="landing-input__chip">
+          <text class="landing-input__chip-text">临时会话</text>
         </view>
-        <view class="landing-input__tool landing-input__tool--right" @tap="emit('voice')">
+
+        <view class="landing-input__toolbar-spacer" />
+
+        <view v-if="canSend && !starting" class="landing-input__actions">
+          <view class="landing-input__tool" @tap="handleVoice">
+            <image class="landing-input__icon" :src="CHAT_ICON.voice" mode="aspectFit" />
+          </view>
+          <ChatInputActionButton :can-send="canSend" :is-send-disabled="disabled" @send="handleSend" />
+        </view>
+        <view v-else class="landing-input__tool landing-input__tool--right" @tap="handleVoice">
           <image class="landing-input__icon" :src="CHAT_ICON.voice" mode="aspectFit" />
         </view>
       </view>
@@ -95,6 +117,7 @@ function handleSend() {
 
 <style scoped lang="scss">
 .landing-input {
+  flex-shrink: 0;
   padding: 24rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
   background: #ffffff;
 }
@@ -132,6 +155,10 @@ function handleSend() {
   height: 64rpx;
 }
 
+.landing-input__tool--disabled {
+  opacity: 0.45;
+}
+
 .landing-input__tool--right {
   margin-left: auto;
 }
@@ -141,23 +168,33 @@ function handleSend() {
   height: 40rpx;
 }
 
-.landing-input__pill {
+.landing-input__chip {
+  display: flex;
+  align-items: center;
+  max-width: 304rpx;
+  height: 56rpx;
   margin-left: 8rpx;
-  padding: 10rpx 24rpx;
-  border-radius: 999rpx;
-  background: #f5f5f5;
+  padding: 0 16rpx;
+  border: 1rpx solid #e4e6e8;
+  border-radius: 8rpx;
+  background: #f4f5f6;
 }
 
-.landing-input__pill--active {
-  background: rgba(0, 117, 74, 0.12);
+.landing-input__chip-text {
+  font-size: 26rpx;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.87);
 }
 
-.landing-input__pill-text {
-  font-size: 24rpx;
-  color: rgba(0, 0, 0, 0.65);
+.landing-input__toolbar-spacer {
+  flex: 1;
+  min-width: 0;
 }
 
-.landing-input__pill--active .landing-input__pill-text {
-  color: #00754a;
+.landing-input__actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-left: auto;
 }
 </style>

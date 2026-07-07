@@ -18,11 +18,13 @@ import type {
 import { useBridgeStore, useSessionStore } from '@/stores'
 
 import { showToast } from '@/utils/format'
+import { buildAgentLandingUrl } from '@/utils/open-agent-landing'
 
 export interface BridgeConnectionCompleteResult {
   agentType: AgentBridgeType
   sessionId: string
   agentName: string
+  connectionId?: string
 }
 
 /**
@@ -190,6 +192,7 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
         agentType: type.value,
         sessionId: syncResult.sessionId ?? '',
         agentName: syncResult.agentName ?? agentName.value,
+        connectionId: connectionId.value || syncResult.connectionId,
       }
     } finally {
       completing.value = false
@@ -241,7 +244,10 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
     }
 
     uni.redirectTo({
-      url: `/pages/chat/landing?agentType=${encodeURIComponent(result.agentType)}`,
+      url: buildAgentLandingUrl({
+        agentType: result.agentType,
+        connectionId: result.connectionId,
+      }),
     })
   }
 

@@ -22,18 +22,18 @@ export function useAgentLanding(sdk: AgentChatSdk = createAppAgentChatSdk()) {
 
   const subtitle = ref('')
 
-  async function loadLanding(agentType: AgentBridgeType) {
+  async function loadLanding(agentType: AgentBridgeType, connectionId?: string) {
     loading.value = true
     try {
       unsubscribeHeader?.()
       unsubscribeHeader = sdk.watchLandingHeader?.(agentType, (next) => {
         header.value = next
         subtitle.value = buildLandingSubtitle(next)
-      })
+      }, connectionId)
 
       const [nextHeader, items] = await Promise.all([
-        sdk.getLandingHeader(agentType),
-        sdk.listHistory(agentType),
+        sdk.getLandingHeader(agentType, connectionId),
+        sdk.listHistory(agentType, { connectionId }),
         bridgeStore.checkStatus(agentType).catch(() => undefined),
       ])
 

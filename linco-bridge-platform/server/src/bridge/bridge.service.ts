@@ -13,6 +13,7 @@ import {
 import { BridgePresenceService } from './bridge-presence.service'
 import { BridgeRelayService, type ConnectorSendInput } from './bridge-relay.service'
 import { toBridgeSetupDto } from './bridge-setup.dto'
+import { resolveConnectionDeviceName } from '../chat/session-list-title.util'
 import type {
   BridgeWorkspaceSessionDto,
   WorkspaceApplyInputDto,
@@ -61,6 +62,14 @@ export class BridgeService {
     const port = process.env.PORT ?? '3300'
     const base = `ws://${host}:${port}/bridge/ws`
     return agentType?.trim() ? `${base}/${agentType.trim()}` : base
+  }
+
+  persistConnectionDeviceInfo(
+    connectionId: string,
+    device: { id?: string; name?: string },
+  ): void {
+    this.presence.updateDeviceInfo(connectionId, device)
+    this.database.updateConnectionDevice(connectionId, device)
   }
 
   getSetup(type: string) {
@@ -122,6 +131,8 @@ export class BridgeService {
       bridgeType: type,
       accountId: connection.account_id,
       connectionId: connection.id,
+      deviceName:
+        resolveConnectionDeviceName(connection.id, this.presence, connection) || undefined,
     }
   }
 
@@ -244,6 +255,42 @@ export class BridgeService {
         ? platformSessionIdInput
         : platformSessionId
 
+    if (selectProjectCommand && !bindCommand && projectPath) {
+      const preferredId =
+        platformSessionIdInput && this.database.getSession(platformSessionIdInput)
+          ? platformSessionIdInput
+          : ''
+      sessionId = this.resolvePlatformSessionForProjectOnly(connection, type, {
+        preferredSessionId: preferredId,
+        projectPath,
+        sessionTitle: sessionTitle || projectName || agentDisplayName(type),
+      })
+
+      const title = sessionTitle || projectName || agentDisplayName(type)
+      this.database.bindConnectionContext(connection.id, {
+        contextId: projectPath || sessionId,
+        contextName: title,
+        sessionId,
+        projectPath,
+        agentSessionId: null,
+      })
+      this.database.updateSessionBridgeBinding(sessionId, {
+        projectPath,
+        agentSessionId: null,
+        deviceName: resolveConnectionDeviceName(connection.id, this.presence, connection),
+      })
+      this.database.updateSessionTitle(sessionId, title)
+      this.database.touchSession(sessionId, 'Ready when you are.')
+      this.database.linkConnectionSession(connection.id, sessionId)
+
+      return {
+        sessionId,
+        title,
+        projectPath,
+        projectName: projectName || projectPath,
+      }
+    }
+
     if (bindCommand) {
       sessionId = this.resolvePlatformSessionForBinding(connection, type, {
         preferredSessionId: sessionId,
@@ -279,6 +326,7 @@ export class BridgeService {
       this.database.updateSessionBridgeBinding(sessionId, {
         projectPath: projectPath || null,
         agentSessionId: agentSessionId || null,
+        deviceName: resolveConnectionDeviceName(connection.id, this.presence, connection),
       })
       this.database.updateSessionTitle(sessionId, title)
       this.database.touchSession(sessionId, 'Ready when you are.')
@@ -698,6 +746,43 @@ export class BridgeService {
       throw new ConflictException('本机 Agent 尚未连接')
     }
     return connection
+  }
+
+  private resolvePlatformSessionForProjectOnly(
+    connection: BridgeConnectionRow,
+    agentType: AgentBridgeType,
+    input: {
+      preferredSessionId: string
+      projectPath: string
+      sessionTitle: string
+    },
+  ): string {
+    const projectPath = input.projectPath.trim()
+    const preferredSessionId = input.preferredSessionId.trim()
+
+    if (preferredSessionId) {
+      const preferred = this.database.getSession(preferredSessionId)
+      if (preferred) {
+        const boundProjectPath = preferred.bridge_project_path?.trim() ?? ''
+        const boundAgentSessionId = preferred.bridge_agent_session_id?.trim() ?? ''
+        if (!boundAgentSessionId && boundProjectPath === projectPath) {
+          return preferred.id
+        }
+      }
+    }
+
+    const existing = this.database.findSessionByProjectOnlyBinding(connection.id, projectPath)
+    if (existing) return existing.id
+
+    const session = this.database.createSession({
+      agentType,
+      title: input.sessionTitle.trim() || agentDisplayName(agentType),
+      bridgeConnectionId: connection.id,
+      bridgeProjectPath: projectPath,
+      bridgeAgentSessionId: null,
+      lastMessage: 'Ready when you are.',
+    })
+    return session.id
   }
 
   private resolvePlatformSessionForBinding(

@@ -69,6 +69,37 @@ describe('BridgeRelayService', () => {
     expect(chunks).toEqual(['hel'])
   })
 
+  it('forwards thinking frames to onReasoning callback', async () => {
+    const relay = new BridgeRelayService()
+    const reasoning: string[] = []
+    const { streamId } = relay.forwardToConnector(
+      () => true,
+      {
+        sessionId: 'session-1',
+        text: 'hello',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onReasoning: ({ fullText }) => {
+          reasoning.push(fullText)
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'thinking',
+      streamId,
+      mode: 'summary',
+      delta: '分析天气',
+      fullText: '分析天气',
+    })
+
+    expect(reasoning).toEqual(['分析天气'])
+  })
+
   it('cancelTurn resolves with partial text', async () => {
     const relay = new BridgeRelayService()
     let capturedStreamId = ''
@@ -269,5 +300,47 @@ describe('BridgeRelayService', () => {
         files: [{ name: 'a.txt', mimeType: 'text/plain', base64: 'abc' }],
       },
     )
+  })
+
+  it('ignores connector session bootstrap banner until turn_end', async () => {
+    const relay = new BridgeRelayService()
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'temp-session-1',
+        text: '我是谁',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'outbound_message',
+      streamId: capturedStreamId,
+      text: `已连接到 codex Agent
+工作目录: C:\\Users\\test\\.linco\\codex\\sessions\\sid_test\\workspace
+输入 /help 查看可用命令`,
+    })
+
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: '你是',
+      fullText: '你是开发者',
+    })
+
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      fullText: '你是开发者',
+    })
+
+    await expect(completed).resolves.toBe('你是开发者')
   })
 })

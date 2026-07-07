@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 const BRAND_GREEN = { r: 0, g: 117, b: 74 }
+/** Flutter AppColors.textPrimary — folder icon BlendMode.srcIn */
+const TEXT_PRIMARY = { r: 0, g: 0, b: 0 }
 const DISABLED_SEND_BG = { r: 237, g: 235, b: 233 }
 const DISABLED_SEND_FG = { r: 154, g: 148, b: 140 }
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -117,6 +119,8 @@ const chatIcons = [
   ['chat/home_input_voice.png', 'icons/chat/home_input_voice.png'],
   ['chat/p2p_input_send.png', 'icons/chat/p2p_input_send.png'],
   ['bridge_workspace/folder.png', 'icons/chat/folder.png'],
+  ['search_loupe.png', 'icons/search_loupe.png'],
+  ['more.png', 'icons/more.png'],
 ]
 
 for (const [from, to] of chatIcons) {
@@ -126,6 +130,12 @@ for (const [from, to] of chatIcons) {
 await buildDisabledSendIcon(
   join(staticRoot, 'icons/chat/p2p_input_send.png'),
   join(staticRoot, 'icons/chat/p2p_input_send_disabled.png'),
+)
+
+await tintTabIcon(
+  join(aichatAssets, 'bridge_workspace/folder.png'),
+  join(staticRoot, 'icons/chat/workspace_folder.png'),
+  TEXT_PRIMARY,
 )
 
 console.log('Generated tabbar icons with green active state (#00754a)')

@@ -1,33 +1,28 @@
 <script setup lang="ts">
 import type { AgentHistoryItem } from '@/bridge/types'
-import { formatConversationTime } from '@/utils/format'
+import { formatConversationTime, formatSessionPreview } from '@/utils/format'
 
 const props = defineProps<{
   item: AgentHistoryItem
 }>()
 
-const emit = defineEmits<{
-  tap: [AgentHistoryItem]
-}>()
-
 function previewText(): string {
-  if (props.item.projectPath) {
-    return `📁 ${props.item.projectPath}`
-  }
-  return props.item.preview
+  return formatSessionPreview(props.item.preview) || '暂无消息'
 }
 </script>
 
 <template>
-  <view class="history-row" @tap="emit('tap', item)">
+  <view class="history-row">
     <view class="history-row__head">
       <view v-if="item.unread" class="history-row__dot" />
       <text class="history-row__title text-ellipsis">{{ item.title }}</text>
       <text class="history-row__time">{{ formatConversationTime(item.updatedAt) }}</text>
     </view>
-    <text class="history-row__preview text-ellipsis" :class="{ 'history-row__preview--working': item.working }">
-      {{ previewText() }}
-    </text>
+    <view class="history-row__preview-line">
+      <text class="history-row__preview" :class="{ 'history-row__preview--working': item.working }">
+        {{ previewText() }}
+      </text>
+    </view>
   </view>
 </template>
 
@@ -68,9 +63,19 @@ function previewText(): string {
   color: rgba(0, 0, 0, 0.3);
 }
 
+.history-row__preview-line {
+  margin-top: 8rpx;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .history-row__preview {
   display: block;
-  margin-top: 8rpx;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 26rpx;
   line-height: 1.2;
   color: rgba(0, 0, 0, 0.45);
