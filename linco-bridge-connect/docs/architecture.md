@@ -19,7 +19,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 | `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
 | `src/channels/` | 远端 channel 注册、连接器和 Linco 协议适配。 |
-| `src/agents/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器。 |
+| `src/agents/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器；按 Agent 类型放入同名目录，并以各目录的 `index.js` 作为 provider 入口。 |
 | `src/runtime/` | Agent 运行环境、进程 runner、Claude 历史和项目路径辅助逻辑。 |
 | `src/commands/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
 | `src/core/` | session、协议发送、日志、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
@@ -44,7 +44,7 @@ Linco Connect 是运行在用户本机的 Agent 连接器。它负责把远端 I
 
 `src/core` 不应该依赖具体 Agent。它提供 session、日志、权限、文件和通用协议能力。
 
-`src/agents` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。
+`src/agents` 可以依赖 `src/core` 和 `src/runtime`，但不应该直接处理远端 IM 的 channel/account 连接细节。新增 Agent 时优先使用 `src/agents/<agent>/index.js` 作为 provider 入口，并在目录内继续按进程启动、事件解析、权限处理、模型/设置等职责拆分。Codex 适配器已将输入构造放在 `src/agents/codex/input.js`，模型和推理选项放在 `src/agents/codex/options.js`；Claude 将输入 payload 和模型/effort 选项拆到 `input.js`、`options.js`；Hermes 将 profile/model 解析拆到 `options.js`；OpenClaw 将 agent/session 标识处理拆到 `identity.js`。
 
 `src/channels` 负责远端连接和协议适配，不应该包含具体 Agent CLI 的启动细节。
 

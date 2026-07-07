@@ -1,48 +1,51 @@
-const { spawn } = require('child_process');
+﻿const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { isDangerousCommand } = require('../core/danger');
-const { buildClaudeEnv } = require('../runtime/agentEnv');
-const { buildFileReferenceHint, buildFileReferenceSystemPrompt } = require('../core/fileReferences');
-const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../core/protocol');
+const { isDangerousCommand } = require('../../core/danger');
+const { buildClaudeEnv } = require('../../runtime/agentEnv');
+const { buildFileReferenceSystemPrompt } = require('../../core/fileReferences');
+const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../../core/protocol');
 const {
   markClaudeResumeEntrypointFixPending,
   scheduleClaudeResumeEntrypointRepair,
-} = require('../runtime/claudeTranscript');
+} = require('../../runtime/claudeTranscript');
 const {
   appendProgressiveAnswerText,
   promotePendingProgress,
   resetProgressiveAnswer,
-} = require('../core/progressiveAnswer');
-const { appendTextStream, flushTextStream, resetTextStream } = require('../core/streamBuffer');
-const { captureAssistantReplyText, startAssistantReplyLog } = require('../core/conversationLog');
-const { GET_MODELS_AND_REASONS_COMMAND } = require('../commands/settings');
-const { persistAgentSessionId, saveSessionMetadata, stopAgentProcess, updateAgentSessionHistory } = require('../core/session');
+} = require('../../core/progressiveAnswer');
+const { appendTextStream, flushTextStream, resetTextStream } = require('../../core/streamBuffer');
+const { captureAssistantReplyText, startAssistantReplyLog } = require('../../core/conversationLog');
+const { GET_MODELS_AND_REASONS_COMMAND } = require('../../commands/settings');
+const { persistAgentSessionId, saveSessionMetadata, stopAgentProcess, updateAgentSessionHistory } = require('../../core/session');
 const {
   getPendingPermission,
   hasPendingPermissions,
   pendingPermissionIds,
   removePendingPermission,
   setPendingPermission,
-} = require('../core/permissionState');
+} = require('../../core/permissionState');
+const {
+  DEFAULT_CLAUDE_EFFORT,
+  availableClaudeEfforts,
+  availableClaudeModels,
+  configuredClaudeEffort,
+  currentClaudeEffort,
+  currentClaudeModel,
+  isSupportedClaudeEffort,
+  resolveClaudeEffortInput,
+  resolveClaudeModelInput,
+} = require('./options');
+const {
+  buildClaudePayload,
+  buildClaudeSlashPayload,
+  extractText,
+  stripMetaBlocks,
+} = require('./input');
 
 const CLAUDE_COMPACTION_STALE_MS = 90_000;
 const DEFAULT_CLAUDE_COMPACTION_TIMEOUT_MS = 300_000;
 const MAX_COMPACTION_RESULT_PREVIEW = 500;
-const CLAUDE_MODEL_OPTIONS = [
-  { name: 'sonnet', desc: 'Claude Sonnet (balanced)' },
-  { name: 'opus', desc: 'Claude Opus (most capable)' },
-  { name: 'opus[1m]', desc: 'Claude Opus (1M context)' },
-  { name: 'haiku', desc: 'Claude Haiku (fastest)' },
-];
-const CLAUDE_EFFORT_OPTIONS = [
-  { name: 'low', desc: 'Lowest reasoning effort' },
-  { name: 'medium', desc: 'Balanced reasoning effort' },
-  { name: 'high', desc: 'High reasoning effort' },
-  { name: 'xhigh', desc: 'Extra-high reasoning effort' },
-  { name: 'max', desc: 'Maximum reasoning effort' },
-];
-const DEFAULT_CLAUDE_EFFORT = 'high';
 
 function executeClaudeQuery(input, ws, session, config) {
   session._lastWs = ws;
@@ -456,18 +459,6 @@ function sendClaudeEffortList(ws, session, config) {
   sendTurnEnd(ws, session);
 }
 
-function currentClaudeModel(session, config) {
-  return String(session?.claudeModelOverride || config?.agents?.claude?.model || '').trim();
-}
-
-function configuredClaudeEffort(config) {
-  return String(config?.agents?.claude?.effort || '').trim();
-}
-
-function currentClaudeEffort(session, config) {
-  return String(session?.claudeEffortOverride || configuredClaudeEffort(config)).trim();
-}
-
 function sendClaudeReasoningResult(ws, session, config, options = {}) {
   const current = String(session.claudeEffortOverride || '').trim();
   const defaultEffort = String(options.defaultEffort || configuredClaudeEffort(config) || DEFAULT_CLAUDE_EFFORT).trim();
@@ -490,42 +481,6 @@ function sendClaudeReasoningResult(ws, session, config, options = {}) {
       })),
     },
   });
-}
-
-function availableClaudeModels() {
-  return CLAUDE_MODEL_OPTIONS.slice();
-}
-
-function availableClaudeEfforts() {
-  return CLAUDE_EFFORT_OPTIONS.slice();
-}
-
-function resolveClaudeModelInput(input) {
-  const raw = String(input || '').trim();
-  if (!raw) return '';
-  const models = availableClaudeModels();
-  const index = Number.parseInt(raw, 10);
-  if (String(index) === raw && index >= 1 && index <= models.length) return models[index - 1].name;
-  const option = models.find(model => model.name.toLowerCase() === raw.toLowerCase());
-  return option?.name || raw;
-}
-
-function resolveClaudeEffortInput(input) {
-  const raw = String(input || '').trim().toLowerCase();
-  if (!raw) return '';
-  const normalized = raw.replace(/[\s_]+/g, '-');
-  const effortName = normalized === 'extra-high' || normalized === 'extra' || normalized === 'x-high'
-    ? 'xhigh'
-    : normalized;
-  const efforts = availableClaudeEfforts();
-  const index = Number.parseInt(effortName, 10);
-  if (String(index) === effortName && index >= 1 && index <= efforts.length) return efforts[index - 1].name;
-  const option = efforts.find(effort => effort.name === effortName);
-  return option?.name || effortName;
-}
-
-function isSupportedClaudeEffort(effort) {
-  return availableClaudeEfforts().some(item => item.name === effort);
 }
 
 function sendClaudeResolvedModelList(ws, session, config) {
@@ -850,32 +805,6 @@ function handleClaudeStdoutData(chunk, ws, session, config) {
       config.logger?.warn('claude stream-json parse failed', { sessionId: session.id, error: err.message });
     }
   }
-}
-
-function buildClaudePayload(input, session, config) {
-  const cleanInput = stripMetaBlocks(input);
-  return {
-    type: 'user',
-    message: {
-      role: 'user',
-      content: buildFileReferenceHint(cleanInput, session),
-    },
-  };
-}
-
-function buildClaudeSlashPayload(command) {
-  return {
-    type: 'user',
-    message: {
-      role: 'user',
-      content: command,
-    },
-  };
-}
-
-function stripMetaBlocks(input) {
-  if (!Array.isArray(input)) return input;
-  return input.filter(block => block?.type !== 'meta');
 }
 
 async function warmup(ws, session, config) {
@@ -1397,14 +1326,6 @@ function drainMessageQueue(ws, session, config) {
     return;
   }
   sendClaudeQuery(next.input, next.ws || ws, session, next.config || config);
-}
-
-function extractText(input) {
-  if (!Array.isArray(input)) return String(input || '');
-  return input
-    .filter(block => block?.type === 'text')
-    .map(block => block.text || '')
-    .join('\n');
 }
 
 function formatJson(value) {
