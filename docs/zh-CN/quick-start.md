@@ -14,7 +14,7 @@
 
 ```bash
 npm install -g linco-connect
-linco-connect init --token "<app-id>:<app-secret>" --agent codex --device-name codex1
+linco-connect init --token "<app-id>:<app-secret>" --agent codex
 linco-connect start --daemon
 ```
 
