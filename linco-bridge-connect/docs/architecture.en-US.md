@@ -8,7 +8,7 @@ Linco Connect is a local Agent connector. It converts remote IM messages into in
 
 It is not an authentication center or a hosted multi-tenant service. Credentials are stored in the local configuration, and remote connections are created from the configured channel/account/agent combination.
 
-From an open-source perspective, Linco Connect is not limited to the official Linco IM. Many bridge projects rely on existing platforms such as Feishu, WeChat, DingTalk, or similar IM products, but those platforms are not always well suited to Agent tool progress, permission confirmations, generated files, and long-running sessions. The companion open-source platform project maps to the `lincoDemo` channel and acts as a deployable reference implementation. Third parties can add channel adapters for their own H5 pages, mini programs, apps, or other frontends while reusing the shared connector and Agent adapter layers.
+From an open-source perspective, Linco Connect is not limited to the official Linco IM. Many bridge projects rely on existing platforms such as Feishu, WeChat, DingTalk, or similar IM products, but those platforms are not always well suited to Agent tool progress, permission confirmations, generated files, and long-running sessions. The companion open-source platform project maps to the `linco-demo` channel and acts as a deployable reference implementation. Third parties can add channel adapters for their own H5 pages, mini programs, apps, or other frontends while reusing the shared connector and Agent adapter layers.
 
 ## Main Directories
 
@@ -20,7 +20,7 @@ From an open-source perspective, Linco Connect is not limited to the official Li
 | `src/local/` | Local test page, local access auth, and local WebSocket integration. |
 | `src/update/` | npm self-update checks, status records, and background update scheduling. |
 | `src/config/` | Defaults, environment variables, user config IO, command resolution, and account config handling. |
-| `src/channel/` | Concrete channel adapters. Currently includes `linco/` and `lincoDemo/`; shared connection, registry, and presence logic live in `src/core/`. |
+| `src/channel/` | Concrete channel adapters. Currently includes the `linco/` and `lincoDemo/` directories, which map to the `linco` and `linco-demo` channel keys; shared connection, registry, and presence logic live in `src/core/`. |
 | `src/agent/` | Agent adapters for Claude, Codex, Hermes, and OpenClaw. Each Agent type has its own directory and `index.js` provider entry. |
 | `src/runtime/` | Agent runtime environment, process runner, Claude history, and project-path helpers. |
 | `src/command/` | Local slash commands handled inside remote sessions. |
