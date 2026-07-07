@@ -658,9 +658,10 @@ function hasWsUrl(value) {
 }
 
 function imLogPrefix(agentType, imConfig = {}) {
+  const channel = String(imConfig.channel || 'linco').trim() || 'linco';
   const normalizedAgentType = String(agentType || 'agent').trim() || 'agent';
   const account = String(imConfig.account || 'default').trim() || 'default';
-  return `[IM:${normalizedAgentType}/${account}]`;
+  return `[IM:${channel}/${normalizedAgentType}/${account}]`;
 }
 
 function connectorLincoMeta(connector, meta = {}) {
