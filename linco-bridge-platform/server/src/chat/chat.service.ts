@@ -230,6 +230,7 @@ export class ChatService {
     }
 
     let assistantText = ''
+    let assistantAttachments: ChatMessageAttachmentDto[] = []
 
     if (connection && this.presence.isOnline(connection.id)) {
       try {
@@ -244,7 +245,11 @@ export class ChatService {
             userId: this.database.demoUserId,
           },
         )
-        assistantText = await completed
+        const result = await completed
+        assistantText = result.text
+        if (result.file) {
+          assistantAttachments = [this.connectorFileToStreamAttachment(result.file)]
+        }
         if (!assistantText.trim()) {
           assistantText = '本机 Agent 暂未返回内容，请稍后重试。'
         }
@@ -256,9 +261,12 @@ export class ChatService {
     }
 
     if (shouldPersistSessionMessages(session)) {
-      return this.mapStoredMessage(
-        this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
-      )
+      return {
+        ...this.mapStoredMessage(
+          this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
+        ),
+        attachments: assistantAttachments.length > 0 ? assistantAttachments : undefined,
+      }
     }
 
     this.database.touchSession(
@@ -266,7 +274,7 @@ export class ChatService {
       normalizeSessionPreview(assistantText.trim() || trimmed),
     )
 
-    return createEphemeralMessage(sessionId, 'assistant', assistantText)
+    return createEphemeralMessage(sessionId, 'assistant', assistantText, assistantAttachments)
   }
 
   async sendMessageStream(
@@ -304,6 +312,7 @@ export class ChatService {
       : undefined
 
     let assistantText = ''
+    let assistantAttachments: ChatMessageAttachmentDto[] = []
     let streamId = ''
 
     if (connection && this.presence.isOnline(connection.id)) {
@@ -329,11 +338,21 @@ export class ChatService {
             onReasoningClear: () => {
               emit('reasoning_end', {})
             },
+            onAttachment: (file) => {
+              const attachment = this.connectorFileToStreamAttachment(file)
+              assistantAttachments = [attachment]
+              emit('attachment', { attachment })
+            },
           },
         )
         streamId = turn.streamId
         emit('start', { streamId })
-        assistantText = await turn.completed
+        const result = await turn.completed
+        assistantText = result.text
+        if (result.file) {
+          const attachment = this.connectorFileToStreamAttachment(result.file)
+          assistantAttachments = [attachment]
+        }
         emit('reasoning_end', {})
         if (!assistantText.trim()) {
           assistantText = '本机 Agent 暂未返回内容，请稍后重试。'
@@ -349,15 +368,23 @@ export class ChatService {
     }
 
     const assistantDto = shouldPersistSessionMessages(session)
-      ? this.mapStoredMessage(
-          this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
-        )
+      ? {
+          ...this.mapStoredMessage(
+            this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
+          ),
+          attachments: assistantAttachments.length > 0 ? assistantAttachments : undefined,
+        }
       : (() => {
           this.database.touchSession(
             sessionId,
             normalizeSessionPreview(assistantText.trim() || trimmed),
           )
-          return createEphemeralMessage(sessionId, 'assistant', assistantText)
+          return createEphemeralMessage(
+            sessionId,
+            'assistant',
+            assistantText,
+            assistantAttachments,
+          )
         })()
     emit('done', { message: assistantDto, streamId })
     return assistantDto
@@ -684,14 +711,21 @@ export class ChatService {
     }
   }
 
-  private connectorFileToAttachment(file: ConnectorFileInput): ChatMessageAttachmentDto & { base64?: string } {
+  private connectorFileToStreamAttachment(file: ConnectorFileInput): ChatMessageAttachmentDto {
     const name = file.name?.trim() || 'attachment'
     const mimeType = file.mimeType?.trim() || 'application/octet-stream'
     const previewUrl =
       file.base64 && mimeType.startsWith('image/')
         ? `data:${mimeType};base64,${file.base64}`
         : file.url
-    return { name, mimeType, previewUrl, base64: file.base64 }
+    return { name, mimeType, previewUrl }
+  }
+
+  private connectorFileToAttachment(file: ConnectorFileInput): ChatMessageAttachmentDto & { base64?: string } {
+    return {
+      ...this.connectorFileToStreamAttachment(file),
+      base64: file.base64,
+    }
   }
 
   private normalizeFiles(files: ChatFileInput[]): ConnectorFileInput[] {

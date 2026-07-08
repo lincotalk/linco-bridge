@@ -10,7 +10,7 @@ import {
 } from '@/api/session-api'
 import type { BridgeSdk } from '@/bridge/sdk/types'
 import type { AgentBridgeSetup, AgentBridgeType, BridgeStatusResult } from '@/bridge/types'
-import type { ChatMessage, ChatSessionItem } from '@/bridge/types'
+import type { ChatMessage, ChatMessageAttachment, ChatSessionItem } from '@/bridge/types'
 
 const STREAMING_ASSISTANT_ID_PREFIX = 'stream-assistant-'
 
@@ -135,6 +135,7 @@ export const useSessionStore = defineStore('session', () => {
           ...message,
           streaming: false,
           reasoningStreaming: false,
+          attachments: message.attachments ?? existing?.attachments,
           reasoning: existing?.reasoning
             ? {
                 ...existing.reasoning,
@@ -151,6 +152,7 @@ export const useSessionStore = defineStore('session', () => {
     assistantId: string,
     patch: {
       content?: string
+      attachments?: ChatMessageAttachment[]
       reasoning?: ChatMessage['reasoning']
       reasoningStreaming?: boolean
     },
@@ -165,6 +167,7 @@ export const useSessionStore = defineStore('session', () => {
       content: patch.content ?? existing?.content ?? '',
       createdAt: existing?.createdAt ?? Date.now(),
       streaming: true,
+      attachments: patch.attachments ?? existing?.attachments,
       reasoning: patch.reasoning ?? existing?.reasoning,
       reasoningStreaming: patch.reasoningStreaming ?? existing?.reasoningStreaming,
     }
@@ -254,6 +257,20 @@ export const useSessionStore = defineStore('session', () => {
             return
           }
           patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: fullText })
+        },
+        onAttachment: (attachment) => {
+          if (!assistantStarted) {
+            assistantStarted = true
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, {
+              content: '',
+              attachments: [attachment],
+            })
+            return
+          }
+          const current = messagesBySession.value[sessionId] ?? []
+          const existing = current.find((item) => item.id === assistantPlaceholderId)
+          const attachments = [...(existing?.attachments ?? []), attachment]
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, { attachments })
         },
         onDone: (message) => {
           finalizeStreamingAssistant(sessionId, assistantPlaceholderId, message)

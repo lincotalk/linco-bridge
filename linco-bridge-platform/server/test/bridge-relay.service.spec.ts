@@ -25,7 +25,7 @@ describe('BridgeRelayService', () => {
       text: 'world',
     })
 
-    await expect(completed).resolves.toBe('world')
+    await expect(completed).resolves.toEqual({ text: 'world' })
   })
 
   it('accumulates stream_chunk before turn_end', async () => {
@@ -65,7 +65,7 @@ describe('BridgeRelayService', () => {
       fullText: 'hello world',
     })
 
-    await expect(completed).resolves.toBe('hello world')
+    await expect(completed).resolves.toEqual({ text: 'hello world' })
     expect(chunks).toEqual(['hel'])
   })
 
@@ -129,7 +129,7 @@ describe('BridgeRelayService', () => {
     const cancelled = relay.cancelTurn(capturedStreamId)
     expect(cancelled.cancelled).toBe(true)
     expect(cancelled.partialText).toBe('partial')
-    await expect(completed).resolves.toBe('partial')
+    await expect(completed).resolves.toEqual({ text: 'partial' })
   })
 
   it('resolves slash_command_result for history-reload', async () => {
@@ -341,6 +341,56 @@ describe('BridgeRelayService', () => {
       fullText: '你是开发者',
     })
 
-    await expect(completed).resolves.toBe('你是开发者')
+    await expect(completed).resolves.toEqual({ text: '你是开发者' })
+  })
+
+  it('captures outbound_message file for connector turns', async () => {
+    const relay = new BridgeRelayService()
+    const attachments: Array<{ name?: string; mimeType?: string; base64?: string }> = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: '给我一张小猫图片',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onAttachment: (file) => {
+          attachments.push(file)
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'outbound_message',
+      streamId: capturedStreamId,
+      text: '图片已生成',
+      mediaName: 'kitten.png',
+      mediaType: 'image/png',
+      mediaBase64: 'abc123',
+    })
+
+    await expect(completed).resolves.toEqual({
+      text: '图片已生成',
+      file: {
+        name: 'kitten.png',
+        mimeType: 'image/png',
+        base64: 'abc123',
+      },
+    })
+    expect(attachments).toEqual([
+      {
+        name: 'kitten.png',
+        mimeType: 'image/png',
+        base64: 'abc123',
+      },
+    ])
   })
 })

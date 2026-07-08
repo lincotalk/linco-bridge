@@ -22,11 +22,17 @@ export interface ForwardTurnOptions {
   onChunk?: (chunk: StreamChunkPayload) => void
   onReasoning?: (payload: StreamReasoningPayload) => void
   onReasoningClear?: () => void
+  onAttachment?: (file: ConnectorFileInput) => void
+}
+
+export interface ConnectorTurnResult {
+  text: string
+  file?: ConnectorFileInput
 }
 
 export interface ForwardTurnHandle {
   streamId: string
-  completed: Promise<string>
+  completed: Promise<ConnectorTurnResult>
 }
 
 export interface LocalCommandResult {
@@ -55,6 +61,7 @@ interface PendingTurn {
   onChunk?: (chunk: StreamChunkPayload) => void
   onReasoning?: (payload: StreamReasoningPayload) => void
   onReasoningClear?: () => void
+  onAttachment?: (file: ConnectorFileInput) => void
   cancelled: boolean
   allowEmptyTurnEnd: boolean
   outboundFile?: ConnectorFileInput
@@ -218,6 +225,7 @@ export class BridgeRelayService {
 
     pending.outboundFile = { name, mimeType, base64: mediaBase64 }
     this.localCommandFiles.set(streamId, pending.outboundFile)
+    pending.onAttachment?.(pending.outboundFile)
   }
 
   forwardToConnector(
@@ -225,13 +233,23 @@ export class BridgeRelayService {
     input: ConnectorSendInput,
     options?: ForwardTurnOptions,
   ): ForwardTurnHandle {
-    return this.createTurn(send, input, input.text, {
+    const turn = this.createTurn(send, input, input.text, {
       onChunk: options?.onChunk,
       onReasoning: options?.onReasoning,
       onReasoningClear: options?.onReasoningClear,
+      onAttachment: options?.onAttachment,
       allowEmptyTurnEnd: false,
       timeoutMs: 120_000,
     })
+
+    return {
+      streamId: turn.streamId,
+      completed: turn.completed.then((text) => {
+        const file = this.localCommandFiles.get(turn.streamId)
+        this.localCommandFiles.delete(turn.streamId)
+        return { text, file }
+      }),
+    }
   }
 
   forwardLocalCommand(
@@ -319,11 +337,12 @@ export class BridgeRelayService {
       onChunk?: (chunk: StreamChunkPayload) => void
       onReasoning?: (payload: StreamReasoningPayload) => void
       onReasoningClear?: () => void
+      onAttachment?: (file: ConnectorFileInput) => void
       allowEmptyTurnEnd: boolean
       timeoutMs: number
       collectSystem?: boolean
     },
-  ): ForwardTurnHandle {
+  ): { streamId: string; completed: Promise<string> } {
     const requestId = randomUUID()
     const streamId = `linco-stream-${requestId}`
     const payload = this.buildInboundPayload(input, requestId, streamId, text)
@@ -353,6 +372,7 @@ export class BridgeRelayService {
         onChunk: options.onChunk,
         onReasoning: options.onReasoning,
         onReasoningClear: options.onReasoningClear,
+        onAttachment: options.onAttachment,
         cancelled: false,
         allowEmptyTurnEnd: options.allowEmptyTurnEnd,
       })

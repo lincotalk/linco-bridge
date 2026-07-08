@@ -114,6 +114,14 @@ export function normalizeBridgeFileGetPath(target: string): string | null {
   return stripLineNumberSuffix(value)
 }
 
+function isH5Runtime(): boolean {
+  return typeof window !== 'undefined' && typeof document !== 'undefined'
+}
+
+function openHttpPreviewInBrowser(previewUrl: string) {
+  window.open(previewUrl, '_blank', 'noopener,noreferrer')
+}
+
 function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'attachment'
 }
@@ -208,10 +216,10 @@ export async function openChatAttachment(attachment: ChatMessageAttachment & { b
 
   const previewUrl = attachment.previewUrl?.trim() ?? ''
   if (previewUrl && isHttpUrl(previewUrl)) {
-    // #ifdef H5
-    window.open(previewUrl, '_blank', 'noopener,noreferrer')
-    return
-    // #endif
+    if (isH5Runtime()) {
+      openHttpPreviewInBrowser(previewUrl)
+      return
+    }
 
     await new Promise<void>((resolve, reject) => {
       uni.downloadFile({
@@ -238,14 +246,14 @@ export async function openChatAttachment(attachment: ChatMessageAttachment & { b
 
   const base64 = attachment.base64?.trim()
   if (base64) {
-    // #ifdef H5
-    if (shouldPreviewInline(mimeType, name)) {
-      previewBase64InNewTab(base64, mimeType)
+    if (isH5Runtime()) {
+      if (shouldPreviewInline(mimeType, name)) {
+        previewBase64InNewTab(base64, mimeType)
+        return
+      }
+      downloadBase64File(base64, mimeType, name)
       return
     }
-    downloadBase64File(base64, mimeType, name)
-    return
-    // #endif
 
     try {
       const filePath = await writeBase64ToTempFile(base64, name)
@@ -257,10 +265,10 @@ export async function openChatAttachment(attachment: ChatMessageAttachment & { b
   }
 
   if (previewUrl.startsWith('data:')) {
-    // #ifdef H5
-    triggerH5Download(previewUrl, name)
-    return
-    // #endif
+    if (isH5Runtime()) {
+      triggerH5Download(previewUrl, name)
+      return
+    }
 
     const dataMatch = previewUrl.match(/^data:([^;]+);base64,(.+)$/)
     if (dataMatch) {
