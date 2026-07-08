@@ -67,7 +67,7 @@ linco-connect start --daemon
 linco-connect doctor
 ```
 
-4. 回到 H5 点击「检测连接」→「继续」，进入 Agent 落地页。发送消息会经 server relay 转发到本机 Agent。
+4. 回到 H5 点击 **我已复制，获取连接状态**，等待页面确认连接成功，然后点击 **进入 Codex** 进入聊天页。你可以直接发送消息，也可以点击右上角文件夹图标选择项目、进入已有会话，或在项目下点击 `+` 新建会话。消息会经 server relay 转发到本机 Agent。
 
 WebSocket endpoint（`linco-connect` 会自动追加 `token` 参数）：
 
