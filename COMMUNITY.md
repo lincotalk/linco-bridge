@@ -24,10 +24,10 @@ Note: WeChat group QR codes may expire. If the QR code is no longer valid, pleas
 
 Follow **Linco Lab** for open-source updates, AI coding notes, bridge integration examples, Agent workflow content, and broader frontier AI observations.
 
-You can follow Linco Lab through either of the channels below for project updates and ongoing practice notes:
+You can follow Linco Lab through the channels below for project updates and ongoing practice notes:
 
-- WeChat Official Account: search `Linco Lab` in WeChat or scan the QR code below
 - Xiaohongshu: [Linco Lab](https://xhslink.com/m/7tdp7JOYViz)
+- WeChat Official Account: search `Linco Lab` in WeChat
 
 WeChat Official Account QR code:
 
