@@ -17,7 +17,7 @@ linco-connect init --token "<app-id>:<app-secret>" --agent codex
 linco-connect start --daemon
 ```
 
-开源参考平台请先启动后端和 H5，再在 H5 桥接页复制生成的 setup commands。命令会使用 `--channel linco-demo`，本地开发环境还会包含 `--allow-insecure-ws`。
+开源参考平台请先启动后端，并确认 `http://127.0.0.1:3300/api/demo-config` 可访问；然后再启动 H5。打开 H5 开发地址后，进入 **桥接 → 从 Codex 导入**，复制页面生成的 setup commands。命令会使用 `--channel linco-demo`，本地开发环境还会包含 `--allow-insecure-ws`。
 
 ## 详细文档
 

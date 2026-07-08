@@ -17,7 +17,7 @@ linco-connect init --token "<app-id>:<app-secret>" --agent codex
 linco-connect start --daemon
 ```
 
-For the open reference platform, start the backend and H5 frontend first, then copy the generated setup commands from the H5 bridge page. The command uses `--channel linco-demo`; local development also includes `--allow-insecure-ws`.
+For the open reference platform, start the backend first, verify `http://127.0.0.1:3300/api/demo-config`, then start the H5 frontend. After opening the H5 dev URL, go to **桥接 → 从 Codex 导入** and copy the generated setup commands. The command uses `--channel linco-demo`; local development also includes `--allow-insecure-ws`.
 
 ## Detailed Docs
 
