@@ -27,14 +27,23 @@ describe('BridgeService', () => {
     service = new BridgeService(database, presence, relay)
   })
 
-  it('returns setup for codex seed connection', () => {
+  it('returns setup for codex seed connection with auto-allocated secret', () => {
     const setup = service.getSetup('codex')
     expect(setup.bridgeType).toBe('codex')
     expect(setup.appId).toBe('demo-codex-app')
+    expect(setup.appSecret).not.toBe('demo-codex-secret')
+    expect(setup.appSecret).toHaveLength(16)
     expect(setup.setupCommands).toContain('linco-connect init')
+    expect(setup.setupCommands).toContain(`--token "demo-codex-app:${setup.appSecret}"`)
     expect(setup.setupCommands).toContain('--channel linco-demo')
     expect(setup.setupCommands).toContain('--allow-insecure-ws')
     expect(setup.setupCommands).not.toContain('--ws-url')
+  })
+
+  it('reuses allocated secret on subsequent getSetup calls', () => {
+    const first = service.getSetup('claude')
+    const second = service.getSetup('claude')
+    expect(second.appSecret).toBe(first.appSecret)
   })
 
   it('reports offline before connector attaches', () => {

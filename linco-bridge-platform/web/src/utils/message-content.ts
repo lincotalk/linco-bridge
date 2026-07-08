@@ -1,4 +1,4 @@
-import { isLocalFileLinkTarget } from '@/utils/attachment-open'
+import { isOpenableFileLinkTarget } from '@/utils/attachment-open'
 import { hasMarkdownStructure, normalizeCodeFences } from '@/utils/markdown-render'
 
 export type MessageTextSegment = {
@@ -114,7 +114,7 @@ function appendTextSegments(segments: MessageSegment[], raw: string) {
       type: 'link',
       label: (match[1] ?? target).trim(),
       target,
-      localFile: isLocalFileLinkTarget(target),
+      localFile: isOpenableFileLinkTarget(target),
     })
     lastIndex = MARKDOWN_LINK_PATTERN.lastIndex
   }

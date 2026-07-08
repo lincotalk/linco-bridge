@@ -10,7 +10,13 @@ import { runSessionBridgeCommand } from '@/api/session-api'
 
 import { hasRichMessageContent, parseMessageSegments } from '@/utils/message-content'
 
-import { isLocalFileLinkTarget, openChatAttachment, quoteGetPath } from '@/utils/attachment-open'
+import {
+  buildBridgeFileGetCandidates,
+  isOpenableFileLinkTarget,
+  openChatAttachment,
+  quoteGetPath,
+  shouldRetryBridgeFileGet,
+} from '@/utils/attachment-open'
 
 import { showToast } from '@/utils/format'
 
@@ -74,56 +80,49 @@ async function handleLinkTap(target: string) {
 
 
 
-  if (!isLocalFileLinkTarget(trimmed)) {
-
+  if (!isOpenableFileLinkTarget(trimmed)) {
     showToast('暂不支持打开该链接')
-
     return
-
   }
 
-
+  const filePaths = buildBridgeFileGetCandidates(trimmed)
+  if (filePaths.length === 0) {
+    showToast('暂不支持打开该链接')
+    return
+  }
 
   if (!props.sessionId) {
-
     showToast('当前会话不可用')
-
     return
-
   }
 
-
-
   loadingTarget.value = trimmed
-
   try {
+    let lastError = '获取文件失败'
+    for (let index = 0; index < filePaths.length; index += 1) {
+      const filePath = filePaths[index]!
+      const result = await runSessionBridgeCommand(
+        props.sessionId,
+        `/get ${quoteGetPath(filePath)}`,
+      )
 
-    const result = await runSessionBridgeCommand(
+      if (result.file) {
+        await openChatAttachment(result.file)
+        return
+      }
 
-      props.sessionId,
-
-      `/get ${quoteGetPath(trimmed)}`,
-
-    )
-
-    if (result.file) {
-
-      await openChatAttachment(result.file)
-
-      return
-
+      lastError = result.text || lastError
+      const hasMoreCandidates = index < filePaths.length - 1
+      if (!hasMoreCandidates || !shouldRetryBridgeFileGet(lastError)) {
+        break
+      }
     }
 
-    showToast(result.text || '获取文件失败')
-
+    showToast(lastError)
   } catch (err) {
-
     showToast(err instanceof Error ? err.message : '获取文件失败')
-
   } finally {
-
     loadingTarget.value = ''
-
   }
 
 }

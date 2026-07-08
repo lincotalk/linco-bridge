@@ -78,7 +78,42 @@ function isExplicitFileDeliveryRequest(text) {
 function resolveGetTarget(rawTarget, session) {
   const target = normalizeFileUriPath(stripWrappingQuotes(stripLineSuffix(String(rawTarget || '').trim())));
   if (!target) return null;
-  return path.resolve(path.isAbsolute(target) ? target : path.join(session.workspace, target));
+
+  if (path.isAbsolute(target)) {
+    return path.resolve(target);
+  }
+
+  const roots = allowedGetRoots(session);
+  const seen = new Set();
+  const candidates = [];
+
+  function pushCandidate(root, relativePath) {
+    if (!root || !relativePath) return;
+    const resolved = path.resolve(path.join(root, relativePath));
+    if (seen.has(resolved)) return;
+    seen.add(resolved);
+    candidates.push(resolved);
+  }
+
+  for (const root of roots) {
+    pushCandidate(root, target);
+    const basename = path.basename(target);
+    if (basename && basename !== target) {
+      pushCandidate(root, basename);
+    }
+  }
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.statSync(candidate).isFile()) {
+        return candidate;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return path.resolve(path.join(session.workspace, target));
 }
 
 function allowedGetRoots(session) {
