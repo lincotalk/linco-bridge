@@ -22,8 +22,15 @@ export function useAgentLanding(sdk: AgentChatSdk = createAppAgentChatSdk()) {
 
   const subtitle = ref('')
 
-  async function loadLanding(agentType: AgentBridgeType, connectionId?: string) {
-    loading.value = true
+  async function loadLanding(
+    agentType: AgentBridgeType,
+    connectionId?: string,
+    options?: { silent?: boolean },
+  ) {
+    const silent = options?.silent === true
+    if (!silent) {
+      loading.value = true
+    }
     try {
       unsubscribeHeader?.()
       unsubscribeHeader = sdk.watchLandingHeader?.(agentType, (next) => {
@@ -45,7 +52,9 @@ export function useAgentLanding(sdk: AgentChatSdk = createAppAgentChatSdk()) {
       subtitle.value = buildLandingSubtitle(header.value)
       history.value = items
     } finally {
-      loading.value = false
+      if (!silent) {
+        loading.value = false
+      }
     }
   }
 

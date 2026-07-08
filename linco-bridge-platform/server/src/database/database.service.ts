@@ -176,8 +176,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .get(appId, appSecret) as unknown as BridgeConnectionRow | undefined
   }
 
+  static isDemoPlaceholderSecret(bridgeType: AgentBridgeType, appSecret: string): boolean {
+    return appSecret === `demo-${bridgeType}-secret`
+  }
+
+  static generateConnectionSecret(): string {
+    return `${randomUUID().replace(/-/g, '').slice(0, 16)}`
+  }
+
   refreshConnectionSecret(connectionId: string): BridgeConnectionRow | undefined {
-    const nextSecret = `${randomUUID().replace(/-/g, '').slice(0, 16)}`
+    const nextSecret = DatabaseService.generateConnectionSecret()
     const now = Date.now()
     this.db
       .prepare(`UPDATE bridge_connections SET app_secret = ?, update_time = ? WHERE id = ?`)

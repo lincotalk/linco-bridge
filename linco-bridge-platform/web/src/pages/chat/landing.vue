@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import AgentHistoryRow from '@/components/AgentHistoryRow.vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
@@ -44,12 +44,19 @@ const { startVoice } = useVoiceInput((text) => {
 
 const visibleItems = computed(() => history.value.slice(0, VISIBLE_COUNT))
 const hasMore = computed(() => history.value.length > VISIBLE_COUNT)
+const showCount = ref(0)
 
 onLoad((query) => {
   const type = String(query?.agentType ?? 'codex') as AgentBridgeType
   agentType.value = type
   connectionId.value = query?.connectionId ? String(query.connectionId) : undefined
-  void loadLanding(type, connectionId.value)
+})
+
+onShow(() => {
+  showCount.value += 1
+  void loadLanding(agentType.value, connectionId.value, {
+    silent: showCount.value > 1 && history.value.length > 0,
+  })
 })
 
 onUnload(() => {

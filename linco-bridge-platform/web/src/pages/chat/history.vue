@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import AgentHistorySearchRow from '@/components/AgentHistorySearchRow.vue'
 import AgentHistorySearchTopBar from '@/components/AgentHistorySearchTopBar.vue'
@@ -70,8 +70,14 @@ function persistSearchHistories(type: AgentBridgeType) {
   }
 }
 
-async function loadHistory(type: AgentBridgeType, scopedConnectionId?: string) {
-  loading.value = true
+async function loadHistory(
+  type: AgentBridgeType,
+  scopedConnectionId?: string,
+  silent = false,
+) {
+  if (!silent) {
+    loading.value = true
+  }
   try {
     history.value = await sdk.listHistory(type, {
       limit: 100,
@@ -80,19 +86,29 @@ async function loadHistory(type: AgentBridgeType, scopedConnectionId?: string) {
     const validIds = new Set(history.value.map((item) => item.id))
     selectedIds.value = new Set([...selectedIds.value].filter((id) => validIds.has(id)))
   } catch (err) {
-    showToast(err instanceof Error ? err.message : '加载历史失败')
+    if (!silent) {
+      showToast(err instanceof Error ? err.message : '加载历史失败')
+    }
     history.value = []
   } finally {
-    loading.value = false
+    if (!silent) {
+      loading.value = false
+    }
   }
 }
+
+const showCount = ref(0)
 
 onLoad((query) => {
   const type = String(query?.agentType ?? 'codex') as AgentBridgeType
   agentType.value = type
   connectionId.value = query?.connectionId ? String(query.connectionId) : undefined
   loadSearchHistories(type)
-  void loadHistory(type, connectionId.value)
+})
+
+onShow(() => {
+  showCount.value += 1
+  void loadHistory(agentType.value, connectionId.value, showCount.value > 1)
 })
 
 function handleBack() {

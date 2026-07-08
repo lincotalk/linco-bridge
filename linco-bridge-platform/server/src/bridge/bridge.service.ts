@@ -76,9 +76,20 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = this.database.getConnectionByType(type)
+    let connection = this.database.getConnectionByType(type)
     if (!connection) {
       throw new NotFoundException('连接配置不存在')
+    }
+    // Align with production getOrCreateSetup: first load allocates a real secret
+    // instead of returning the static demo placeholder from seed data.
+    if (
+      !connection.bound_context_id &&
+      DatabaseService.isDemoPlaceholderSecret(connection.bridge_type, connection.app_secret)
+    ) {
+      const refreshed = this.database.refreshConnectionSecret(connection.id)
+      if (refreshed) {
+        connection = refreshed
+      }
     }
     return toBridgeSetupDto(
       {

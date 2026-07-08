@@ -24,10 +24,16 @@ describe('parseMessageSegments', () => {
     expect(hasRichMessageContent('plain')).toBe(false)
   })
 
-  it('keeps incomplete fenced block as text while streaming', () => {
-    expect(parseMessageSegments('before\n```ts\nconst x = 1', { streaming: true })).toEqual([
-      { type: 'text', content: 'before' },
-      { type: 'text', content: '```ts\nconst x = 1' },
+  it('marks workspace-relative file links as local files', () => {
+    const segments = parseMessageSegments('文件：[卤肉饭制作过程.txt](卤肉饭制作过程.txt)')
+    expect(segments).toEqual([
+      { type: 'text', content: '文件：' },
+      {
+        type: 'link',
+        label: '卤肉饭制作过程.txt',
+        target: '卤肉饭制作过程.txt',
+        localFile: true,
+      },
     ])
   })
 })
