@@ -3003,6 +3003,38 @@ if (directorySymlinkSupported) {
   assert.strictEqual(fileMessage.references[0].command, `/get "${filePath.replace(/"/g, '\\"')}"`);
 }
 
+if (process.platform === 'win32') {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-command-get-msys-'));
+  const filePath = path.join(workspace, 'msys-note.txt');
+  fs.writeFileSync(filePath, 'hello msys\n');
+  const msysPath = filePath
+    .replace(/^([A-Za-z]):[\\/]/, (_, drive) => `/${drive.toLowerCase()}/`)
+    .replace(/\\/g, '/');
+  const ws = createCaptureWs();
+  const session = {
+    id: 'session-get-msys',
+    workspace,
+    runtimeDir: workspace,
+    attachmentsDir: path.join(workspace, 'attachments'),
+    agentType: 'codex',
+    messageQueue: [],
+    agentSessionHistory: [],
+  };
+  fs.mkdirSync(session.attachmentsDir, { recursive: true });
+
+  assert.strictEqual(handleSlashCommand(`/get ${msysPath}`, ws, session, {
+    maxOutgoingAttachmentBytes: 1024 * 1024,
+    allowUnsafeAttachments: false,
+    unsafeAttachmentExtensions: ['.exe', '.bat', '.cmd', '.ps1'],
+  }), true);
+
+  const fileMessage = ws.sent.find(msg => msg.type === 'outbound_message' && msg.mediaBase64);
+  assert(fileMessage);
+  assert.strictEqual(fileMessage.mediaName, 'msys-note.txt');
+  assert.strictEqual(fileMessage.mediaBase64, Buffer.from('hello msys\n').toString('base64'));
+  assert.strictEqual(fileMessage.references[0].command, `/get ${filePath}`);
+}
+
 {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-reference-'));
   const filePath = path.join(workspace, 'report.txt');

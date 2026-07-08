@@ -308,14 +308,22 @@ function cleanMarkdownTarget(value) {
 
 function normalizeFileUriPath(value) {
   const text = String(value || '').trim();
-  if (!/^file:\/\//i.test(text)) return text;
+  if (!/^file:\/\//i.test(text)) return normalizeWindowsMsysPath(text);
   try {
-    return decodeURIComponent(new URL(text).pathname)
+    return normalizeWindowsMsysPath(decodeURIComponent(new URL(text).pathname)
       .replace(/^\/([A-Za-z]:[\\/])/, '$1')
-      .replace(/\//g, path.sep);
+      .replace(/\//g, path.sep));
   } catch {
-    return text.replace(/^file:\/*/i, '');
+    return normalizeWindowsMsysPath(text.replace(/^file:\/*/i, ''));
   }
+}
+
+function normalizeWindowsMsysPath(value) {
+  const text = String(value || '');
+  if (process.platform !== 'win32') return text;
+  const match = text.match(/^[/\\]([A-Za-z])[/\\](.*)$/);
+  if (!match) return text;
+  return `${match[1].toUpperCase()}:\\${match[2].replace(/[\\/]+/g, path.sep)}`;
 }
 
 function extractText(input) {
