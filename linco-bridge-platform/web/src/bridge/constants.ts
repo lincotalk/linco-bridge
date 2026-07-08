@@ -55,3 +55,8 @@ export function supportsBridgeWorkspaceSelector(type: AgentBridgeType): boolean 
 export function supportsBridgeSettingsSelector(type: AgentBridgeType): boolean {
   return type === 'codex' || type === 'claude'
 }
+
+/** Codex / Claude Code only — `/help` slash command cache + input autocomplete. */
+export function supportsBridgeSlashCommands(type: AgentBridgeType): boolean {
+  return type === 'codex' || type === 'claude'
+}

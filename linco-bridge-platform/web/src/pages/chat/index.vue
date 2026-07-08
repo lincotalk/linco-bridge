@@ -16,8 +16,9 @@ import { showToast } from '@/utils/format'
 import { isBoundWorkspacePick } from '@/utils/pick-workspace'
 import { openBoundBridgeChat, reloadBoundChatSession } from '@/utils/open-bound-chat'
 import { resolveBridgeProjectLabel } from '@/utils/bridge-project-label'
-import { supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { supportsBridgeSettingsSelector, supportsBridgeSlashCommands, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
+import { useSlashCommands } from '@/composables/useSlashCommands'
 
 const chat = useChatSession()
 const { pickWorkspace } = useProjectPicker()
@@ -59,6 +60,7 @@ const showBridgeSettings = computed(
 
 const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
 const bridgeSettings = useBridgeSettings()
+const { commands: slashCommandList, preload: preloadSlashCommands } = useSlashCommands()
 const { startVoice } = useVoiceInput((text) => {
   draft.value = draft.value ? `${draft.value} ${text}` : text
 })
@@ -71,6 +73,13 @@ watch(
     bridgeSettings.applySessionSettings(session?.bridgeSettings ?? null)
     if (showBridgeSettings.value) {
       void bridgeSettings.preloadOptions(agentType.value!, session?.connectionId, sessionId)
+    }
+    if (agentType.value && supportsBridgeSlashCommands(agentType.value)) {
+      void preloadSlashCommands({
+        agentType: agentType.value,
+        connectionId: session?.connectionId,
+        sessionId,
+      })
     }
   },
   { immediate: true },
@@ -239,6 +248,7 @@ async function handlePickSettings() {
       :bridge-project-name="bridgeProjectLabel"
       :use-bridge-compact-toolbar="showBridgeSettings"
       :bridge-settings-label="bridgeSettings.settingsLabel.value"
+      :slash-commands="slashCommandList"
       @send="handleSend"
       @stop="handleStop"
       @add="handleAdd"

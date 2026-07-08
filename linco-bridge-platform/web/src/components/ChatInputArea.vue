@@ -2,8 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import ChatInputActionButton from '@/components/ChatInputActionButton.vue'
 import PendingAttachmentList from '@/components/PendingAttachmentList.vue'
+import SlashCommandSuggestionPanel from '@/components/SlashCommandSuggestionPanel.vue'
 import type { OutboundChatFile } from '@/api/session-api'
+import type { SlashCommandItem } from '@/bridge/slash-command'
 import { useChatTextareaSubmit } from '@/composables/useChatTextareaSubmit'
+import {
+  extractTextareaInputMeta,
+  useSlashCommandInput,
+} from '@/composables/useSlashCommandInput'
 import { CHAT_ICON } from '@/constants/chat-icons'
 
 const props = withDefaults(
@@ -18,6 +24,7 @@ const props = withDefaults(
     bridgeProjectName?: string
     useBridgeCompactToolbar?: boolean
     bridgeSettingsLabel?: string
+    slashCommands?: SlashCommandItem[]
   }>(),
   {
     modelValue: '',
@@ -29,6 +36,7 @@ const props = withDefaults(
     pendingFiles: () => [],
     useBridgeCompactToolbar: false,
     bridgeSettingsLabel: '',
+    slashCommands: () => [],
   },
 )
 
@@ -43,6 +51,11 @@ const emit = defineEmits<{
 }>()
 
 const draft = ref(props.modelValue)
+const slashCommandsRef = computed(() => props.slashCommands ?? [])
+const { suggestions, updateSlashQuery, applyCommand } = useSlashCommandInput(
+  draft,
+  slashCommandsRef,
+)
 
 const canSend = computed(
   () => draft.value.trim().length > 0 || (props.pendingFiles?.length ?? 0) > 0,
@@ -59,13 +72,19 @@ watch(
   () => props.modelValue,
   (value) => {
     draft.value = value
+    updateSlashQuery(value, value.length)
   },
 )
 
 function onInput(event: InputEvent) {
-  const detail = (event as unknown as { detail?: { value?: string } }).detail
-  const value = detail?.value ?? ''
+  const { value, cursor } = extractTextareaInputMeta(event)
   draft.value = value
+  updateSlashQuery(value, cursor)
+  emit('update:modelValue', value)
+}
+
+function handleSlashSelect(item: SlashCommandItem) {
+  const value = applyCommand(item)
   emit('update:modelValue', value)
 }
 
@@ -92,6 +111,11 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
 
 <template>
   <view class="chat-input">
+    <SlashCommandSuggestionPanel
+      v-if="suggestions.length > 0"
+      :commands="suggestions"
+      @select="handleSlashSelect"
+    />
     <view class="chat-input__shell">
       <PendingAttachmentList
         v-if="pendingFiles.length > 0"
