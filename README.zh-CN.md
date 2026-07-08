@@ -168,6 +168,8 @@ linco-connect start --daemon
 - `linco-bridge-platform/web/src/bridge/sdk`：Bridge SDK / AgentChat SDK 参考实现，用于对接参考平台 REST API 和桥接流程；
 - `linco-bridge-connect/src/channel/`：channel adapter 扩展点。`linco` 是官方通道，`linco-demo` 是开源参考平台通道，第三方应新增自己的 channel 目录并注册 adapter。
 
+自定义 channel、命令改动、协议兼容和二开 PR 的规则见 [二次开发规则](docs/zh-CN/secondary-development.md)。
+
 ## 项目边界
 
 | 能力 | 开源仓库是否包含 |
@@ -194,6 +196,7 @@ linco-connect start --daemon
 - [工作原理](docs/zh-CN/how-it-works.md)
 - [CLI 命令参考](docs/zh-CN/cli.md)
 - [公开协议](docs/zh-CN/protocol.md)
+- [二次开发规则](docs/zh-CN/secondary-development.md)
 - [Reference Web](docs/zh-CN/reference-web.md)
 - [支持平台](docs/zh-CN/supported-platforms.md)
 - [安全与隐私](docs/zh-CN/security-and-privacy.md)

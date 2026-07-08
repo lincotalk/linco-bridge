@@ -168,6 +168,8 @@ Exact compatibility should follow release notes and each subproject README.
 - `linco-bridge-platform/web/src/bridge/sdk`: Bridge SDK / AgentChat SDK reference implementation for the reference platform REST APIs and bridge flow;
 - `linco-bridge-connect/src/channel/`: channel adapter extension point. `linco` is the official channel, `linco-demo` is the open reference platform channel, and third parties should add and register their own channel directory.
 
+For rules on custom channels, command changes, protocol compatibility, and PRs from secondary-development work, see [Secondary Development Rules](docs/secondary-development.md).
+
 ## Project Boundaries
 
 | Capability | Included in this repository |
@@ -194,6 +196,7 @@ Exact compatibility should follow release notes and each subproject README.
 - [How It Works](docs/how-it-works.md)
 - [CLI Reference](docs/cli.md)
 - [Public Protocol](docs/protocol.md)
+- [Secondary Development Rules](docs/secondary-development.md)
 - [Reference Web](docs/reference-web.md)
 - [Supported Platforms](docs/supported-platforms.md)
 - [Security and Privacy](docs/security-and-privacy.md)
