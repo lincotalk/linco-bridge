@@ -7,13 +7,14 @@ function createTextStreamBuffer({ onStart } = {}) {
   return {
     assistantStarted: false,
     pendingText: '',
+    pendingMeta: null,
     flushTimer: null,
     lastFlushAt: 0,
     onStart,
   };
 }
 
-function appendTextStream(text, ws, state) {
+function appendTextStream(text, ws, state, meta = {}) {
   if (!state) return;
 
   if (!state.assistantStarted) {
@@ -21,6 +22,11 @@ function appendTextStream(text, ws, state) {
     state.assistantStarted = true;
   }
 
+  if (state.pendingText && !sameStreamMeta(state.pendingMeta, meta)) {
+    flushTextStream(ws, state);
+  }
+
+  state.pendingMeta = streamMeta(meta);
   state.pendingText += text;
 
   if (state.pendingText.length >= STREAM_FLUSH_TEXT_THRESHOLD) {
@@ -45,8 +51,9 @@ function flushTextStream(ws, state) {
   }
 
   if (!state.pendingText) return;
-  if (ws) send(ws, 'assistant_chunk', { text: state.pendingText });
+  if (ws) send(ws, 'assistant_chunk', { text: state.pendingText, ...streamMeta(state.pendingMeta) });
   state.pendingText = '';
+  state.pendingMeta = null;
   state.lastFlushAt = Date.now();
 }
 
@@ -59,8 +66,28 @@ function resetTextStream(state) {
 
   state.assistantStarted = false;
   state.pendingText = '';
+  state.pendingMeta = null;
   state.flushTimer = null;
   state.lastFlushAt = 0;
+}
+
+function streamMeta(meta = {}) {
+  meta = meta || {};
+  const payload = {};
+  if (meta.phase === 'progress') payload.phase = meta.phase;
+  if (meta.ephemeral === true) payload.ephemeral = meta.ephemeral;
+  if (meta.replacePrevious === true) payload.replacePrevious = meta.replacePrevious;
+  return payload;
+}
+
+function sameStreamMeta(left = {}, right = {}) {
+  const a = streamMeta(left);
+  const b = streamMeta(right);
+  return (
+    a.phase === b.phase &&
+    a.ephemeral === b.ephemeral &&
+    a.replacePrevious === b.replacePrevious
+  );
 }
 
 module.exports = {

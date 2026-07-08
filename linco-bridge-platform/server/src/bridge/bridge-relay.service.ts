@@ -11,6 +11,9 @@ export type SlashCommandPayload = Record<string, unknown>
 export interface StreamChunkPayload {
   delta: string
   fullText: string
+  phase?: string
+  ephemeral?: boolean
+  replacePrevious?: boolean
 }
 
 export interface StreamReasoningPayload {
@@ -55,6 +58,7 @@ interface PendingTurn {
   reject: (error: Error) => void
   timeout: NodeJS.Timeout
   accumulatedText: string
+  accumulatedProgressText: string
   accumulatedReasoning: string
   systemTexts: string[]
   collectSystem: boolean
@@ -152,14 +156,26 @@ export class BridgeRelayService {
     if (frame.type === 'stream_chunk') {
       const delta = typeof frame.delta === 'string' ? frame.delta : ''
       const fullText = typeof frame.fullText === 'string' ? frame.fullText : ''
-      if (fullText.trim()) {
+      const phase = typeof frame.phase === 'string' ? frame.phase : ''
+      const ephemeral = frame.ephemeral === true || phase === 'progress'
+      const replacePrevious = frame.replacePrevious === true
+      if (ephemeral) {
+        if (fullText.trim()) {
+          pending.accumulatedProgressText = fullText
+        } else if (delta) {
+          pending.accumulatedProgressText += delta
+        }
+      } else if (fullText.trim()) {
         pending.accumulatedText = fullText
       } else if (delta) {
         pending.accumulatedText += delta
       }
       pending.onChunk?.({
         delta,
-        fullText: pending.accumulatedText,
+        fullText: ephemeral ? pending.accumulatedProgressText : pending.accumulatedText,
+        phase,
+        ephemeral,
+        replacePrevious,
       })
       return
     }
@@ -174,7 +190,7 @@ export class BridgeRelayService {
             ? frame.fullText
             : pending.accumulatedText
       if (!text.trim()) {
-        text = pending.accumulatedText
+        text = pending.accumulatedText || pending.accumulatedProgressText
       }
 
       if (
@@ -321,6 +337,7 @@ export class BridgeRelayService {
     clearTimeout(pending.timeout)
     this.pendingTurns.delete(streamId)
     const partialText = pending.accumulatedText.trim()
+      || pending.accumulatedProgressText.trim()
     pending.resolve(partialText)
     return { cancelled: true, partialText }
   }
@@ -366,6 +383,7 @@ export class BridgeRelayService {
         reject,
         timeout,
         accumulatedText: '',
+        accumulatedProgressText: '',
         accumulatedReasoning: '',
         systemTexts: [],
         collectSystem: options.collectSystem ?? false,

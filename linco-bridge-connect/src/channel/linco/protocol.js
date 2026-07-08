@@ -32,6 +32,8 @@ function toInternal(msg) {
 function createLincoAdapter(rawWs, session, config) {
   const linco = session.linco || {};
   linco.fullText = linco.fullText || "";
+  linco.finalText = linco.finalText || "";
+  linco.progressText = linco.progressText || "";
   linco.thinkingText = linco.thinkingText || "";
   linco.streamId = linco.streamId || `linco-stream-${Date.now()}`;
   linco.toolStartedAtById = linco.toolStartedAtById || new Map();
@@ -110,32 +112,59 @@ function mapLocalEventToLinco(event, session, config, linco) {
       };
     case "assistant_start":
       linco.fullText = "";
+      linco.finalText = "";
+      linco.progressText = "";
+      linco.hasEphemeralChunks = false;
+      linco.hasFinalChunks = false;
       linco.streamId = linco.streamId || `linco-stream-${Date.now()}`;
       return null;
     case "assistant_chunk": {
       const delta = String(event.text || "");
+      const phase = normalizeStreamChunkPhase(event.phase);
+      const ephemeral = event.ephemeral === true || phase === "progress";
+      const replacePrevious =
+        event.replacePrevious === true ||
+        (!ephemeral && linco.hasEphemeralChunks && !linco.hasFinalChunks);
+
       linco.fullText = `${linco.fullText || ""}${delta}`;
+      if (ephemeral) {
+        linco.progressText = `${linco.progressText || ""}${delta}`;
+        linco.hasEphemeralChunks = true;
+      } else {
+        linco.finalText = `${linco.finalText || ""}${delta}`;
+        linco.hasFinalChunks = true;
+      }
+
       return {
         ...base,
         type: "stream_chunk",
         mode: "chunk",
         streamId: linco.streamId,
         delta,
-        fullText: linco.fullText,
+        fullText: ephemeral ? linco.progressText : linco.finalText,
+        phase,
+        ephemeral,
+        replacePrevious,
         done: false,
       };
     }
-    case "assistant_end":
+    case "assistant_end": {
+      const fallbackText = linco.progressText || linco.fullText || "";
+      const finalText = linco.finalText || (!linco.hasFinalChunks ? normalizeFinalText(fallbackText, linco) : "");
       return {
         ...base,
         type: "stream_chunk",
         mode: "chunk",
         streamId: linco.streamId,
         delta: "",
-        fullText: linco.fullText || "",
-        references: extractFileReferences(linco.fullText || "", session, config),
+        fullText: finalText,
+        phase: "final_answer",
+        ephemeral: false,
+        replacePrevious: Boolean(linco.hasEphemeralChunks && !linco.hasFinalChunks),
+        references: extractFileReferences(finalText, session, config),
         done: true,
       };
+    }
     case "thinking":
       linco.thinkingText =
         event.mode === "progress"
@@ -193,6 +222,7 @@ function mapLocalEventToLinco(event, session, config, linco) {
         linco,
       );
     case "tool_call":
+      clearConfirmedProgressText(linco);
       return withLincoToolCallTiming(
         {
           ...base,
@@ -203,6 +233,7 @@ function mapLocalEventToLinco(event, session, config, linco) {
         linco,
       );
     case "tool_result":
+      clearConfirmedProgressText(linco);
       return withLincoToolResultTiming(
         {
           ...base,
@@ -411,6 +442,21 @@ function numberValue(value) {
     if (Number.isFinite(parsed)) return Math.trunc(parsed);
   }
   return 0;
+}
+
+function normalizeStreamChunkPhase(phase) {
+  const normalized = String(phase || "").trim();
+  return normalized === "progress" ? "progress" : "final_answer";
+}
+
+function clearConfirmedProgressText(linco) {
+  if (!linco) return;
+  linco.progressText = "";
+}
+
+function normalizeFinalText(text, linco) {
+  const value = String(text || "");
+  return linco?.hasEphemeralChunks ? value.replace(/^\n+/, "") : value;
 }
 
 function appendThinkingText(current, event) {

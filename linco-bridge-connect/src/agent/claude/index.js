@@ -1134,7 +1134,7 @@ function appendAssistantText(text, ws, session) {
 }
 
 function appendAssistantTextNow(text, ws, session) {
-  appendTextStream(text, ws, session.streamState);
+  appendTextStream(text, ws, session.streamState, { phase: 'progress', ephemeral: true });
   rememberAssistantText(session, text);
 }
 

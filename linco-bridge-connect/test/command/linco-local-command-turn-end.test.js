@@ -3139,4 +3139,66 @@ if (process.platform === 'win32') {
   assert.deepStrictEqual(payload.references, []);
 }
 
+{
+  const session = { id: 'session-stream-phase' };
+  const linco = { streamId: 'linco-stream-phase' };
+  const config = {};
+
+  mapLocalEventToLinco({ type: 'assistant_start' }, session, config, linco);
+  const progress = mapLocalEventToLinco({
+    type: 'assistant_chunk',
+    text: 'I will inspect first.',
+    phase: 'progress',
+    ephemeral: true,
+  }, session, config, linco);
+  const final = mapLocalEventToLinco({
+    type: 'assistant_chunk',
+    text: 'Final answer.',
+  }, session, config, linco);
+  const done = mapLocalEventToLinco({ type: 'assistant_end' }, session, config, linco);
+
+  assert.strictEqual(progress.type, 'stream_chunk');
+  assert.strictEqual(progress.phase, 'progress');
+  assert.strictEqual(progress.ephemeral, true);
+  assert.strictEqual(progress.fullText, 'I will inspect first.');
+  assert.strictEqual(final.phase, 'final_answer');
+  assert.strictEqual(final.ephemeral, false);
+  assert.strictEqual(final.replacePrevious, true);
+  assert.strictEqual(final.fullText, 'Final answer.');
+  assert.strictEqual(done.fullText, 'Final answer.');
+}
+
+{
+  const session = { id: 'session-progress-finalize' };
+  const linco = { streamId: 'linco-stream-progress-finalize' };
+  const config = {};
+
+  mapLocalEventToLinco({ type: 'assistant_start' }, session, config, linco);
+  const firstProgress = mapLocalEventToLinco({
+    type: 'assistant_chunk',
+    text: 'I will inspect first.',
+    phase: 'progress',
+    ephemeral: true,
+  }, session, config, linco);
+  mapLocalEventToLinco({
+    type: 'tool_call',
+    id: 'tool-1',
+    name: 'exec',
+    input: 'dir',
+  }, session, config, linco);
+  const finalProgress = mapLocalEventToLinco({
+    type: 'assistant_chunk',
+    text: '\n\nFinal answer after tool.',
+    phase: 'progress',
+    ephemeral: true,
+  }, session, config, linco);
+  const done = mapLocalEventToLinco({ type: 'assistant_end' }, session, config, linco);
+
+  assert.strictEqual(firstProgress.fullText, 'I will inspect first.');
+  assert.strictEqual(finalProgress.fullText, '\n\nFinal answer after tool.');
+  assert.strictEqual(done.phase, 'final_answer');
+  assert.strictEqual(done.replacePrevious, true);
+  assert.strictEqual(done.fullText, 'Final answer after tool.');
+}
+
 console.log('linco local command turn_end ok');

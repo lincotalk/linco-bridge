@@ -355,8 +355,8 @@ export class ChatService {
             files: normalizedFiles,
           },
           {
-            onChunk: ({ delta, fullText }) => {
-              emit('chunk', { delta, fullText })
+            onChunk: ({ delta, fullText, phase, ephemeral, replacePrevious }) => {
+              emit('chunk', { delta, fullText, phase, ephemeral, replacePrevious })
             },
             onReasoning: ({ delta, fullText }) => {
               emit('reasoning', { delta, fullText })

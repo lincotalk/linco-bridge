@@ -1294,7 +1294,7 @@ function appendOpenClawAssistantText(text, ws, session) {
 
 function appendOpenClawAssistantTextNow(text, ws, session) {
   ensureOpenClawStreamState(session);
-  appendTextStream(text, ws, session.streamState);
+  appendTextStream(text, ws, session.streamState, { phase: 'progress', ephemeral: true });
   rememberOpenClawAssistantText(session, text);
 }
 

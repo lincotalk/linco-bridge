@@ -69,6 +69,58 @@ describe('BridgeRelayService', () => {
     expect(chunks).toEqual(['hel'])
   })
 
+  it('keeps progress chunks out of completed final text', async () => {
+    const relay = new BridgeRelayService()
+    const chunks: Array<{ fullText: string; ephemeral?: boolean; replacePrevious?: boolean }> = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: 'hello',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onChunk: ({ fullText, ephemeral, replacePrevious }) => {
+          chunks.push({ fullText, ephemeral, replacePrevious })
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: 'I will inspect first.',
+      fullText: 'I will inspect first.',
+      phase: 'progress',
+      ephemeral: true,
+    })
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: 'Final answer.',
+      fullText: 'Final answer.',
+      phase: 'final_answer',
+      replacePrevious: true,
+    })
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+    })
+
+    await expect(completed).resolves.toEqual({ text: 'Final answer.' })
+    expect(chunks).toEqual([
+      { fullText: 'I will inspect first.', ephemeral: true, replacePrevious: false },
+      { fullText: 'Final answer.', ephemeral: false, replacePrevious: true },
+    ])
+  })
+
   it('forwards thinking frames to onReasoning callback', async () => {
     const relay = new BridgeRelayService()
     const reasoning: string[] = []

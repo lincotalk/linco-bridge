@@ -92,7 +92,7 @@
 
 ## 流式回复
 
-`stream_chunk` 使用 `delta` 表示本次增量，`fullText` 表示当前完整文本，`done` 表示该回复流是否结束。
+`stream_chunk` 使用 `delta` 表示本次增量，`fullText` 表示当前完整文本，`done` 表示该回复流是否结束。可选字段 `phase` 用于区分 `progress`（过程输出）和 `final_answer`（最终答案）；`ephemeral: true` 表示前端可临时展示并在最终答案到达时清理；`replacePrevious: true` 表示当前最终答案应替换此前临时正文。
 
 ```json
 {
@@ -103,6 +103,9 @@
   "mode": "chunk",
   "delta": "你好",
   "fullText": "你好",
+  "phase": "final_answer",
+  "ephemeral": false,
+  "replacePrevious": false,
   "done": false
 }
 ```

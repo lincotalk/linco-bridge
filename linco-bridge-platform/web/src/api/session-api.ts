@@ -58,6 +58,9 @@ export interface BridgeCommandResult {
 export interface StreamChunkPayload {
   delta?: string
   fullText: string
+  phase?: string
+  ephemeral?: boolean
+  replacePrevious?: boolean
 }
 
 export interface StreamReasoningPayload {
@@ -149,6 +152,10 @@ export async function streamSessionMessage(
           handlers.onChunk?.({
             delta: typeof payload.delta === 'string' ? payload.delta : '',
             fullText: typeof payload.fullText === 'string' ? payload.fullText : '',
+            phase: typeof payload.phase === 'string' ? payload.phase : undefined,
+            ephemeral: typeof payload.ephemeral === 'boolean' ? payload.ephemeral : undefined,
+            replacePrevious:
+              typeof payload.replacePrevious === 'boolean' ? payload.replacePrevious : undefined,
           })
           break
         case 'reasoning':
