@@ -23,16 +23,30 @@ npm run start:dev
 
 Server listens on `http://127.0.0.1:3300` (default port avoids conflict with other local services on `:3000`).
 
+Verify backend health:
+
+```bash
+curl http://127.0.0.1:3300/api/demo-config
+```
+
 ### 2. Start frontend
 
 ```bash
 cd web
 npm install
-node scripts/generate-icons.mjs
 npm run dev:h5
 ```
 
 H5 dev server proxies `/api` to the backend.
+
+`node scripts/generate-icons.mjs` is **not required** for a first open-source evaluation if the committed `web/src/static/icons/` assets are already present. Run it only when you need to regenerate icons from the sibling `../../../aichat/assets/icons` source tree.
+
+### 2.1 Optional: regenerate icons
+
+```bash
+cd web
+node scripts/generate-icons.mjs
+```
 
 ### 3. Connect desktop agent (`linco-bridge-connect`)
 
@@ -43,7 +57,7 @@ cd ../linco-bridge-connect
 npm install -g .
 ```
 
-2. Start H5 + server, open **桥接 → 从 Codex 导入**，复制页面上的 `setupCommands`（使用 `linco-connect` 的 **`linco-demo`** 通道，WS 地址由插件预设，无需 `--ws-url`）。
+2. Start H5 + server, open the H5 dev URL shown by `npm run dev:h5`, switch to **桥接**, then open **从 Codex 导入**. Copy the page's `setupCommands` block. It uses `linco-connect` with the **`linco-demo`** channel, so the WS address comes from the channel preset and no `--ws-url` is required.
 
 3. 在本机 PowerShell 执行复制出来的命令，例如：
 
@@ -54,6 +68,16 @@ linco-connect doctor
 ```
 
 4. 回到 H5 点击「检测连接」→「继续」，进入 Agent 落地页。发送消息会经 server relay 转发到本机 Agent。
+
+### 4. Recommended smoke test
+
+1. `curl http://127.0.0.1:3300/api/demo-config` returns JSON
+2. H5 opens and shows **消息** and **桥接** tabs
+3. The **桥接** tab shows four cards: Codex, Claude Code, Hermes, OpenClaw
+4. The Codex import page shows generated `setupCommands`
+5. After running `linco-connect start --daemon`, **检测连接** succeeds
+6. Enter the landing page, send one message, and confirm a streamed response arrives
+7. Return to the **消息** tab and confirm the new session appears
 
 WebSocket endpoint（`linco-connect` 会自动追加 `token` 参数）：
 
