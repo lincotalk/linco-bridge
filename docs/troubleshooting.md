@@ -31,4 +31,4 @@ Each credential set usually binds to one bridge instance. Stop or delete the pre
 
 ## Before Opening an Issue
 
-Provide Linco Connect version, operating system, Node.js version, installation method, Agent and Agent version, channel name, reproduction steps, expected and actual results, and redacted logs.
+Provide the linco-connect CLI version, operating system, Node.js version, installation method, Agent and Agent version, channel name, reproduction steps, expected and actual results, and redacted logs.

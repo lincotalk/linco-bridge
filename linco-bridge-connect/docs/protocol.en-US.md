@@ -1,4 +1,4 @@
-# Linco Connect Protocol
+# Linco Bridge connector Protocol
 
 This document describes the main message contract between `linco-bridge-connect` and remote channels. The shared connector entry is `src/core/channelConnector.js`, channel registration is in `src/core/channelRegistry.js`, the official Linco IM protocol implementation is in `src/channel/linco/`, and the open-source H5 demo channel is in `src/channel/lincoDemo/`.
 

@@ -2,7 +2,7 @@
 
 [English](../reference-web.md)
 
-Reference Web 是 `linco-bridge-platform/web` 中的开放 H5 客户端，用于验证 Linco Connect 到本地 Agent 的完整链路。它属于开源参考平台，对应连接器插件里的 `linco-demo` 通道。
+Reference Web 是 `linco-bridge-platform/web` 中的开放 H5 客户端，用于验证 Linco Bridge connector 到本地 Agent 的完整链路。它属于开源参考平台，对应连接器插件里的 `linco-demo` 通道。
 
 它不是官方 Linco App，也不是微信小程序本体。它的价值是给团队一套可部署、可观察、可改造的 Agent 交互参考：如果飞书、微信、钉钉等既有 IM 的展示结构不适合工具进度、权限确认、文件下发或长会话，可以基于它继续二开 H5、小程序、App 或其他前端形态。
 

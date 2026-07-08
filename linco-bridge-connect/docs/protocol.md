@@ -1,4 +1,4 @@
-﻿# Linco Connect 协议说明
+﻿# Linco Bridge connector 协议说明
 
 本文描述 `linco-bridge-connect` 与远端 channel 之间的主要消息约定。公共连接入口在 `src/core/channelConnector.js`，channel 注册入口在 `src/core/channelRegistry.js`，官方 Linco IM 协议实现位于 `src/channel/linco/`，开源 H5 示例 channel 位于 `src/channel/lincoDemo/`。
 

@@ -193,6 +193,7 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 - [Troubleshooting](docs/troubleshooting.md)
 - [Connector README](linco-bridge-connect/README.en-US.md)
 - [Platform README](linco-bridge-platform/README.md)
+- [Platform Server README](linco-bridge-platform/server/README.md)
 - [Platform Web / H5 README](linco-bridge-platform/web/README.md)
 - [Support Boundary](SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)

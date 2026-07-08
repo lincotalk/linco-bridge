@@ -1,6 +1,6 @@
 # 斜杠命令适配说明
 
-斜杠命令是在远端 IM 会话中由 Linco Connect 本地处理的命令。`src/command/index.js` 负责分发，部分复杂命令拆在 `src/command/*.js` 中。
+斜杠命令是在远端 IM 会话中由 Linco Bridge connector 本地处理的命令。`src/command/index.js` 负责分发，部分复杂命令拆在 `src/command/*.js` 中。
 
 除本文列出的本地命令外，其他 `/xxx` 默认透传给当前 Agent。部分 Agent 原生命令只适合交互式 CLI/TUI，在桥接模式下可能没有输出。
 
@@ -13,7 +13,7 @@
 | `/session` | 显示当前 Claude/Codex 原生 Agent session ID。 |
 | `/stop` | 停止当前 Agent 进程，保留可恢复会话 ID。 |
 | `/reload` | 刷新当前 Agent 记忆，下次消息重新加载本地历史，并尝试预启动进程。 |
-| `/update` / `/upgrade` | 查看、升级或降级 Linco Connect。 |
+| `/update` / `/upgrade` | 查看、升级或降级 linco-connect CLI。 |
 | `/remove-account` / `/delete-account` | 删除当前或指定 Agent 下的账号配置。 |
 | `/base` | 显示 Linco 运行目录、会话运行目录和附件目录。 |
 | `/get <路径>` | 读取允许目录内的非隐藏文件并返回给远端 IM。 |

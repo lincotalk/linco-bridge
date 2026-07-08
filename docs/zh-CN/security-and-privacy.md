@@ -5,7 +5,7 @@
 根目录只保留项目级安全边界。连接器侧的详细安全说明、附件规则、`/get` 文件下发限制、权限确认模式和本地模拟页注意事项，请参考：
 
 - [连接器安全说明](../../linco-bridge-connect/docs/security.md)
-- [Linco Connect README：安全注意](../../linco-bridge-connect/README.zh-CN.md#安全注意)
+- [Linco Bridge connector README：安全注意](../../linco-bridge-connect/README.zh-CN.md#安全注意)
 - [参考平台 README](../../linco-bridge-platform/README.md)
 - [SECURITY.md](../../SECURITY.md)
 

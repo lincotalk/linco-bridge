@@ -1,0 +1,185 @@
+# Linco Bridge Web
+
+[English](README.md)
+
+Linco Bridge 参考平台前端，基于 UniApp，支持 H5 与微信小程序。它负责桥接配置、Agent 落地页、聊天入口、会话浏览和流式聊天体验。
+
+> 配套后端见 [`../server/README.zh-CN.md`](../server/README.zh-CN.md)，完整平台流程见 [`../README.zh-CN.md`](../README.zh-CN.md)。
+
+## 技术栈
+
+| 类别 | 选型 |
+| --- | --- |
+| 框架 | Vue 3 + `<script setup lang="ts">` |
+| 跨端 | UniApp |
+| 状态管理 | Pinia |
+| 构建 | Vite 5 + `@dcloudio/vite-plugin-uni` |
+| 质量工具 | ESLint、Prettier、Vitest、vue-tsc |
+
+## 快速开始
+
+### 1. 先启动后端
+
+```bash
+cd linco-bridge-platform/server
+npm install
+npm run start:dev
+```
+
+确认后端可用：
+
+```bash
+curl http://127.0.0.1:3300/api/demo-config
+```
+
+### 2. 启动 H5 前端
+
+```bash
+cd linco-bridge-platform/web
+npm install
+npm run dev:h5
+```
+
+打开 Vite 输出的本地 H5 地址，然后进入 **桥接** Tab。
+
+### 3. 可选：重新生成图标
+
+除非你正在维护图标资源，否则可以跳过此步骤。
+
+```bash
+cd linco-bridge-platform/web
+node scripts/generate-icons.mjs
+```
+
+### 4. 验证 Codex 链路
+
+1. 打开 **桥接**
+2. 点击 **从 Codex 导入**
+3. 复制页面生成的 `setupCommands`
+4. 在本机终端执行这些命令
+5. 回到页面点击 `我已复制，获取连接状态`
+6. 等待页面确认连接成功
+7. 点击 `进入 Codex` 进入聊天页
+8. 如需选择项目、进入已有会话或新建会话，点击右上角文件夹图标
+9. 发送测试消息，确认整条链路打通
+
+页面给出的命令通常类似：
+
+```bash
+npm install -g linco-connect
+linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
+linco-connect start --daemon
+```
+
+### 5. 微信小程序
+
+```bash
+npm run dev:mp-weixin
+npm run build:mp-weixin
+```
+
+## 常用脚本
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev:h5` | H5 开发服务器 |
+| `npm run build:h5` | H5 生产构建 |
+| `npm run dev:mp-weixin` | 微信小程序开发 |
+| `npm run typecheck` | 类型检查 |
+| `npm run test` | Vitest |
+| `npm run lint` | ESLint |
+| `npm run check` | typecheck + lint + format + test |
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | 空 | REST 根地址 |
+| `VITE_USE_REMOTE_API` | `true` | 设为 `false` 时使用内存 Mock |
+| `VITE_AGENT_CHAT_SDK` | 空 | 设为 `mock` 时强制 AgentChat SDK 走 Mock |
+
+开发代理：
+
+```text
+/api → http://127.0.0.1:3300
+```
+
+如果只做纯 UI 调试，不启动后端：
+
+```bash
+VITE_USE_REMOTE_API=false npm run dev:h5
+```
+
+## 主要页面
+
+底部 Tab：`消息`、`桥接`
+
+| 路由 | 页面 | 说明 |
+| --- | --- | --- |
+| `pages/messages/index` | 消息列表 | 全部 bridge 聊天会话 |
+| `pages/bridge/index` | 桥接首页 | Codex、Claude、Hermes、OpenClaw 入口卡片 |
+| `pages/bridge/import-local` | 导入本地 Agent | 展示 setup 命令与连接检测 |
+| `pages/bridge/import-openclaw` | OpenClaw 导入 | 上下文绑定流程 |
+| `pages/chat/landing` | Agent 落地页 | 历史预览与首条提问 |
+| `pages/chat/index` | 聊天详情页 | 流式消息、附件、工作区、设置 |
+| `pages/chat/history` | 历史页 | 完整 Agent 历史列表 |
+
+## 目录结构
+
+```text
+src/
+  api/
+  bridge/
+    commands.ts
+    constants.ts
+    types.ts
+    sdk/
+  components/
+  composables/
+  constants/
+  pages/
+  stores/
+  utils/
+scripts/
+  generate-icons.mjs
+```
+
+## SDK 流程
+
+```text
+BridgeSdk    → /api/agent-bridges/*
+AgentChatSdk → /api/agent-chat/*
+Session API  → /api/sessions/*
+```
+
+## Agent 能力矩阵
+
+| Agent | 工作区选择 | 上下文绑定 | 模型与推理设置 |
+| --- | --- | --- | --- |
+| Codex | 支持 | 不需要 | 支持 |
+| Claude | 支持 | 不需要 | 支持 |
+| Hermes | 不支持 | 仅导入时绑定 | 不支持 |
+| OpenClaw | 不支持 | 仅导入时绑定 | 不支持 |
+
+## 图标资源
+
+正常体验时，直接使用仓库中已提交的图标资源即可。
+
+仅在需要重生成时执行：
+
+```bash
+node scripts/generate-icons.mjs
+```
+
+## 测试
+
+```bash
+npm test
+```
+
+## 说明
+
+1. 真实联调时必须先启 `server` 再启 `web`
+2. 修改 `pages.json` 或新增页面后，需要重启 UniApp 开发服务
+3. 流式聊天依赖后端 SSE
+4. 如果 Agent 能力行为发生变化，请同步更新本文件与 [`../server/README.zh-CN.md`](../server/README.zh-CN.md)

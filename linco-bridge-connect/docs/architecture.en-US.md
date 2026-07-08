@@ -1,14 +1,14 @@
-# Linco Connect Architecture
+# Linco Bridge connector Architecture
 
 This document is for contributors who need to read, debug, or extend `linco-bridge-connect`.
 
 ## Runtime Role
 
-Linco Connect is a local Agent connector. It converts remote IM messages into inputs for local Agent CLIs or Agent Gateways, then converts Agent replies, streaming output, tool calls, permission confirmations, and file references back into events that the remote IM can consume.
+Linco Bridge connector is a local Agent connector. It converts remote IM messages into inputs for local Agent CLIs or Agent Gateways, then converts Agent replies, streaming output, tool calls, permission confirmations, and file references back into events that the remote IM can consume.
 
 It is not an authentication center or a hosted multi-tenant service. Credentials are stored in the local configuration, and remote connections are created from the configured channel/account/agent combination.
 
-From an open-source perspective, Linco Connect is not limited to the official Linco IM. Many bridge projects rely on existing platforms such as Feishu, WeChat, DingTalk, or similar IM products, but those platforms are not always well suited to Agent tool progress, permission confirmations, generated files, and long-running sessions. The companion open-source platform project maps to the `linco-demo` channel and acts as a deployable reference implementation. Third parties can add channel adapters for their own H5 pages, mini programs, apps, or other frontends while reusing the shared connector and Agent adapter layers.
+From an open-source perspective, the Linco Bridge connector is not limited to the official Linco IM. Many bridge projects rely on existing platforms such as Feishu, WeChat, DingTalk, or similar IM products, but those platforms are not always well suited to Agent tool progress, permission confirmations, generated files, and long-running sessions. The companion open-source platform project maps to the `linco-demo` channel and acts as a deployable reference implementation. Third parties can add channel adapters for their own H5 pages, mini programs, apps, or other frontends while reusing the shared connector and Agent adapter layers.
 
 ## Main Directories
 
@@ -56,7 +56,7 @@ From an open-source perspective, Linco Connect is not limited to the official Li
 
 ## Agent Prompt
 
-`src/core/agentPrompt.js` maintains the Agent-visible Linco Connect bridge identity and common delivery rules. The prompt should tell the Agent that it is connected to Linco IM through Linco Connect and that normal text replies are automatically sent to the user.
+`src/core/agentPrompt.js` maintains the Agent-visible Linco Bridge connector identity and common delivery rules. The prompt should tell the Agent that it is connected to Linco IM through the Linco Bridge connector and that normal text replies are automatically sent to the user.
 
 Claude injects the prompt through `--append-system-prompt`. Hermes injects it through Gateway `instructions`. Codex and OpenClaw keep the existing protocol field shape and append the bridge prompt in the input layer.
 
@@ -64,7 +64,7 @@ The Agent-visible file delivery prompt should only require Markdown absolute pat
 
 ## Session Identifiers
 
-Linco Connect handles at least three identifier types:
+The Linco Bridge connector handles at least three identifier types:
 
 | Identifier | Source | Purpose |
 | --- | --- | --- |

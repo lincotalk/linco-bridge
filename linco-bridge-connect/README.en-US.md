@@ -1,8 +1,8 @@
-# Linco Connect
+# Linco Bridge connector
 
 [English](README.en-US.md) | [简体中文](README.zh-CN.md)
 
-Linco Connect is a local Agent connector that runs on the user's machine. It forwards Linco IM messages to a local Agent CLI or Agent Gateway, then sends replies, streaming output, tool calls, permission confirmations, attachments, and generated file references back to IM.
+Linco Bridge connector is a local Agent connector that runs on the user's machine. It forwards Linco IM messages to a local Agent CLI or Agent Gateway, then sends replies, streaming output, tool calls, permission confirmations, attachments, and generated file references back to IM.
 
 It is not an authentication service or a hosted multi-tenant service. User credentials are stored in the local configuration file, and the default remote endpoint is built into the program. Most users do not need to manually configure a server address in the README or config file.
 
@@ -10,7 +10,7 @@ It is not an authentication service or a hosted multi-tenant service. User crede
 
 Many Agent bridge projects integrate with existing collaboration platforms such as Feishu, WeChat, DingTalk, or similar IM products. This lowers the integration cost, but the display and interaction model is constrained by the host platform. Tool progress, permission confirmations, generated files, long-running sessions, and multi-Agent state are often hard to present comfortably.
 
-Linco Connect is open-sourced together with a reference platform project. That platform corresponds to the `linco-demo` channel in this plugin. It is not meant to force everyone onto the official Linco IM. Instead, it gives users a deployable reference implementation: you can try the workflow first, then build your own H5 page, mini program, app, or other frontend channel and implement a matching channel adapter so the protocol, UI structure, and interaction experience can evolve with your product.
+Linco Bridge connector is open-sourced together with a reference platform project. That platform corresponds to the `linco-demo` channel in this plugin. It is not meant to force everyone onto the official Linco IM. Instead, it gives users a deployable reference implementation: you can try the workflow first, then build your own H5 page, mini program, app, or other frontend channel and implement a matching channel adapter so the protocol, UI structure, and interaction experience can evolve with your product.
 
 ## Features
 
@@ -45,7 +45,7 @@ Verified Agent versions:
 | OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | Supports Gateway agent sessions and `openclaw agents list --json` / `openclaw gateway call --json agents.list`. Use `/agent` in a Linco session to view or bind the default OpenClaw Agent for future sessions. |
 | Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | Supports Hermes Gateway `/v1/runs` and `hermes profile list`. Use `/profile` in a Linco session to view or bind the default Hermes Profile for future sessions. |
 
-Linco Connect injects a unified bridge identity prompt into Agents: the Agent is connected to Linco IM through Linco Connect, and normal text replies are automatically sent back to the user. Claude and Hermes use system-level or `instructions` injection. Codex and OpenClaw keep their existing protocol field shape and append the bridge prompt in the input layer.
+Linco Bridge connector injects a unified bridge identity prompt into Agents: the Agent is connected to Linco IM through the Linco Bridge connector, and normal text replies are automatically sent back to the user. Claude and Hermes use system-level or `instructions` injection. Codex and OpenClaw keep their existing protocol field shape and append the bridge prompt in the input layer.
 
 ## Installation
 
@@ -216,7 +216,7 @@ Common environment variables:
 
 ## Attachments And File Delivery
 
-Linco Connect supports common image, text, spreadsheet, document, PDF, archive, and similar attachments. High-risk executable and script extensions are blocked by default.
+The Linco Bridge connector supports common image, text, spreadsheet, document, PDF, archive, and similar attachments. High-risk executable and script extensions are blocked by default.
 
 Default limits:
 

@@ -5,7 +5,7 @@
 The root docs keep only project-level security boundaries. For connector-side details such as attachment rules, `/get` file-delivery restrictions, permission modes, and local simulator cautions, refer to:
 
 - [Connector Security](../linco-bridge-connect/docs/security.en-US.md)
-- [Linco Connect README: Security Notes](../linco-bridge-connect/README.en-US.md#security-notes)
+- [Linco Bridge connector README: Security Notes](../linco-bridge-connect/README.en-US.md#security-notes)
 - [Platform README](../linco-bridge-platform/README.md)
 - [SECURITY.md](../SECURITY.md)
 
