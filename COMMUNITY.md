@@ -16,7 +16,7 @@ Join the WeChat technical group to discuss:
 
 Current WeChat group QR code:
 
-<img src="docs/community-wechat-group.jpg" alt="Linco technical WeChat group" width="420" />
+<img src="docs/images/community-wechat-group.jpg" alt="Linco technical WeChat group" width="420" />
 
 Note: WeChat group QR codes may expire. If the QR code is no longer valid, please check the latest community information in this repository or in official Linco channels.
 
@@ -31,7 +31,7 @@ You can follow Linco Lab through the channels below for project updates and ongo
 
 WeChat Official Account QR code:
 
-<img src="docs/linco-lab-wechat-official-account.jpg" alt="Linco Lab WeChat Official Account QR code" width="260" />
+<img src="docs/images/linco-lab-wechat-official-account.jpg" alt="Linco Lab WeChat Official Account QR code" width="260" />
 
 ## 📱 Linco App
 

@@ -17,8 +17,9 @@ import { showAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
-import { supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { supportsBridgeSettingsSelector, supportsBridgeSlashCommands, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
+import { useSlashCommands } from '@/composables/useSlashCommands'
 
 const VISIBLE_COUNT = 3
 
@@ -42,6 +43,7 @@ const {
 
 const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
 const bridgeSettings = useBridgeSettings()
+const { commands: slashCommandList, preload: preloadSlashCommands } = useSlashCommands()
 const { startVoice } = useVoiceInput((text) => {
   draft.value = draft.value ? `${draft.value} ${text}` : text
 })
@@ -63,6 +65,12 @@ onShow(() => {
   })
   if (supportsBridgeSettingsSelector(agentType.value)) {
     void bridgeSettings.preloadOptions(agentType.value, connectionId.value)
+  }
+  if (supportsBridgeSlashCommands(agentType.value)) {
+    void preloadSlashCommands({
+      agentType: agentType.value,
+      connectionId: connectionId.value,
+    })
   }
 })
 
@@ -216,6 +224,7 @@ async function handleSend() {
       :pending-files="pendingFiles"
       :use-bridge-compact-toolbar="supportsBridgeSettingsSelector(agentType)"
       :bridge-settings-label="bridgeSettings.settingsLabel.value"
+      :slash-commands="slashCommandList"
       @send="handleSend"
       @add="handleAdd"
       @voice="handleVoice"

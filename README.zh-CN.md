@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme-logo-temp.png" alt="Linco Bridge logo" width="140" />
+  <img src="docs/images/readme-logo-temp.png" alt="Linco Bridge logo" width="140" />
 </p>
 
 <h1 align="center">Linco Bridge</h1>
@@ -122,7 +122,6 @@ npm run start:dev
 
 cd ../web
 npm install
-node scripts/generate-icons.mjs
 npm run dev:h5
 ```
 
@@ -139,7 +138,7 @@ linco-connect init \
 linco-connect start --daemon
 ```
 
-完整流程见 [快速开始](docs/zh-CN/quick-start.md) 和 [平台 README](linco-bridge-platform/README.md)。
+完整流程见 [快速开始](docs/zh-CN/quick-start.md)、[平台 README](linco-bridge-platform/README.md) 和 [Web / H5 README](linco-bridge-platform/web/README.md)。
 
 ## 🤖 支持的 Agent
 
@@ -194,6 +193,7 @@ linco-connect start --daemon
 - [排障](docs/zh-CN/troubleshooting.md)
 - [连接器 README](linco-bridge-connect/README.zh-CN.md)
 - [参考平台 README](linco-bridge-platform/README.md)
+- [参考平台 Web / H5 README](linco-bridge-platform/web/README.md)
 - [支持边界](SUPPORT.md)
 - [参与贡献](CONTRIBUTING.md)
 
