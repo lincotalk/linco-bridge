@@ -861,7 +861,7 @@ function appendHermesAssistantText(text, ws, session) {
 
 function appendHermesAssistantTextNow(text, ws, session) {
   ensureHermesStreamState(session);
-  appendTextStream(text, ws, session.streamState);
+  appendTextStream(text, ws, session.streamState, { phase: 'progress', ephemeral: true });
   rememberHermesAssistantText(session, text);
 }
 

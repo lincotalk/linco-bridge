@@ -250,11 +250,15 @@ export const useSessionStore = defineStore('session', () => {
             reasoningStreaming: false,
           })
         },
-        onChunk: ({ fullText }) => {
+        onChunk: ({ fullText, phase, ephemeral, replacePrevious }) => {
+          const isEphemeral = ephemeral === true || phase === 'progress'
           if (!assistantStarted) {
             assistantStarted = true
             patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: fullText })
             return
+          }
+          if (!isEphemeral && replacePrevious) {
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: '' })
           }
           patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: fullText })
         },

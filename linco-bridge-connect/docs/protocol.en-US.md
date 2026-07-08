@@ -92,7 +92,7 @@ Remote IM should treat `turn_end` as the final signal for one user-message turn.
 
 ## Streaming Replies
 
-`stream_chunk` uses `delta` for the current increment, `fullText` for the accumulated text, and `done` for stream completion.
+`stream_chunk` uses `delta` for the current increment, `fullText` for the accumulated text, and `done` for stream completion. Optional `phase` distinguishes `progress` output from `final_answer`; `ephemeral: true` means the frontend may show the text temporarily and clear it when the final answer arrives; `replacePrevious: true` means the current final answer should replace previous temporary body text.
 
 ```json
 {
@@ -103,6 +103,9 @@ Remote IM should treat `turn_end` as the final signal for one user-message turn.
   "mode": "chunk",
   "delta": "hello",
   "fullText": "hello",
+  "phase": "final_answer",
+  "ephemeral": false,
+  "replacePrevious": false,
   "done": false
 }
 ```

@@ -1013,21 +1013,23 @@ function ensureCodexStreamState(session) {
   return session.codexStreamState;
 }
 
-function appendCodexAssistantText(text, ws, session, ensureAssistantStarted) {
+function appendCodexAssistantText(text, ws, session, ensureAssistantStarted, phase = '') {
   if (session.codexAssistantEnded) return;
-  if (session.codexUseProgressiveAnswer) {
+  const meta = codexAssistantChunkMeta(session, phase);
+  if (meta.ephemeral) {
     appendProgressiveAnswerText(text, ws, session);
   }
-  maybeAppendCodexAssistantBreak(ws, session, ensureAssistantStarted);
-  appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted);
+  maybeAppendCodexAssistantBreak(ws, session, ensureAssistantStarted, meta);
+  appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted, meta);
 }
 
-function appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted) {
+function appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted, meta = codexAssistantChunkMeta(session, 'final_answer')) {
   if (session.codexAssistantEnded) return;
   const state = ensureCodexStreamState(session);
   state.onStart = ensureAssistantStarted;
-  appendTextStream(text, ws, state);
+  appendTextStream(text, ws, state, meta);
   rememberCodexAssistantText(session, text);
+  if (!meta.ephemeral) session.codexSawFinalAssistantText = true;
   session.sawPartialAssistantText = true;
 }
 
@@ -1039,25 +1041,36 @@ function resetCodexAssistantText(session) {
   resetTextStream(ensureCodexStreamState(session));
   resetProgressiveAnswer(session);
   session.codexNeedsAssistantBreak = false;
+  session.codexSawFinalAssistantText = false;
   session.codexAssistantTextTail = '';
 }
 
 function appendCodexProgressAssistantText(text, ws, session) {
   if (!text || session.codexAssistantEnded) return;
-  maybeAppendCodexAssistantBreak(ws, session, () => send(ws, 'assistant_start', {}));
-  appendCodexAssistantTextNow(text, ws, session, () => send(ws, 'assistant_start', {}));
+  const meta = codexAssistantChunkMeta(session, 'progress');
+  maybeAppendCodexAssistantBreak(ws, session, () => send(ws, 'assistant_start', {}), meta);
+  appendCodexAssistantTextNow(text, ws, session, () => send(ws, 'assistant_start', {}), meta);
 }
 
-function maybeAppendCodexAssistantBreak(ws, session, ensureAssistantStarted) {
+function maybeAppendCodexAssistantBreak(ws, session, ensureAssistantStarted, meta = codexAssistantChunkMeta(session, 'final_answer')) {
   if (!session?.codexNeedsAssistantBreak || !session.sawPartialAssistantText) {
     if (session) session.codexNeedsAssistantBreak = false;
     return;
   }
   session.codexNeedsAssistantBreak = false;
+  if (!meta.ephemeral && !session.codexSawFinalAssistantText) return;
   const state = ensureCodexStreamState(session);
   const tail = `${session.codexAssistantTextTail || ''}${state.pendingText || ''}`;
   if (tail.endsWith('\n\n')) return;
-  appendCodexAssistantTextNow(tail.endsWith('\n') ? '\n' : '\n\n', ws, session, ensureAssistantStarted);
+  appendCodexAssistantTextNow(tail.endsWith('\n') ? '\n' : '\n\n', ws, session, ensureAssistantStarted, meta);
+}
+
+function codexAssistantChunkMeta(session, phase) {
+  const normalized = String(phase || '').trim();
+  if (session?.codexUseProgressiveAnswer && normalized !== 'final_answer') {
+    return { phase: 'progress', ephemeral: true };
+  }
+  return { phase: 'final_answer', ephemeral: false };
 }
 
 function markCodexAssistantBreak(session) {
@@ -1636,7 +1649,7 @@ function handleAppServerMessage(message, session) {
         markCodexAgentMessageEmitted(session, codexAgentMessageId(params));
         return;
       }
-      appendCodexAssistantText(delta, ws, session, () => send(ws, 'assistant_start', {}));
+      appendCodexAssistantText(delta, ws, session, () => send(ws, 'assistant_start', {}), phase);
       markCodexAgentMessageEmitted(session, codexAgentMessageId(params));
     }
     return;
@@ -1694,8 +1707,11 @@ function handleAppServerMessage(message, session) {
     const text = extractFinalText(params);
     const agentMessageId = codexAgentMessageId(params);
     if (text && shouldAppendCompletedAgentMessage(session, params)) {
-      if (session.sawPartialAssistantText) appendCodexAssistantText('\n\n', ws, session, () => send(ws, 'assistant_start', {}));
-      appendCodexAssistantText(text, ws, session, () => send(ws, 'assistant_start', {}));
+      const phase = params.item?.phase || params.phase || '';
+      if (session.sawPartialAssistantText && (phase !== 'final_answer' || session.codexSawFinalAssistantText)) {
+        appendCodexAssistantText('\n\n', ws, session, () => send(ws, 'assistant_start', {}), phase);
+      }
+      appendCodexAssistantText(text, ws, session, () => send(ws, 'assistant_start', {}), phase);
       markCodexAgentMessageEmitted(session, agentMessageId);
     }
     // Safety fallback: some app-server builds emit task completion without a turn/completed notification.
