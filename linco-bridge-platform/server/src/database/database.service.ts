@@ -487,6 +487,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return row
   }
 
+  getFirstUserMessage(sessionId: string): ChatMessageRow | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM chat_messages WHERE session_id = ? AND role = 'user' ORDER BY create_time ASC LIMIT 1`,
+      )
+      .get(sessionId) as ChatMessageRow | undefined
+  }
+
+  getLastAssistantMessage(sessionId: string): ChatMessageRow | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM chat_messages WHERE session_id = ? AND role = 'assistant' ORDER BY create_time DESC LIMIT 1`,
+      )
+      .get(sessionId) as ChatMessageRow | undefined
+  }
+
   static createInMemory(): DatabaseService {
     const service = new DatabaseService()
     service.db = new DatabaseSync(':memory:')
