@@ -240,11 +240,35 @@ describe('ChatService', () => {
     expect(database.listMessages(result.sessionId)).toHaveLength(2)
   })
 
-  it('does not persist messages for bound sessions', async () => {
+  it('does not persist messages for bound codex sessions without project path', async () => {
     const connection = database.getConnectionByType('codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     await chatService.sendMessage(session.id, 'hello bound')
     expect(database.listMessages(session.id)).toEqual([])
+  })
+
+  it('persists messages for bound hermes sessions in sqlite', async () => {
+    const connection = database.getConnectionByType('hermes')!
+    const session = database.getSessionByConnectionId(connection.id)!
+    await chatService.sendMessage(session.id, 'hello hermes')
+
+    expect(database.listMessages(session.id).length).toBeGreaterThanOrEqual(2)
+    const messages = await chatService.listMessages(session.id)
+    expect(messages.some((item) => item.role === 'user' && item.content === 'hello hermes')).toBe(
+      true,
+    )
+  })
+
+  it('persists messages for bound openclaw sessions in sqlite', async () => {
+    const connection = database.getConnectionByType('openclaw')!
+    const session = database.getSessionByConnectionId(connection.id)!
+    await chatService.sendMessage(session.id, 'hello openclaw')
+
+    expect(database.listMessages(session.id).length).toBeGreaterThanOrEqual(2)
+    const messages = await chatService.listMessages(session.id)
+    expect(
+      messages.some((item) => item.role === 'user' && item.content === 'hello openclaw'),
+    ).toBe(true)
   })
 
   it('persists project session messages in sqlite', async () => {
@@ -264,6 +288,36 @@ describe('ChatService', () => {
       true,
     )
     expect(messages.some((item) => item.role === 'assistant')).toBe(true)
+  })
+
+  it('returns persisted message attachments from sqlite', async () => {
+    const session = database.createSession({
+      agentType: 'codex',
+      title: 'temp',
+      isTempSession: true,
+    })
+    database.insertMessage({
+      sessionId: session.id,
+      role: 'assistant',
+      content: '图片已生成',
+      attachments: [
+        {
+          name: 'kitten.png',
+          mimeType: 'image/png',
+          previewUrl: 'data:image/png;base64,abc123',
+        },
+      ],
+    })
+
+    const messages = await chatService.listMessages(session.id)
+    expect(messages).toHaveLength(1)
+    expect(messages[0]?.attachments).toEqual([
+      {
+        name: 'kitten.png',
+        mimeType: 'image/png',
+        previewUrl: 'data:image/png;base64,abc123',
+      },
+    ])
   })
 
   it('imports bridge history into sqlite for project sessions on first load', async () => {

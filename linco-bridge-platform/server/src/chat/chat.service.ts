@@ -52,6 +52,8 @@ export interface ChatSessionDto {
   bridgeProjectPath?: string
   isTempSession?: boolean
   deviceName?: string
+  boundContextName?: string
+  boundContextId?: string
 }
 
 export interface ChatMessageDto {
@@ -68,6 +70,7 @@ export interface AgentLandingHeaderDto {
   title: string
   avatar: string
   deviceId?: string
+  boundContextName?: string
   status: 'online' | 'offline'
 }
 
@@ -159,6 +162,8 @@ export class ChatService {
         bridgeProjectPath: row.bridge_project_path?.trim() || undefined,
         isTempSession: Number(row.is_temp_session ?? 0) === 1,
         deviceName: deviceName || undefined,
+        boundContextName: connection?.bound_context_name?.trim() || undefined,
+        boundContextId: connection?.bound_context_id?.trim() || undefined,
       }
     })
 
@@ -261,12 +266,14 @@ export class ChatService {
     }
 
     if (shouldPersistSessionMessages(session)) {
-      return {
-        ...this.mapStoredMessage(
-          this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
-        ),
-        attachments: assistantAttachments.length > 0 ? assistantAttachments : undefined,
-      }
+      return this.mapStoredMessage(
+        this.database.insertMessage({
+          sessionId,
+          role: 'assistant',
+          content: assistantText,
+          attachments: assistantAttachments,
+        }),
+      )
     }
 
     this.database.touchSession(
@@ -302,7 +309,12 @@ export class ChatService {
     }
     const userDto = shouldPersistSessionMessages(session)
       ? this.mapStoredMessage(
-          this.database.insertMessage({ sessionId, role: 'user', content: userContent }),
+          this.database.insertMessage({
+            sessionId,
+            role: 'user',
+            content: userContent,
+            attachments: userAttachments,
+          }),
         )
       : createEphemeralMessage(sessionId, 'user', userContent, userAttachments)
     emit('user', { message: userDto })
@@ -368,12 +380,14 @@ export class ChatService {
     }
 
     const assistantDto = shouldPersistSessionMessages(session)
-      ? {
-          ...this.mapStoredMessage(
-            this.database.insertMessage({ sessionId, role: 'assistant', content: assistantText }),
-          ),
-          attachments: assistantAttachments.length > 0 ? assistantAttachments : undefined,
-        }
+      ? this.mapStoredMessage(
+          this.database.insertMessage({
+            sessionId,
+            role: 'assistant',
+            content: assistantText,
+            attachments: assistantAttachments,
+          }),
+        )
       : (() => {
           this.database.touchSession(
             sessionId,
@@ -458,6 +472,7 @@ export class ChatService {
       title: agentDisplayName(agentType),
       avatar: BRIDGE_AVATAR[agentType],
       deviceId: deviceName || undefined,
+      boundContextName: connection?.bound_context_name?.trim() || undefined,
       status: online ? 'online' : 'offline',
     }
   }
@@ -811,6 +826,29 @@ export class ChatService {
       role: row.role,
       content: row.content,
       createdAt: row.create_time,
+      attachments: this.parseStoredAttachments(row.attachments_json),
+    }
+  }
+
+  private parseStoredAttachments(raw: string | null | undefined): ChatMessageAttachmentDto[] | undefined {
+    if (!raw?.trim()) return undefined
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed) || parsed.length === 0) return undefined
+      const attachments: ChatMessageAttachmentDto[] = []
+      for (const item of parsed) {
+        if (!item || typeof item !== 'object') continue
+        const record = item as Record<string, unknown>
+        const name = typeof record.name === 'string' ? record.name.trim() : ''
+        if (!name) continue
+        const mimeType = typeof record.mimeType === 'string' ? record.mimeType.trim() : undefined
+        const previewUrl =
+          typeof record.previewUrl === 'string' ? record.previewUrl.trim() : undefined
+        attachments.push({ name, mimeType, previewUrl })
+      }
+      return attachments.length > 0 ? attachments : undefined
+    } catch {
+      return undefined
     }
   }
 

@@ -1,5 +1,7 @@
 import { resumeSession } from '@/api/session-api'
+import { appendAgentTypeQuery } from '@/bridge/sdk/agent-chat'
 import type { AgentBridgeType, AgentHistoryItem } from '@/bridge/types'
+import { useSessionStore } from '@/stores'
 import { showToast } from '@/utils/format'
 
 export interface AgentLandingRouteInput {
@@ -39,7 +41,13 @@ export async function openHistorySession(item: AgentHistoryItem): Promise<void> 
 
   try {
     const result = await resumeSession(sessionId)
+    const sessionStore = useSessionStore()
+    await sessionStore.loadSessions().catch(() => undefined)
     const params = new URLSearchParams({ sessionId: result.sessionId })
+    appendAgentTypeQuery(
+      params,
+      sessionStore.getSession(result.sessionId)?.agentType ?? null,
+    )
     if (result.agentSessionId?.trim()) {
       params.set('reloadHistory', '1')
     }

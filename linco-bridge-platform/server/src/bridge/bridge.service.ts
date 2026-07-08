@@ -144,6 +144,8 @@ export class BridgeService {
       connectionId: connection.id,
       deviceName:
         resolveConnectionDeviceName(connection.id, this.presence, connection) || undefined,
+      boundContextName: connection.bound_context_name?.trim() || undefined,
+      boundContextId: connection.bound_context_id?.trim() || undefined,
     }
   }
 
@@ -501,7 +503,7 @@ export class BridgeService {
       this.database.linkConnectionSession(connection.id, session.id)
     }
 
-    if (type === 'codex') {
+    if (type === 'codex' || type === 'claude') {
       this.database.touchSession(session.id, 'Ready when you are.')
     }
 

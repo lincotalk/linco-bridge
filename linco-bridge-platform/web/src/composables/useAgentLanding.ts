@@ -7,10 +7,22 @@ import type {
   AgentBridgeType,
   AgentHistoryItem,
   AgentLandingHeader,
+  BridgeStatusResult,
   StartConversationInput,
 } from '@/bridge/types'
 
 const VISIBLE_HISTORY_COUNT = 3
+
+function mergeLandingHeader(
+  header: AgentLandingHeader,
+  bridgeStatus?: BridgeStatusResult,
+): AgentLandingHeader {
+  return {
+    ...header,
+    status: bridgeStatus?.connected ? 'online' : header.status,
+    boundContextName: header.boundContextName ?? bridgeStatus?.boundContextName,
+  }
+}
 
 export function useAgentLanding(sdk: AgentChatSdk = createAppAgentChatSdk()) {
   const bridgeStore = useBridgeStore()
@@ -34,21 +46,19 @@ export function useAgentLanding(sdk: AgentChatSdk = createAppAgentChatSdk()) {
     try {
       unsubscribeHeader?.()
       unsubscribeHeader = sdk.watchLandingHeader?.(agentType, (next) => {
-        header.value = next
-        subtitle.value = buildLandingSubtitle(next)
+        const bridgeStatus = bridgeStore.statusByType[agentType]
+        header.value = mergeLandingHeader(next, bridgeStatus)
+        subtitle.value = buildLandingSubtitle(header.value)
       }, connectionId)
 
       const [nextHeader, items] = await Promise.all([
         sdk.getLandingHeader(agentType, connectionId),
         sdk.listHistory(agentType, { connectionId }),
-        bridgeStore.checkStatus(agentType).catch(() => undefined),
+        bridgeStore.checkStatus(agentType, connectionId).catch(() => undefined),
       ])
 
       const bridgeStatus = bridgeStore.statusByType[agentType]
-      header.value = {
-        ...nextHeader,
-        status: bridgeStatus?.connected ? 'online' : nextHeader.status,
-      }
+      header.value = mergeLandingHeader(nextHeader, bridgeStatus)
       subtitle.value = buildLandingSubtitle(header.value)
       history.value = items
     } finally {

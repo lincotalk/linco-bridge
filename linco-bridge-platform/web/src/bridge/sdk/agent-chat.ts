@@ -1,4 +1,5 @@
 import { getAgentDisplayName } from '../commands'
+import { buildBridgeHeaderSubtitle } from '@/utils/chat-header'
 import type {
   AgentBridgeType,
   AgentHistoryItem,
@@ -52,6 +53,19 @@ const MOCK_HISTORY: Record<AgentBridgeType, AgentHistoryItem[]> = {
   ],
   claude: [
     {
+      id: 'hist-claude-admin',
+      title: 'AIChat-Admin',
+      preview: 'Claude Code 工作区会话',
+      updatedAt: todayAt(10, 15),
+    },
+    {
+      id: 'hist-claude-bridge',
+      title: 'linco-bridge-platform',
+      preview: '对齐 demo 平台 Claude Code 能力',
+      projectPath: 'D:\\project\\linco-bridge',
+      updatedAt: todayAt(9, 40),
+    },
+    {
       id: 'hist-claude-1',
       title: '新的会话',
       preview: 'Waiting for bridge connection.',
@@ -83,6 +97,11 @@ const MOCK_DEVICE_ID: Record<AgentBridgeType, string> = {
   openclaw: 'HQ-TS-0185',
 }
 
+const MOCK_BOUND_CONTEXT: Partial<Record<AgentBridgeType, string>> = {
+  hermes: 'Default Profile',
+  openclaw: 'main',
+}
+
 /** In-memory mock for landing UI when VITE_USE_REMOTE_API=false. */
 export function createMockAgentChatSdk(options?: {
   online?: Partial<Record<AgentBridgeType, boolean>>
@@ -100,6 +119,7 @@ export function createMockAgentChatSdk(options?: {
         title: getAgentDisplayName(agentType),
         avatar: BRIDGE_AVATAR[agentType],
         deviceId: MOCK_DEVICE_ID[agentType],
+        boundContextName: MOCK_BOUND_CONTEXT[agentType],
         status: connected ? 'online' : 'offline',
       }
     },
@@ -136,10 +156,12 @@ export function createMockAgentChatSdk(options?: {
 }
 
 export function buildLandingSubtitle(header: AgentLandingHeader): string {
-  const parts: string[] = []
-  if (header.deviceId?.trim()) parts.push(header.deviceId.trim())
-  parts.push(header.status === 'online' ? '在线' : '离线')
-  return parts.join(' · ')
+  return buildBridgeHeaderSubtitle(
+    header.agentType,
+    header.status === 'online',
+    header.deviceId,
+    header.boundContextName,
+  )
 }
 
 export function getAgentAvatar(agentType: AgentBridgeType): string {
@@ -163,4 +185,32 @@ export function parseAgentTypeFromSessionId(sessionId: string): AgentBridgeType 
     if (sessionId.startsWith(`${type}-`)) return type
   }
   return null
+}
+
+export function parseAgentTypeFromQuery(value: string | undefined | null): AgentBridgeType | null {
+  const normalized = value?.trim() ?? ''
+  if (!normalized) return null
+  return (Object.keys(BRIDGE_AVATAR) as AgentBridgeType[]).includes(normalized as AgentBridgeType)
+    ? (normalized as AgentBridgeType)
+    : null
+}
+
+/** Resolve agent type from session metadata, query, or legacy sessionId prefix. */
+export function resolveSessionAgentType(input: {
+  sessionId?: string
+  sessionAgentType?: AgentBridgeType | null
+  queryAgentType?: AgentBridgeType | null
+}): AgentBridgeType | null {
+  if (input.sessionAgentType) return input.sessionAgentType
+  if (input.queryAgentType) return input.queryAgentType
+  if (input.sessionId?.trim()) return parseAgentTypeFromSessionId(input.sessionId.trim())
+  return null
+}
+
+export function appendAgentTypeQuery(
+  params: URLSearchParams,
+  agentType: AgentBridgeType | null | undefined,
+): URLSearchParams {
+  if (agentType) params.set('agentType', agentType)
+  return params
 }

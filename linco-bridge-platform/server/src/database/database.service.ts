@@ -43,12 +43,19 @@ export interface ChatSessionRow {
   is_temp_session?: number
 }
 
+export interface ChatMessageAttachmentRow {
+  name: string
+  mimeType?: string
+  previewUrl?: string
+}
+
 export interface ChatMessageRow {
   id: string
   session_id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   create_time: number
+  attachments_json?: string | null
 }
 
 @Injectable()
@@ -115,6 +122,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.ensureColumn('chat_sessions', 'bridge_device_name', 'TEXT')
     this.ensureColumn('chat_sessions', 'hidden_from_history', 'INTEGER NOT NULL DEFAULT 0')
     this.ensureColumn('chat_sessions', 'is_temp_session', 'INTEGER NOT NULL DEFAULT 0')
+    this.ensureColumn('chat_messages', 'attachments_json', 'TEXT')
   }
 
   private ensureColumn(table: string, column: string, definition: string): void {
@@ -463,17 +471,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     role: ChatMessageRow['role']
     content: string
     createTime?: number
+    attachments?: ChatMessageAttachmentRow[]
   }): ChatMessageRow {
     const id = input.id?.trim() || randomUUID()
     const existing = this.getMessageById(id)
     if (existing) return existing
 
     const now = input.createTime ?? Date.now()
+    const attachmentsJson =
+      input.attachments && input.attachments.length > 0
+        ? JSON.stringify(input.attachments)
+        : null
     this.db
       .prepare(
-        `INSERT INTO chat_messages (id, session_id, role, content, create_time) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO chat_messages (id, session_id, role, content, create_time, attachments_json) VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, input.sessionId, input.role, input.content, now)
+      .run(id, input.sessionId, input.role, input.content, now, attachmentsJson)
     this.db
       .prepare(`UPDATE chat_sessions SET last_message = ?, update_time = ? WHERE id = ?`)
       .run(normalizeSessionPreview(input.content) || input.content.trim(), now, input.sessionId)
@@ -483,6 +496,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       role: input.role,
       content: input.content,
       create_time: now,
+      attachments_json: attachmentsJson,
     }
   }
 

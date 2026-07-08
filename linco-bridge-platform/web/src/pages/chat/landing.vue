@@ -10,12 +10,15 @@ import { useVoiceInput } from '@/composables/useVoiceInput'
 import { stashPendingFiles } from '@/composables/pendingAttachmentTransfer'
 import { stashPendingLaunch } from '@/composables/pendingLaunchTransfer'
 import type { AgentBridgeType, AgentHistoryItem } from '@/bridge/types'
+import { appendAgentTypeQuery } from '@/bridge/sdk/agent-chat'
 import { useSessionStore } from '@/stores'
 import { showToast } from '@/utils/format'
 import { showAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
+import { supportsBridgeContextSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { useContextPicker } from '@/composables/useContextPicker'
 
 const VISIBLE_COUNT = 3
 
@@ -38,6 +41,7 @@ const {
 } = landing
 
 const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
+const { pickContext } = useContextPicker()
 const { startVoice } = useVoiceInput((text) => {
   draft.value = draft.value ? `${draft.value} ${text}` : text
 })
@@ -95,6 +99,17 @@ function reloadLandingHistory() {
   return loadLanding(agentType.value, connectionId.value)
 }
 
+async function handleContext() {
+  try {
+    const result = await pickContext(agentType.value, connectionId.value)
+    if (!result) return
+    showToast(`已切换至 ${result.contextName}`, 'success')
+    await loadLanding(agentType.value, connectionId.value)
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '切换 Profile 失败')
+  }
+}
+
 function handleMore() {
   if (!header.value) return
   showAgentSidePanel({
@@ -136,8 +151,10 @@ async function handleSend() {
     draft.value = ''
     clearFiles()
     await sessionStore.loadSessions().catch(() => undefined)
+    const params = new URLSearchParams({ sessionId: result.sessionId })
+    appendAgentTypeQuery(params, agentType.value)
     uni.navigateTo({
-      url: `/pages/chat/index?sessionId=${encodeURIComponent(result.sessionId)}`,
+      url: `/pages/chat/index?${params.toString()}`,
     })
   } catch (error) {
     showToast(error instanceof Error ? error.message : '发起会话失败')
@@ -152,9 +169,11 @@ async function handleSend() {
       :title="header.title"
       :subtitle="subtitle"
       :avatar="header.avatar"
-      show-workspace
+      :show-workspace="supportsBridgeWorkspaceSelector(agentType)"
+      :show-context="supportsBridgeContextSelector(agentType)"
       show-more
       @workspace="handleWorkspace"
+      @context="handleContext"
       @more="handleMore"
     />
 

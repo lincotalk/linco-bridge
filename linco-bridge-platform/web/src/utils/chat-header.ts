@@ -1,4 +1,5 @@
 import { getAgentDisplayName } from '@/bridge/commands'
+import { requiresContextBinding } from '@/bridge/constants'
 import {
   findMockHistoryItem,
   getAgentAvatar,
@@ -34,19 +35,36 @@ export function stripDeviceSuffixFromTitle(title: string, deviceName: string): s
   return normalizedTitle
 }
 
-export function buildBridgeHeaderSubtitle(deviceName: string | undefined, online: boolean): string {
+export function buildBridgeHeaderSubtitle(
+  agentType: AgentBridgeType,
+  online: boolean,
+  deviceName?: string,
+  boundContextName?: string,
+): string {
   const status = online ? '在线' : '离线'
-  const name = deviceName?.trim() ?? ''
-  return name ? `${name} · ${status}` : status
+  const device = deviceName?.trim() ?? ''
+  const profile = boundContextName?.trim() ?? ''
+  const parts: string[] = []
+
+  if (requiresContextBinding(agentType)) {
+    if (profile) parts.push(profile)
+    if (device) parts.push(device)
+  } else if (device) {
+    parts.push(device)
+  }
+
+  parts.push(status)
+  return parts.join(' · ')
 }
 
 /** @deprecated Use buildBridgeHeaderSubtitle — chat header no longer shows agent name. */
 export function buildChatSubtitle(
-  _agentType: AgentBridgeType,
+  agentType: AgentBridgeType,
   online: boolean,
   deviceName?: string,
+  boundContextName?: string,
 ): string {
-  return buildBridgeHeaderSubtitle(deviceName, online)
+  return buildBridgeHeaderSubtitle(agentType, online, deviceName, boundContextName)
 }
 
 export function resolveChatHeader(
@@ -54,6 +72,7 @@ export function resolveChatHeader(
   session?: ChatSessionItem | null,
   bridgeOnline?: boolean,
   deviceName?: string,
+  boundContextName?: string,
 ): ChatHeaderView {
   const mockHistory = findMockHistoryItem(sessionId)
   const agentType: AgentBridgeType =
@@ -72,7 +91,12 @@ export function resolveChatHeader(
 
   return {
     title,
-    subtitle: buildBridgeHeaderSubtitle(resolvedDeviceName, online),
+    subtitle: buildBridgeHeaderSubtitle(
+      agentType,
+      online,
+      resolvedDeviceName,
+      boundContextName,
+    ),
     avatar: getAgentAvatar(agentType),
     agentType,
   }

@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
 import ChatInputArea from '@/components/ChatInputArea.vue'
-import { parseAgentTypeFromSessionId } from '@/bridge/sdk/agent-chat'
+import { parseAgentTypeFromQuery, resolveSessionAgentType } from '@/bridge/sdk/agent-chat'
 import type { AgentBridgeType } from '@/bridge/types'
 import { useChatSession } from '@/composables/useChatSession'
 import { useProjectPicker } from '@/composables/useProjectPicker'
@@ -16,10 +16,13 @@ import { showToast } from '@/utils/format'
 import { isBoundWorkspacePick } from '@/utils/pick-workspace'
 import { openBoundBridgeChat, reloadBoundChatSession } from '@/utils/open-bound-chat'
 import { resolveBridgeProjectLabel } from '@/utils/bridge-project-label'
+import { supportsBridgeContextSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { useContextPicker } from '@/composables/useContextPicker'
 
 const chat = useChatSession()
 const { pickWorkspace } = useProjectPicker()
-const agentType = ref<AgentBridgeType | null>(null)
+const { pickContext } = useContextPicker()
+const queryAgentType = ref<AgentBridgeType | null>(null)
 const refreshing = ref(false)
 const {
   draft,
@@ -36,6 +39,13 @@ const {
 } = chat
 
 const sessionStore = useSessionStore()
+const agentType = computed<AgentBridgeType | null>(() =>
+  resolveSessionAgentType({
+    sessionId: chat.sessionId.value,
+    sessionAgentType: sessionStore.getSession(chat.sessionId.value)?.agentType ?? null,
+    queryAgentType: queryAgentType.value,
+  }),
+)
 const connectionId = computed(
   () => sessionStore.getSession(chat.sessionId.value)?.connectionId,
 )
@@ -62,24 +72,20 @@ onLoad((query) => {
     query?.reloadHistory === '1' ||
     query?.reloadHistory === 'true' ||
     query?.reloadHistory === true
-  agentType.value = parseAgentTypeFromSessionId(id)
+  queryAgentType.value = parseAgentTypeFromQuery(String(query?.agentType ?? ''))
   if (id) {
     void loadSession(id, { initialDraft, reloadHistory })
   }
 })
 
 watch(
-  () => messages.value.length,
-  () => {
-    scrollToBottom()
-  },
-)
-
-watch(
   () => {
     const last = messages.value[messages.value.length - 1]
-    if (!last?.streaming) return ''
-    return `${last.id}:${last.content.length}`
+    if (!last) return 'empty'
+    const attachmentKey = (last.attachments ?? [])
+      .map((item) => `${item.name}:${item.previewUrl?.length ?? 0}`)
+      .join('|')
+    return `${messages.value.length}:${last.id}:${last.content.length}:${attachmentKey}:${last.streaming ? 1 : 0}:${last.reasoningStreaming ? 1 : 0}`
   },
   () => {
     scrollToBottom()
@@ -115,6 +121,22 @@ async function handleWorkspace() {
   }
 }
 
+async function handleContext() {
+  if (!agentType.value) {
+    showToast('当前会话不支持切换 Profile')
+    return
+  }
+  try {
+    const result = await pickContext(agentType.value, connectionId.value)
+    if (!result) return
+    await sessionStore.loadSessions().catch(() => undefined)
+    await chat.loadSession(chat.sessionId.value)
+    showToast(`已切换至 ${result.contextName}`, 'success')
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '切换 Profile 失败')
+  }
+}
+
 function handleMore() {
   agentPanel.openPanel()
 }
@@ -124,6 +146,7 @@ async function handleAdd() {
 }
 
 function handleSend() {
+  scrollToBottom()
   const files = pendingFiles.value
   void sendMessage(undefined, files).finally(() => {
     clearFiles()
@@ -155,8 +178,11 @@ function handleStop() {
       :title="header.title"
       :subtitle="header.subtitle"
       :avatar="header.avatar"
-      show-workspace
+      :show-workspace="agentType ? supportsBridgeWorkspaceSelector(agentType) : false"
+      :show-context="agentType ? supportsBridgeContextSelector(agentType) : false"
+      show-more
       @workspace="handleWorkspace"
+      @context="handleContext"
       @more="handleMore"
     />
 
@@ -178,7 +204,12 @@ function handleStop() {
       </view>
 
       <view v-else class="chat-page__list">
-        <ChatBubble v-for="item in messages" :key="item.id" :message="item" />
+        <ChatBubble
+          v-for="item in messages"
+          :key="item.id"
+          :message="item"
+          @layout-change="scrollToBottom"
+        />
       </view>
 
       <view id="chat-bottom" class="chat-page__bottom-spacer" />
@@ -231,6 +262,6 @@ function handleStop() {
 }
 
 .chat-page__bottom-spacer {
-  height: 24rpx;
+  height: 48rpx;
 }
 </style>
