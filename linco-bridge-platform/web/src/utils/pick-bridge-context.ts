@@ -10,7 +10,7 @@ export async function pickBridgeContext(
   connectionId?: string,
 ): Promise<BridgeBindContextResult | null> {
   if (!supportsBridgeContextSelector(agentType)) {
-    showToast('当前 Agent 不支持切换 Profile')
+    showToast('Hermes / OpenClaw 每个连接仅绑定一个 Profile，导入时选定，不支持切换')
     return null
   }
 

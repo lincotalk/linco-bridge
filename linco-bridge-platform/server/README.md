@@ -143,8 +143,8 @@ test/                     # Jest 规格（*.spec.ts）
 | GET | `/api/agent-bridges/:type/setup` | 连接配置 + `setupCommands` |
 | POST | `/api/agent-bridges/:type/setup/refresh` | 刷新 setup（需 `connectionId`） |
 | GET | `/api/agent-bridges/:type/status` | Connector 在线状态 |
-| GET | `/api/agent-bridges/:type/contexts` | 可绑定上下文（Hermes / OpenClaw） |
-| POST | `/api/agent-bridges/:type/bind-context` | 绑定上下文 |
+| GET | `/api/agent-bridges/:type/contexts` | 导入时可绑定的 Profile / Agent 列表（Hermes / OpenClaw） |
+| POST | `/api/agent-bridges/:type/bind-context` | **首次**绑定上下文；Hermes / OpenClaw 已绑定后不可切换 |
 | GET | `/api/agent-bridges/:type/projects` | 工作区列表（Codex / Claude） |
 | POST | `/api/agent-bridges/:type/select-project` | 选择工作区 |
 | GET | `/api/agent-bridges/:type/sessions` | 项目下 Agent 会话（需 `projectPath`） |
@@ -160,6 +160,18 @@ test/                     # Jest 规格（*.spec.ts）
 | POST | `/api/agent-bridges/:type/settings/update` | 更新并 apply（`/settings apply --reasoning … --model …`） |
 
 设置持久化在 `chat_sessions.bridge_settings_json`，创建会话时可随 `bridgeSettings` 一并写入。
+
+## Agent 绑定规则
+
+| Agent | 规则 |
+|-------|------|
+| Codex / Claude | 可按项目 / 工作区切换；支持模型 + 推理设置 |
+| Hermes | 一个 `appSecret` 对应 **一个 Profile**；仅在导入时 `bind-context`，**禁止会话内切换** |
+| OpenClaw | 一个 `appSecret` 对应 **一个 Agent**；同上 |
+
+`bind-context` 对已绑定的 Hermes / OpenClaw 连接：若 `contextId` 与已存不同，返回 `409`；相同则幂等返回现有会话。
+
+> 功能变更时请同步更新 `web/README.md` 与本文件。
 
 ## WebSocket
 
