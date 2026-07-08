@@ -34,6 +34,8 @@ Linco App、Reference Web、自定义 H5/小程序/App/IM 客户端
 | `linco-demo` | `linco-bridge-connect/src/channel/lincoDemo/` + `linco-bridge-platform` | 开源参考平台通道，默认连接本机 `ws://127.0.0.1:3300/bridge/ws/<agent>`。 |
 | 自定义通道 | 新增 `src/channel/<name>/` 并注册 adapter | 用于自有 H5、小程序、App、Web 或 IM 产品。 |
 
+自定义 channel、命令改动、协议改动和官方通道兼容性的贡献规则见 [二次开发规则](secondary-development.md)。
+
 ## 边界
 
 - Reference Platform 用于开发、集成验证和二次开发参考，不构成生产部署指南。

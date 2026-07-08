@@ -17,6 +17,19 @@ Thank you for helping improve Linco Bridge. / 感谢你帮助改进 Linco Bridge
 - Never include secrets, user data, internal documents, or unlicensed assets.
 - Breaking changes require an explicit migration plan.
 
+## Secondary development / 二次开发
+
+If you customize Linco Bridge and want to submit code back to this repository, follow the secondary development rules:
+
+- English: [Secondary Development Rules](docs/secondary-development.md)
+- 简体中文：[二次开发规则](docs/zh-CN/secondary-development.md)
+
+Key expectations:
+
+- Third-party product integrations should add a custom channel adapter instead of repurposing the official `linco` channel.
+- Changes to commands, protocol payloads, channel routing, official endpoints, package publishing, or self-update behavior need maintainer discussion before implementation.
+- Server-side changes must treat connector frames as untrusted input and include validation, compatibility notes, and tests.
+
 ## Rights and authorization / 权利与授权
 
 By submitting a contribution, you confirm that you have the right to submit the code, documentation, or other materials under the repository license.

@@ -17,3 +17,4 @@ For detailed protocol docs, refer to:
 - `linco-demo` is the open reference platform channel for `linco-bridge-platform`.
 - Third parties building their own H5, mini program, app, web, or IM entry should add their own channel adapter instead of modifying the official `linco` channel.
 - Protocol payloads, event fields, and compatibility notes should follow the connector subproject docs and release notes.
+- Secondary-development PRs that change commands, protocol payloads, event types, channel routing, or official-channel behavior must follow [Secondary Development Rules](secondary-development.md).

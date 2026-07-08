@@ -34,6 +34,8 @@ The official `linco` channel is for the official product experience. The open `l
 | `linco-demo` | `linco-bridge-connect/src/channel/lincoDemo/` + `linco-bridge-platform` | Open reference platform channel. Defaults to local `ws://127.0.0.1:3300/bridge/ws/<agent>`. |
 | Custom channel | Add and register `src/channel/<name>/` | For your own H5, mini program, app, web, or IM product. |
 
+For contribution rules around custom channels, command changes, protocol changes, and official-channel compatibility, see [Secondary Development Rules](secondary-development.md).
+
 ## Boundaries
 
 - The Reference Platform is for development, integration validation, and secondary-development reference, not production hosting guidance.

@@ -17,3 +17,4 @@
 - `linco-demo` 是开源参考平台通道，对应 `linco-bridge-platform`。
 - 第三方要做自己的 H5、小程序、App、Web 或 IM 入口时，应新增自己的 channel adapter，而不是修改官方 `linco` 通道。
 - 协议 payload、事件字段和兼容性说明应以连接器子项目文档和 release notes 为准。
+- 涉及命令、协议 payload、事件类型、channel 路由或官方通道行为的二开 PR，必须遵循 [二次开发规则](secondary-development.md)。
