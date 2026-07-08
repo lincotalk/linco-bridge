@@ -17,6 +17,8 @@ import type {
   BridgeWorkspaceApplyInput,
   BridgeWorkspaceSelection,
   BridgeWorkspaceSession,
+  BridgeSettingsOptions,
+  BridgeSessionSettings,
 } from '../types'
 import type { BridgeHttpClient, BridgeSdk } from './types'
 
@@ -147,6 +149,31 @@ export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
       })
       if (!res.success || !res.data) {
         throw new Error(res.message || '同步 Agent 失败')
+      }
+      return res.data
+    },
+
+    async loadSettingsOptions(type, connectionId, sessionId) {
+      const params = new URLSearchParams()
+      if (connectionId?.trim()) params.set('connectionId', connectionId.trim())
+      if (sessionId?.trim()) params.set('sessionId', sessionId.trim())
+      const query = params.toString()
+      const res = await client.get<BridgeSettingsOptions>(
+        `/api/agent-bridges/${type}/settings/options${query ? `?${query}` : ''}`,
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '加载模型与推理设置失败')
+      }
+      return res.data
+    },
+
+    async updateBridgeSettings(type, input) {
+      const res = await client.post<BridgeSessionSettings>(
+        `/api/agent-bridges/${type}/settings/update`,
+        input,
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '更新模型与推理设置失败')
       }
       return res.data
     },
@@ -363,6 +390,52 @@ export function createMockBridgeSdk(options?: {
           projectName: payload.projectName ?? payload.projectPath ?? 'demo',
           agentSessionId: payload.agentSessionId,
         }) as ApiResponse<T>
+      }
+
+      const settingsOptionsMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/settings\/options/)
+      if (settingsOptionsMatch) {
+        const options: BridgeSettingsOptions = {
+          reasoning: {
+            currentId: 'medium',
+            defaultId: 'medium',
+            model: 'gpt-5.4',
+            options: [
+              { id: 'low', label: 'Low' },
+              { id: 'medium', label: 'Medium' },
+              { id: 'high', label: 'High' },
+              { id: 'xhigh', label: 'Extra High' },
+            ],
+          },
+          model: {
+            items: [
+              { id: 'gpt-5.4', label: 'GPT-5.4' },
+              { id: 'gpt-5.5', label: 'GPT-5.5' },
+            ],
+          },
+        }
+        return ok(options) as ApiResponse<T>
+      }
+
+      const settingsUpdateMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/settings\/update$/)
+      if (settingsUpdateMatch) {
+        const payload = (body ?? {}) as {
+          reasoningEffort?: string
+          modelId?: string
+          modelName?: string
+        }
+        const next: BridgeSessionSettings = {
+          ...(payload.reasoningEffort?.trim()
+            ? { reasoningEffort: payload.reasoningEffort.trim() }
+            : {}),
+          ...(payload.modelId?.trim()
+            ? {
+                modelId: payload.modelId.trim(),
+                modelName: payload.modelName?.trim() || payload.modelId.trim(),
+              }
+            : {}),
+          updatedAt: Date.now(),
+        }
+        return ok(next) as ApiResponse<T>
       }
 
       return { code: 404, success: false, data: null, message: `Mock route not found: ${path}` }

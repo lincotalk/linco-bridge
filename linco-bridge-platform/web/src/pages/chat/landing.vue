@@ -17,7 +17,8 @@ import { showAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
-import { supportsBridgeContextSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { supportsBridgeContextSelector, supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { useBridgeSettings } from '@/composables/useBridgeSettings'
 import { useContextPicker } from '@/composables/useContextPicker'
 
 const VISIBLE_COUNT = 3
@@ -42,6 +43,7 @@ const {
 
 const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
 const { pickContext } = useContextPicker()
+const bridgeSettings = useBridgeSettings()
 const { startVoice } = useVoiceInput((text) => {
   draft.value = draft.value ? `${draft.value} ${text}` : text
 })
@@ -61,6 +63,9 @@ onShow(() => {
   void loadLanding(agentType.value, connectionId.value, {
     silent: showCount.value > 1 && history.value.length > 0,
   })
+  if (supportsBridgeSettingsSelector(agentType.value)) {
+    void bridgeSettings.preloadOptions(agentType.value, connectionId.value)
+  }
 })
 
 onUnload(() => {
@@ -134,6 +139,19 @@ function handleVoice() {
   startVoice()
 }
 
+async function handlePickSettings() {
+  if (!supportsBridgeSettingsSelector(agentType.value)) return
+  try {
+    await bridgeSettings.pickSettings({
+      agentType: agentType.value,
+      connectionId: connectionId.value,
+      persist: false,
+    })
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '加载设置失败')
+  }
+}
+
 async function handleSend() {
   const message = draft.value.trim()
   const files = pendingFiles.value
@@ -145,6 +163,7 @@ async function handleSend() {
       connectionId: connectionId.value,
       tempSession: true,
       message,
+      bridgeSettings: bridgeSettings.pendingSettings.value ?? undefined,
     })
     stashPendingFiles(result.sessionId, files)
     stashPendingLaunch(result.sessionId, message)
@@ -210,10 +229,13 @@ async function handleSend() {
       :disabled="starting"
       :starting="starting"
       :pending-files="pendingFiles"
+      :use-bridge-compact-toolbar="supportsBridgeSettingsSelector(agentType)"
+      :bridge-settings-label="bridgeSettings.settingsLabel.value"
       @send="handleSend"
       @add="handleAdd"
       @voice="handleVoice"
       @remove-file="removeFile"
+      @pick-settings="handlePickSettings"
     />
   </view>
 </template>

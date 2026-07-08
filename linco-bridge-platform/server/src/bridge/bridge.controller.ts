@@ -164,4 +164,56 @@ export class BridgeController {
   ) {
     return ok(this.bridgeService.syncAgent(type, (body.connectionId ?? body.connection_id)?.trim()))
   }
+
+  @Get(':type/settings/options')
+  async loadSettingsOptions(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+    @Query('sessionId') sessionId?: string,
+    @Query('session_id') snakeSessionId?: string,
+  ) {
+    return ok(
+      await this.bridgeService.loadSettingsOptions(
+        type,
+        (connectionId ?? snakeConnectionId)?.trim(),
+        (sessionId ?? snakeSessionId)?.trim(),
+      ),
+    )
+  }
+
+  @Post(':type/settings/update')
+  async updateBridgeSettings(
+    @Param('type') type: string,
+    @Body()
+    body: {
+      connectionId?: string
+      connection_id?: string
+      sessionId?: string
+      session_id?: string
+      reasoningEffort?: string
+      reasoning_effort?: string
+      modelId?: string
+      model_id?: string
+      modelName?: string
+      model_name?: string
+    },
+  ) {
+    const sessionId = (body.sessionId ?? body.session_id)?.trim()
+    if (!sessionId) {
+      throw new NotFoundException('sessionId 不能为空')
+    }
+    return ok(
+      await this.bridgeService.updateBridgeSettings(
+        type,
+        (body.connectionId ?? body.connection_id)?.trim(),
+        sessionId,
+        {
+          reasoningEffort: body.reasoningEffort ?? body.reasoning_effort,
+          modelId: body.modelId ?? body.model_id,
+          modelName: body.modelName ?? body.model_name,
+        },
+      ),
+    )
+  }
 }

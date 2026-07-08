@@ -8,6 +8,7 @@ import {
 import { BridgePresenceService } from '../bridge/bridge-presence.service'
 import { BridgeRelayService } from '../bridge/bridge-relay.service'
 import { BridgeService } from '../bridge/bridge.service'
+import { parseBridgeSessionSettings } from '../bridge/bridge-settings.util'
 import {
   buildHistoryReloadCommand,
   formatSlashPayload,
@@ -54,6 +55,12 @@ export interface ChatSessionDto {
   deviceName?: string
   boundContextName?: string
   boundContextId?: string
+  bridgeSettings?: {
+    reasoningEffort?: string
+    modelId?: string
+    modelName?: string
+    updatedAt?: number
+  }
 }
 
 export interface ChatMessageDto {
@@ -119,6 +126,11 @@ export interface CreateSessionInput {
   tempSession?: boolean
   message?: string
   connectionId?: string
+  bridgeSettings?: {
+    reasoningEffort?: string
+    modelId?: string
+    modelName?: string
+  }
 }
 
 @Injectable()
@@ -150,6 +162,7 @@ export class ChatService {
       )
       const lastAssistant = this.database.getLastAssistantMessage(row.id)
       const preview = resolveAgentHistoryPreview(row, lastAssistant?.content)
+      const bridgeSettings = parseBridgeSessionSettings(row.bridge_settings_json ?? null) ?? undefined
       return {
         id: row.id,
         agentType: row.agent_type,
@@ -164,6 +177,7 @@ export class ChatService {
         deviceName: deviceName || undefined,
         boundContextName: connection?.bound_context_name?.trim() || undefined,
         boundContextId: connection?.bound_context_id?.trim() || undefined,
+        bridgeSettings,
       }
     })
 
@@ -623,12 +637,32 @@ export class ChatService {
         })
       : input.title?.trim() || `与 ${agentDisplayName(input.agentType)} 的对话`
 
+    const pendingSettings = input.bridgeSettings
+    const bridgeSettingsJson =
+      pendingSettings &&
+      (pendingSettings.reasoningEffort?.trim() || pendingSettings.modelId?.trim())
+        ? JSON.stringify({
+            ...(pendingSettings.reasoningEffort?.trim()
+              ? { reasoningEffort: pendingSettings.reasoningEffort.trim() }
+              : {}),
+            ...(pendingSettings.modelId?.trim()
+              ? {
+                  modelId: pendingSettings.modelId.trim(),
+                  modelName:
+                    pendingSettings.modelName?.trim() || pendingSettings.modelId.trim(),
+                }
+              : {}),
+            updatedAt: Date.now(),
+          })
+        : null
+
     const session = this.database.createSession({
       agentType: input.agentType,
       title,
       bridgeConnectionId: connection?.id ?? null,
       lastMessage: '',
       isTempSession: input.tempSession ?? false,
+      bridgeSettingsJson,
     })
 
     if (connection) {
@@ -638,6 +672,19 @@ export class ChatService {
       this.database.updateSessionBridgeBinding(session.id, {
         deviceName: resolveConnectionDeviceName(connection.id, this.presence, connection),
       })
+      if (
+        bridgeSettingsJson &&
+        (input.agentType === 'codex' || input.agentType === 'claude') &&
+        this.presence.isOnline(connection.id)
+      ) {
+        await this.bridgeService
+          .updateBridgeSettings(input.agentType, connection.id, session.id, {
+            reasoningEffort: pendingSettings?.reasoningEffort,
+            modelId: pendingSettings?.modelId,
+            modelName: pendingSettings?.modelName,
+          })
+          .catch(() => undefined)
+      }
     }
 
     return { sessionId: session.id }

@@ -16,7 +16,8 @@ import { showToast } from '@/utils/format'
 import { isBoundWorkspacePick } from '@/utils/pick-workspace'
 import { openBoundBridgeChat, reloadBoundChatSession } from '@/utils/open-bound-chat'
 import { resolveBridgeProjectLabel } from '@/utils/bridge-project-label'
-import { supportsBridgeContextSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { supportsBridgeContextSelector, supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { useBridgeSettings } from '@/composables/useBridgeSettings'
 import { useContextPicker } from '@/composables/useContextPicker'
 
 const chat = useChatSession()
@@ -54,15 +55,34 @@ const bridgeProjectLabel = computed(() =>
   resolveBridgeProjectLabel(sessionStore.getSession(chat.sessionId.value)),
 )
 
+const showBridgeSettings = computed(
+  () => agentType.value != null && supportsBridgeSettingsSelector(agentType.value),
+)
+
+const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
+const bridgeSettings = useBridgeSettings()
+const { startVoice } = useVoiceInput((text) => {
+  draft.value = draft.value ? `${draft.value} ${text}` : text
+})
+
+watch(
+  () => chat.sessionId.value,
+  (sessionId) => {
+    if (!sessionId) return
+    const session = sessionStore.getSession(sessionId)
+    bridgeSettings.applySessionSettings(session?.bridgeSettings ?? null)
+    if (showBridgeSettings.value) {
+      void bridgeSettings.preloadOptions(agentType.value!, session?.connectionId, sessionId)
+    }
+  },
+  { immediate: true },
+)
+
 const agentPanel = useAgentPanel({
   sessionId: chat.sessionId,
   agentType,
   connectionId,
   onReloadHistory: reloadHistory,
-})
-const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
-const { startVoice } = useVoiceInput((text) => {
-  draft.value = draft.value ? `${draft.value} ${text}` : text
 })
 
 onLoad((query) => {
@@ -169,6 +189,21 @@ async function handleRefresh() {
 function handleStop() {
   void stopGeneration()
 }
+
+async function handlePickSettings() {
+  if (!agentType.value || !showBridgeSettings.value) return
+  try {
+    await bridgeSettings.pickSettings({
+      agentType: agentType.value,
+      connectionId: connectionId.value,
+      sessionId: chat.sessionId.value,
+      persist: true,
+    })
+    await sessionStore.loadSessions().catch(() => undefined)
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '更新设置失败')
+  }
+}
 </script>
 
 <template>
@@ -222,11 +257,14 @@ function handleStop() {
       :is-send-disabled="loading && !sending"
       :pending-files="pendingFiles"
       :bridge-project-name="bridgeProjectLabel"
+      :use-bridge-compact-toolbar="showBridgeSettings"
+      :bridge-settings-label="bridgeSettings.settingsLabel.value"
       @send="handleSend"
       @stop="handleStop"
       @add="handleAdd"
       @voice="handleVoice"
       @remove-file="removeFile"
+      @pick-settings="handlePickSettings"
     />
   </view>
 </template>

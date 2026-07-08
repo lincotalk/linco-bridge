@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   requiresContextBinding,
   supportsBridgeContextSelector,
+  supportsBridgeSettingsSelector,
   supportsBridgeWorkspaceSelector,
 } from '@/bridge/constants'
 
@@ -22,5 +23,14 @@ describe('supportsBridgeContextSelector', () => {
     expect(supportsBridgeContextSelector('codex')).toBe(false)
     expect(supportsBridgeContextSelector('claude')).toBe(false)
     expect(requiresContextBinding('openclaw')).toBe(true)
+  })
+})
+
+describe('supportsBridgeSettingsSelector', () => {
+  it('enables model/reasoning settings for codex and claude only', () => {
+    expect(supportsBridgeSettingsSelector('codex')).toBe(true)
+    expect(supportsBridgeSettingsSelector('claude')).toBe(true)
+    expect(supportsBridgeSettingsSelector('hermes')).toBe(false)
+    expect(supportsBridgeSettingsSelector('openclaw')).toBe(false)
   })
 })

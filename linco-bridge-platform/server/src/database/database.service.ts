@@ -37,6 +37,7 @@ export interface ChatSessionRow {
   bridge_project_path: string | null
   bridge_agent_session_id: string | null
   bridge_device_name: string | null
+  bridge_settings_json: string | null
   last_message: string
   update_time: number
   hidden_from_history?: number
@@ -122,6 +123,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.ensureColumn('chat_sessions', 'bridge_device_name', 'TEXT')
     this.ensureColumn('chat_sessions', 'hidden_from_history', 'INTEGER NOT NULL DEFAULT 0')
     this.ensureColumn('chat_sessions', 'is_temp_session', 'INTEGER NOT NULL DEFAULT 0')
+    this.ensureColumn('chat_sessions', 'bridge_settings_json', 'TEXT')
     this.ensureColumn('chat_messages', 'attachments_json', 'TEXT')
   }
 
@@ -414,6 +416,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     bridgeAgentSessionId?: string | null
     lastMessage?: string
     isTempSession?: boolean
+    bridgeSettingsJson?: string | null
   }): ChatSessionRow {
     const id = randomUUID()
     const now = Date.now()
@@ -422,8 +425,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.db
       .prepare(
         `INSERT INTO chat_sessions
-         (id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, last_message, update_time, is_temp_session)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, bridge_settings_json, last_message, update_time, is_temp_session)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -432,6 +435,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         input.bridgeConnectionId ?? null,
         input.bridgeProjectPath ?? null,
         input.bridgeAgentSessionId ?? null,
+        input.bridgeSettingsJson ?? null,
         lastMessage,
         now,
         isTempSession,
@@ -444,10 +448,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       bridge_project_path: input.bridgeProjectPath ?? null,
       bridge_agent_session_id: input.bridgeAgentSessionId ?? null,
       bridge_device_name: null,
+      bridge_settings_json: input.bridgeSettingsJson ?? null,
       last_message: lastMessage,
       update_time: now,
       is_temp_session: isTempSession,
     }
+  }
+
+  updateSessionBridgeSettings(sessionId: string, bridgeSettingsJson: string | null): void {
+    this.db
+      .prepare(`UPDATE chat_sessions SET bridge_settings_json = ?, update_time = ? WHERE id = ?`)
+      .run(bridgeSettingsJson, Date.now(), sessionId)
   }
 
   listMessages(sessionId: string, limit?: number): ChatMessageRow[] {

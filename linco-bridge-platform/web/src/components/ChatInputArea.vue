@@ -16,6 +16,8 @@ const props = withDefaults(
     isUploading?: boolean
     pendingFiles?: OutboundChatFile[]
     bridgeProjectName?: string
+    useBridgeCompactToolbar?: boolean
+    bridgeSettingsLabel?: string
   }>(),
   {
     modelValue: '',
@@ -25,6 +27,8 @@ const props = withDefaults(
     isSendDisabled: false,
     isUploading: false,
     pendingFiles: () => [],
+    useBridgeCompactToolbar: false,
+    bridgeSettingsLabel: '',
   },
 )
 
@@ -35,6 +39,7 @@ const emit = defineEmits<{
   add: []
   voice: []
   'remove-file': [number]
+  'pick-settings': []
 }>()
 
 const draft = ref(props.modelValue)
@@ -47,6 +52,8 @@ const canSubmit = computed(
 )
 const addEnabled = computed(() => !props.disabled && !props.isUploading && !props.sending)
 const bridgeProjectLabel = computed(() => props.bridgeProjectName?.trim() ?? '')
+const bridgeSettingsText = computed(() => props.bridgeSettingsLabel?.trim() || '默认')
+const showCompactBridgeToolbar = computed(() => props.useBridgeCompactToolbar)
 
 watch(
   () => props.modelValue,
@@ -118,7 +125,18 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
           />
         </view>
 
-        <view v-if="bridgeProjectLabel" class="chat-input__project-chip">
+        <view v-if="showCompactBridgeToolbar" class="chat-input__bridge-compact">
+          <text class="chat-input__bridge-project-text">
+            {{ bridgeProjectLabel || '临时会话' }}
+          </text>
+          <view class="chat-input__bridge-divider" />
+          <view class="chat-input__bridge-settings" @tap="emit('pick-settings')">
+            <text class="chat-input__bridge-settings-text">{{ bridgeSettingsText }}</text>
+            <view class="chat-input__bridge-settings-chevron" />
+          </view>
+        </view>
+
+        <view v-else-if="bridgeProjectLabel" class="chat-input__project-chip">
           <text class="chat-input__project-chip-text">{{ bridgeProjectLabel }}</text>
         </view>
 
@@ -215,6 +233,61 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chat-input__bridge-compact {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-left: 16rpx;
+  flex-shrink: 1;
+}
+
+.chat-input__bridge-project-text {
+  max-width: 220rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.56);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-input__bridge-divider {
+  width: 1rpx;
+  height: 24rpx;
+  margin: 0 16rpx;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+.chat-input__bridge-settings {
+  display: flex;
+  align-items: center;
+  height: 36rpx;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.chat-input__bridge-settings-text {
+  max-width: 240rpx;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  font-weight: 500;
+  color: #364153;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-input__bridge-settings-chevron {
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  margin-left: 6rpx;
+  border-top: 9rpx solid rgba(0, 0, 0, 0.87);
+  border-right: 7rpx solid transparent;
+  border-left: 7rpx solid transparent;
 }
 
 .chat-input__tool {

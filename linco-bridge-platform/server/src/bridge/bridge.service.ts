@@ -14,6 +14,13 @@ import { BridgePresenceService } from './bridge-presence.service'
 import { BridgeRelayService, type ConnectorSendInput } from './bridge-relay.service'
 import { toBridgeSetupDto } from './bridge-setup.dto'
 import { resolveConnectionDeviceName } from '../chat/session-list-title.util'
+import {
+  buildBridgeSettingsApplyCommand,
+  DEMO_BRIDGE_SETTINGS_OPTIONS,
+  parseBridgeSettingsOptionsPayload,
+  type BridgeSessionSettingsDto,
+  type BridgeSettingsOptionsDto,
+} from './bridge-settings.util'
 import type {
   BridgeWorkspaceSessionDto,
   WorkspaceApplyInputDto,
@@ -480,6 +487,82 @@ export class BridgeService {
     }
   }
 
+  async loadSettingsOptions(
+    type: string,
+    connectionId?: string,
+    sessionId?: string,
+  ): Promise<BridgeSettingsOptionsDto> {
+    if (!isAgentBridgeType(type)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    if (type !== 'codex' && type !== 'claude') {
+      throw new ConflictException('当前 Agent 不支持模型与推理设置')
+    }
+
+    const connection = this.resolveConnection(type, connectionId)
+    const platformSessionId = sessionId?.trim()
+      ? this.ensureSettingsSessionId(connection, type, sessionId.trim())
+      : this.ensureConnectorSessionId(connection, type)
+
+    try {
+      const payload = await this.fetchSettingsOptionsFromConnector(connection, platformSessionId)
+      return parseBridgeSettingsOptionsPayload(payload)
+    } catch (err) {
+      this.logger.warn(
+        `loadSettingsOptions fallback to demo options type=${type}: ${(err as Error).message}`,
+      )
+      return DEMO_BRIDGE_SETTINGS_OPTIONS
+    }
+  }
+
+  async updateBridgeSettings(
+    type: string,
+    connectionId: string | undefined,
+    sessionId: string,
+    input: {
+      reasoningEffort?: string
+      modelId?: string
+      modelName?: string
+    },
+  ): Promise<BridgeSessionSettingsDto> {
+    if (!isAgentBridgeType(type)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    if (type !== 'codex' && type !== 'claude') {
+      throw new ConflictException('当前 Agent 不支持模型与推理设置')
+    }
+
+    const reasoningEffort = input.reasoningEffort?.trim() ?? ''
+    const modelId = input.modelId?.trim() ?? ''
+    const modelName = input.modelName?.trim() ?? ''
+    if (!reasoningEffort && !modelId) {
+      throw new ConflictException('至少需要更新一项 Bridge 设置')
+    }
+
+    const session = this.database.getSession(sessionId)
+    if (!session || session.agent_type !== type) {
+      throw new NotFoundException('会话不存在')
+    }
+
+    const connection = this.resolveConnection(type, connectionId)
+    const command = buildBridgeSettingsApplyCommand({ reasoningEffort, modelId })
+    await this.relay.forwardSlashCommand(
+      (payload) => this.presence.sendJson(connection.id, payload),
+      this.connectorInput(connection, sessionId),
+      command,
+      'getModelsAndReasons',
+    ).completed
+
+    const next: BridgeSessionSettingsDto = {
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      ...(modelId ? { modelId } : {}),
+      ...(modelName || modelId ? { modelName: modelName || modelId } : {}),
+      updatedAt: Date.now(),
+    }
+    this.database.updateSessionBridgeSettings(sessionId, JSON.stringify(next))
+    return next
+  }
+
   syncAgent(type: string, connectionId?: string) {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
@@ -746,6 +829,32 @@ export class BridgeService {
           agentSessionId: name,
         }
       })
+  }
+
+  private async fetchSettingsOptionsFromConnector(
+    connection: BridgeConnectionRow,
+    platformSessionId: string,
+  ): Promise<Record<string, unknown>> {
+    const { completed } = this.relay.forwardSlashCommand(
+      (payload) => this.presence.sendJson(connection.id, payload),
+      this.connectorInput(connection, platformSessionId),
+      '/settings',
+      'getModelsAndReasons',
+    )
+    const payload = await completed
+    return payload as Record<string, unknown>
+  }
+
+  private ensureSettingsSessionId(
+    connection: BridgeConnectionRow,
+    agentType: AgentBridgeType,
+    sessionId: string,
+  ): string {
+    const session = this.database.getSession(sessionId)
+    if (!session || session.agent_type !== agentType) {
+      return this.ensureConnectorSessionId(connection, agentType)
+    }
+    return sessionId
   }
 
   private resolveConnection(type: AgentBridgeType, connectionId?: string): BridgeConnectionRow {
