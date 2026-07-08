@@ -69,16 +69,6 @@ linco-connect doctor
 
 4. 回到 H5 点击「检测连接」→「继续」，进入 Agent 落地页。发送消息会经 server relay 转发到本机 Agent。
 
-### 4. Recommended smoke test
-
-1. `curl http://127.0.0.1:3300/api/demo-config` returns JSON
-2. H5 opens and shows **消息** and **桥接** tabs
-3. The **桥接** tab shows four cards: Codex, Claude Code, Hermes, OpenClaw
-4. The Codex import page shows generated `setupCommands`
-5. After running `linco-connect start --daemon`, **检测连接** succeeds
-6. Enter the landing page, send one message, and confirm a streamed response arrives
-7. Return to the **消息** tab and confirm the new session appears
-
 WebSocket endpoint（`linco-connect` 会自动追加 `token` 参数）：
 
 ```text
