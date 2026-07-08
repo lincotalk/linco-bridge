@@ -28,22 +28,13 @@
 
 **Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change. The first open-source release focuses on a working local connector, a deployable reference platform channel, and bridge validation for Codex CLI, Claude Code, Hermes, and OpenClaw.
 
-## At a Glance
-
-| You want to... | Start here |
-| --- | --- |
-| Try the official Linco product flow | [Option 1: Official Channel](#option-1-official-channel) |
-| Self-host a reference bridge flow quickly | [Option 2: Open Reference Platform](#option-2-open-reference-platform) |
-| Build your own client or channel | [SDKs and Extension Points](#sdks-and-extension-points) |
-| Understand system boundaries first | [Project Boundaries](#project-boundaries) |
-
-## Highlights
+## ✨ Highlights
 
 | Local-first bridge | Better interaction model | Open extension surface |
 | --- | --- | --- |
 | Keep Agent CLIs running on the user's own computer while exposing sessions, attachments, and generated files to remote clients. | Avoid squeezing long-running Agent workflows into a generic IM UI by validating with a dedicated reference web/app flow. | Reuse the connector, protocol helpers, and channel adapter mechanism to build your own H5, mini program, app, web, or IM experience. |
 
-## What It Is
+## 🧭 Overview
 
 Local AI agent tools are powerful, but their sessions, tool execution, and generated files usually stay on one computer. Many bridge projects connect these tools to existing collaboration platforms such as Feishu, WeChat, DingTalk, or similar IM products. That lowers integration cost, but display and interaction are constrained by the host platform: tool progress, permission confirmations, generated files, long-running sessions, multi-agent state, and session recovery are hard to present comfortably.
 
@@ -54,7 +45,7 @@ Linco Bridge is not meant to force every workflow into one IM product. It provid
 - use the official Linco channel for the full official product experience;
 - build your own H5 page, mini program, app, web, or IM entry on top of the public protocol, SDKs, and channel adapter mechanism.
 
-## Repository Scope
+## 📦 Repository Scope
 
 This repository contains two runnable subprojects plus project-level documentation:
 
@@ -64,7 +55,7 @@ This repository contains two runnable subprojects plus project-level documentati
 
 This repository does **not** include the full Linco App product or official hosted cloud-service code. The official Linco channel is a product experience entry; the open `linco-demo` channel is a deployable and customizable reference implementation.
 
-## How It Works
+## 🔄 Flow
 
 ```text
 Local Agent CLI
@@ -78,7 +69,7 @@ Linco App, Reference Web, custom H5/mini program/app/IM client
 
 `linco-bridge-connect` adapts the local agent and relays sessions, messages, permission requests, attachments, and generated files to compatible products. `linco-bridge-platform` provides a locally deployable backend and H5 experience for validating the full flow and for building a better custom interaction model.
 
-## Architecture Snapshot
+## 🏗️ Architecture
 
 | Layer | Role |
 | --- | --- |
@@ -86,7 +77,7 @@ Linco App, Reference Web, custom H5/mini program/app/IM client
 | Bridge backend / channel | Authenticates the device, maintains the bridge session, and exposes APIs or WebSocket endpoints to compatible clients. |
 | Client surface | Can be the official Linco experience, the open reference platform, or a custom H5 / app / mini program / IM client. |
 
-## Recommended Paths
+## 🚀 Recommended Paths
 
 | Path | Best for | Notes |
 | --- | --- | --- |
@@ -94,7 +85,7 @@ Linco App, Reference Web, custom H5/mini program/app/IM client
 | Open reference platform (`linco-demo`) | Teams that want quick self-hosting, bridge validation, or implementation study | Start the `linco-bridge-platform` server + web app, then connect the local Agent with the connector. |
 | Custom channel adapter | Product or engineering teams building a better interaction experience | Reuse the connector and Agent adapter layer, then add your own H5, mini program, app, web, or IM channel. |
 
-## Quick Start
+## ⚡ Quick Start
 
 ### Option 1: Official Channel
 
@@ -150,7 +141,7 @@ linco-connect start --daemon
 
 For the detailed flow, see [Quick Start](docs/quick-start.md) and the [platform README](linco-bridge-platform/README.md).
 
-## Supported Agents
+## 🤖 Supported Agents
 
 | Agent | First-release status | Verified version in subproject docs |
 | --- | --- | --- |
@@ -161,7 +152,7 @@ For the detailed flow, see [Quick Start](docs/quick-start.md) and the [platform 
 
 Exact compatibility should follow release notes and each subproject README.
 
-## SDKs and Extension Points
+## 🧩 SDKs and Extension Points
 
 - `linco-bridge-connect/src/package/connector`: reusable connector SDK for authenticated bridge WebSocket connectivity;
 - `linco-bridge-connect/src/package/protocol`: connector-side message, file, and channel normalization helpers;
@@ -170,7 +161,7 @@ Exact compatibility should follow release notes and each subproject README.
 
 For rules on custom channels, command changes, protocol compatibility, and PRs from secondary-development work, see [Secondary Development Rules](docs/secondary-development.md).
 
-## Project Boundaries
+## 📌 Project Boundaries
 
 | Capability | Included in this repository |
 | --- | --- |
@@ -181,7 +172,7 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 | Official hosted cloud-service code | No |
 | Production self-hosting operations guide | No. The current scope is development validation and secondary-development reference. |
 
-## Security and Privacy
+## 🔐 Security and Privacy
 
 - Never commit App Secrets, tokens, or private keys, and do not write them to logs.
 - Local `linco-demo` uses `ws://127.0.0.1:3300` for local development validation only. Public deployments should configure TLS/WSS plus their own authentication, storage, and audit policies.
@@ -190,7 +181,7 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 - Review [Security and Privacy](docs/security-and-privacy.md) before connecting real data.
 - Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
 
-## Documentation
+## 📚 Documentation
 
 - [Quick Start](docs/quick-start.md)
 - [How It Works](docs/how-it-works.md)
@@ -206,20 +197,15 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 - [Support Boundary](SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
-## Screens and Assets
-
-- Temporary README logo: [`docs/readme-logo-temp.png`](docs/readme-logo-temp.png)
-- Community QR image: [`docs/community-wechat-group.jpg`](docs/community-wechat-group.jpg)
-
-## Community
+## 💬 Community
 
 For technical discussion, Linco Lab updates, and official Linco App download links, see [COMMUNITY.md](COMMUNITY.md). For Chinese community information, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
 
-## Contributing
+## 🤝 Contributing
 
 Issues, discussions, and pull requests are welcome. For contribution expectations and reporting guidance, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## License
+## ⚖️ License
 
 This project is licensed under the [MIT License](LICENSE).
 
