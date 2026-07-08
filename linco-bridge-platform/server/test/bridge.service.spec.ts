@@ -329,4 +329,65 @@ describe('BridgeService', () => {
 
     expect(second.sessionId).toBe(first.sessionId)
   })
+
+  it('applyWorkspaceSelection relays project-only select to resolved platform session', async () => {
+    const connection = database.getConnectionByType('codex')!
+    presence.attach(connection.id, onlineSocket())
+    const seededSession = database.getSessionByConnectionId(connection.id)!
+
+    const sendSpy = jest.spyOn(presence, 'sendJson').mockImplementation((_connectionId, payload) => {
+      const streamId = String(payload.streamId ?? 'stream-project-select')
+      queueMicrotask(() => {
+        relay.handleConnectorFrame({
+          type: 'turn_end',
+          streamId,
+          text: 'ok',
+        })
+      })
+      return true
+    })
+
+    const result = await service.applyWorkspaceSelection('codex', connection.id, {
+      projectPath: 'D:\\project\\demo',
+      projectName: 'demo',
+      selectProjectCommand: '/project --select "D:\\project\\demo"',
+    })
+
+    expect(result.sessionId).not.toBe(seededSession.id)
+    expect(sendSpy).toHaveBeenCalled()
+    const relayPayload = sendSpy.mock.calls[0]?.[1] as { sessionKey?: string }
+    expect(relayPayload.sessionKey).toBe(result.sessionId)
+  })
+
+  it('applyWorkspaceSelection reuses preferred platform session for same project-only bind', async () => {
+    const connection = database.getConnectionByType('codex')!
+    presence.attach(connection.id, onlineSocket())
+
+    jest.spyOn(presence, 'sendJson').mockImplementation((_connectionId, payload) => {
+      const streamId = String(payload.streamId ?? 'stream-project-select')
+      queueMicrotask(() => {
+        relay.handleConnectorFrame({
+          type: 'turn_end',
+          streamId,
+          text: 'ok',
+        })
+      })
+      return true
+    })
+
+    const first = await service.applyWorkspaceSelection('codex', connection.id, {
+      projectPath: 'D:\\project\\demo',
+      projectName: 'demo',
+      selectProjectCommand: '/project --select "D:\\project\\demo"',
+    })
+
+    const second = await service.applyWorkspaceSelection('codex', connection.id, {
+      projectPath: 'D:\\project\\demo',
+      projectName: 'demo',
+      selectProjectCommand: '/project --select "D:\\project\\demo"',
+      platformSessionId: first.sessionId,
+    })
+
+    expect(second.sessionId).toBe(first.sessionId)
+  })
 })
