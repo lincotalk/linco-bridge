@@ -30,13 +30,13 @@ function handleLink(href: string) {
 </script>
 
 <template>
-  <text
+  <view
     v-if="!useMarkdown"
-    class="message-markdown__plain"
-    :class="`message-markdown__plain--${variant ?? 'assistant'}`"
+    class="message-markdown__plain-wrap"
+    :class="`message-markdown__plain-wrap--${variant ?? 'assistant'}`"
   >
-    {{ content }}
-  </text>
+    <text class="message-markdown__plain">{{ content }}</text>
+  </view>
   <view v-else class="message-markdown" :class="`message-markdown--${variant ?? 'assistant'}`">
     <template v-for="(block, blockIndex) in blocks" :key="`block-${blockIndex}`">
       <view
@@ -65,47 +65,66 @@ function handleLink(href: string) {
         >
           <text class="message-markdown__bullet">{{ block.ordered ? `${itemIndex + 1}.` : '•' }}</text>
           <view class="message-markdown__list-body">
-            <template v-for="(node, nodeIndex) in item" :key="`inline-${nodeIndex}`">
-              <text v-if="node.type === 'text'" class="message-markdown__text">{{ node.value }}</text>
-              <text v-else-if="node.type === 'bold'" class="message-markdown__bold">{{ node.value }}</text>
-              <text v-else-if="node.type === 'code'" class="message-markdown__inline-code">{{ node.value }}</text>
-              <text
-                v-else
-                class="message-markdown__link"
-                @tap="handleLink(node.href)"
-              >
-                {{ node.label }}
-              </text>
-            </template>
+            <text class="message-markdown__text">
+              <template v-for="(node, nodeIndex) in item" :key="`inline-${nodeIndex}`">
+                <text v-if="node.type === 'text'">{{ node.value }}</text>
+                <text v-else-if="node.type === 'bold'" class="message-markdown__bold">{{ node.value }}</text>
+                <text v-else-if="node.type === 'code'" class="message-markdown__inline-code">{{ node.value }}</text>
+                <text
+                  v-else
+                  class="message-markdown__link"
+                  @tap="handleLink(node.href)"
+                >
+                  {{ node.label }}
+                </text>
+              </template>
+            </text>
           </view>
         </view>
       </view>
 
       <view v-else class="message-markdown__paragraph">
-        <template v-for="(node, nodeIndex) in block.inlines" :key="`p-${blockIndex}-${nodeIndex}`">
-          <text v-if="node.type === 'text'" class="message-markdown__text">{{ node.value }}</text>
-          <text v-else-if="node.type === 'bold'" class="message-markdown__bold">{{ node.value }}</text>
-          <text v-else-if="node.type === 'code'" class="message-markdown__inline-code">{{ node.value }}</text>
-          <text
-            v-else
-            class="message-markdown__link"
-            @tap="handleLink(node.href)"
-          >
-            {{ node.label }}
-          </text>
-        </template>
+        <text class="message-markdown__text">
+          <template v-for="(node, nodeIndex) in block.inlines" :key="`p-${blockIndex}-${nodeIndex}`">
+            <text v-if="node.type === 'text'">{{ node.value }}</text>
+            <text v-else-if="node.type === 'bold'" class="message-markdown__bold">{{ node.value }}</text>
+            <text v-else-if="node.type === 'code'" class="message-markdown__inline-code">{{ node.value }}</text>
+            <text
+              v-else
+              class="message-markdown__link"
+              @tap="handleLink(node.href)"
+            >
+              {{ node.label }}
+            </text>
+          </template>
+        </text>
       </view>
     </template>
   </view>
 </template>
 
 <style scoped lang="scss">
+.message-markdown__plain-wrap {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .message-markdown__plain,
 .message-markdown__text {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   font-size: 30rpx;
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.message-markdown {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .message-markdown__plain--assistant,
@@ -137,6 +156,8 @@ function handleLink(href: string) {
 }
 
 .message-markdown__paragraph {
+  width: 100%;
+  box-sizing: border-box;
   margin-bottom: 16rpx;
 }
 
@@ -197,5 +218,7 @@ function handleLink(href: string) {
 .message-markdown__list-body {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 </style>
