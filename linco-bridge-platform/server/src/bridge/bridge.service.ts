@@ -255,26 +255,14 @@ export class BridgeService {
     const selectProjectCommand = (raw.selectProjectCommand ?? raw.select_project_command)?.trim() ?? ''
     const platformSessionIdInput = (raw.platformSessionId ?? raw.platform_session_id)?.trim() ?? ''
 
-    const platformSessionId = this.ensureConnectorSessionId(connection, type)
-
-    if (selectProjectCommand) {
-      await this.relay.forwardLocalCommand(
-        (payload) => this.presence.sendJson(connection.id, payload),
-        this.connectorInput(connection, platformSessionId),
-        selectProjectCommand,
-      ).completed
-      if (projectPath) {
-        this.database.updateConnectionWorkspace(connection.id, projectPath)
-      }
-    } else if (projectPath) {
-      await this.selectProject(type, connection.id, projectPath)
-    }
+    const connectorSessionId = this.ensureConnectorSessionId(connection, type)
 
     let sessionId =
       platformSessionIdInput && this.database.getSession(platformSessionIdInput)
         ? platformSessionIdInput
-        : platformSessionId
+        : connectorSessionId
 
+    // + 新建项目会话：先解析/创建平台 session，再向同一 session relay select（对齐 Flutter conversationId）
     if (selectProjectCommand && !bindCommand && projectPath) {
       const preferredId =
         platformSessionIdInput && this.database.getSession(platformSessionIdInput)
@@ -285,6 +273,16 @@ export class BridgeService {
         projectPath,
         sessionTitle: sessionTitle || projectName || agentDisplayName(type),
       })
+
+      await this.relay.forwardLocalCommand(
+        (payload) => this.presence.sendJson(connection.id, payload),
+        this.connectorInput(connection, sessionId),
+        selectProjectCommand,
+      ).completed
+
+      if (projectPath) {
+        this.database.updateConnectionWorkspace(connection.id, projectPath)
+      }
 
       const title = sessionTitle || projectName || agentDisplayName(type)
       this.database.bindConnectionContext(connection.id, {
@@ -322,6 +320,19 @@ export class BridgeService {
           agentSessionId ||
           agentDisplayName(type),
       })
+
+      if (selectProjectCommand) {
+        await this.relay.forwardLocalCommand(
+          (payload) => this.presence.sendJson(connection.id, payload),
+          this.connectorInput(connection, sessionId),
+          selectProjectCommand,
+        ).completed
+        if (projectPath) {
+          this.database.updateConnectionWorkspace(connection.id, projectPath)
+        }
+      } else if (projectPath) {
+        await this.selectProject(type, connection.id, projectPath)
+      }
 
       await this.relay.forwardLocalCommand(
         (payload) => this.presence.sendJson(connection.id, payload),
@@ -362,8 +373,17 @@ export class BridgeService {
     }
 
     const fallbackTitle = projectName || projectPath || agentDisplayName(type)
-    if (projectPath) {
-      this.database.updateConnectionWorkspace(connection.id, projectPath)
+    if (selectProjectCommand) {
+      await this.relay.forwardLocalCommand(
+        (payload) => this.presence.sendJson(connection.id, payload),
+        this.connectorInput(connection, sessionId),
+        selectProjectCommand,
+      ).completed
+      if (projectPath) {
+        this.database.updateConnectionWorkspace(connection.id, projectPath)
+      }
+    } else if (projectPath) {
+      await this.selectProject(type, connection.id, projectPath)
     }
 
     return {
