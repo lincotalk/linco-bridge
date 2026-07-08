@@ -107,6 +107,12 @@ cd server && npm run check
 | Embedded `/bridge/ws` gateway | Separate gateway service |
 | SQLite persistence | Redis |
 
+## Agent 绑定约定
+
+- **Hermes / OpenClaw**：一个 demo `appSecret` 只绑定一个 Profile / Agent，在导入页选定，**不支持**聊天页切换
+- **Codex / Claude**：支持工作区切换 + 模型 / 推理设置（输入栏紧凑工具栏）
+- 变更 Bridge 能力时，请同步更新 `web/README.md` 与 `server/README.md`
+
 ## Phase status
 
 - Phase 1 — UniApp UI + bridge SDK reference implementation ✅

@@ -17,9 +17,8 @@ import { showAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
-import { supportsBridgeContextSelector, supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
-import { useContextPicker } from '@/composables/useContextPicker'
 
 const VISIBLE_COUNT = 3
 
@@ -42,7 +41,6 @@ const {
 } = landing
 
 const { pickFiles, pendingFiles, clearFiles, removeFile } = useAttachmentPicker()
-const { pickContext } = useContextPicker()
 const bridgeSettings = useBridgeSettings()
 const { startVoice } = useVoiceInput((text) => {
   draft.value = draft.value ? `${draft.value} ${text}` : text
@@ -102,17 +100,6 @@ async function handleWorkspace() {
 
 function reloadLandingHistory() {
   return loadLanding(agentType.value, connectionId.value)
-}
-
-async function handleContext() {
-  try {
-    const result = await pickContext(agentType.value, connectionId.value)
-    if (!result) return
-    showToast(`已切换至 ${result.contextName}`, 'success')
-    await loadLanding(agentType.value, connectionId.value)
-  } catch (error) {
-    showToast(error instanceof Error ? error.message : '切换 Profile 失败')
-  }
 }
 
 function handleMore() {
@@ -189,10 +176,8 @@ async function handleSend() {
       :subtitle="subtitle"
       :avatar="header.avatar"
       :show-workspace="supportsBridgeWorkspaceSelector(agentType)"
-      :show-context="supportsBridgeContextSelector(agentType)"
       show-more
       @workspace="handleWorkspace"
-      @context="handleContext"
       @more="handleMore"
     />
 

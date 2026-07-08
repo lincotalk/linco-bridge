@@ -17,12 +17,20 @@ describe('supportsBridgeWorkspaceSelector', () => {
 })
 
 describe('supportsBridgeContextSelector', () => {
-  it('enables profile entry for hermes only', () => {
-    expect(supportsBridgeContextSelector('hermes')).toBe(true)
+  it('disables in-chat profile switching for all agents', () => {
+    expect(supportsBridgeContextSelector('hermes')).toBe(false)
     expect(supportsBridgeContextSelector('openclaw')).toBe(false)
     expect(supportsBridgeContextSelector('codex')).toBe(false)
     expect(supportsBridgeContextSelector('claude')).toBe(false)
+  })
+})
+
+describe('requiresContextBinding', () => {
+  it('requires one-time bind at import for hermes and openclaw', () => {
+    expect(requiresContextBinding('hermes')).toBe(true)
     expect(requiresContextBinding('openclaw')).toBe(true)
+    expect(requiresContextBinding('codex')).toBe(false)
+    expect(requiresContextBinding('claude')).toBe(false)
   })
 })
 

@@ -16,13 +16,11 @@ import { showToast } from '@/utils/format'
 import { isBoundWorkspacePick } from '@/utils/pick-workspace'
 import { openBoundBridgeChat, reloadBoundChatSession } from '@/utils/open-bound-chat'
 import { resolveBridgeProjectLabel } from '@/utils/bridge-project-label'
-import { supportsBridgeContextSelector, supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import { supportsBridgeSettingsSelector, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
-import { useContextPicker } from '@/composables/useContextPicker'
 
 const chat = useChatSession()
 const { pickWorkspace } = useProjectPicker()
-const { pickContext } = useContextPicker()
 const queryAgentType = ref<AgentBridgeType | null>(null)
 const refreshing = ref(false)
 const {
@@ -141,22 +139,6 @@ async function handleWorkspace() {
   }
 }
 
-async function handleContext() {
-  if (!agentType.value) {
-    showToast('当前会话不支持切换 Profile')
-    return
-  }
-  try {
-    const result = await pickContext(agentType.value, connectionId.value)
-    if (!result) return
-    await sessionStore.loadSessions().catch(() => undefined)
-    await chat.loadSession(chat.sessionId.value)
-    showToast(`已切换至 ${result.contextName}`, 'success')
-  } catch (error) {
-    showToast(error instanceof Error ? error.message : '切换 Profile 失败')
-  }
-}
-
 function handleMore() {
   agentPanel.openPanel()
 }
@@ -214,10 +196,8 @@ async function handlePickSettings() {
       :subtitle="header.subtitle"
       :avatar="header.avatar"
       :show-workspace="agentType ? supportsBridgeWorkspaceSelector(agentType) : false"
-      :show-context="agentType ? supportsBridgeContextSelector(agentType) : false"
       show-more
       @workspace="handleWorkspace"
-      @context="handleContext"
       @more="handleMore"
     />
 

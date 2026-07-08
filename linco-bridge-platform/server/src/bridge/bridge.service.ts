@@ -425,6 +425,29 @@ export class BridgeService {
       throw new ConflictException('本机 Agent 尚未连接')
     }
 
+    const boundContextId = connection.bound_context_id?.trim() ?? ''
+    if (CONNECTOR_SELECTOR_TYPES.has(type) && boundContextId) {
+      if (boundContextId !== contextId.trim()) {
+        throw new ConflictException(
+          'Hermes / OpenClaw 每个 appSecret 仅绑定一个 Profile，不支持切换',
+        )
+      }
+      const sessionId =
+        connection.session_id && this.database.getSession(connection.session_id)
+          ? connection.session_id
+          : this.database.getSessionByConnectionId(connection.id)?.id
+      if (sessionId) {
+        return {
+          bridgeType: type,
+          connectionId: connection.id,
+          contextId: boundContextId,
+          contextName: connection.bound_context_name?.trim() || boundContextId,
+          sessionId,
+          agentName: agentDisplayName(type),
+        }
+      }
+    }
+
     const platformSessionId = this.ensureConnectorSessionId(connection, type)
     let selected: BindableContextDto | undefined
 
