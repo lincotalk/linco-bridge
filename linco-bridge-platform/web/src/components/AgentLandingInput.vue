@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import ChatInputActionButton from '@/components/ChatInputActionButton.vue'
 import PendingAttachmentList from '@/components/PendingAttachmentList.vue'
 import type { OutboundChatFile } from '@/api/session-api'
+import { useChatTextareaSubmit } from '@/composables/useChatTextareaSubmit'
 import { CHAT_ICON } from '@/constants/chat-icons'
 
 const props = withDefaults(
@@ -65,6 +66,11 @@ function handleVoice() {
   if (props.disabled || props.starting) return
   emit('voice')
 }
+
+const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmit(
+  () => canSubmit.value,
+  handleSend,
+)
 </script>
 
 <template>
@@ -85,6 +91,9 @@ function handleVoice() {
         :maxlength="-1"
         @input="onInput"
         @confirm="handleSend"
+        @keydown="onKeydown"
+        @compositionstart="onCompositionStart"
+        @compositionend="onCompositionEnd"
       />
       <view class="landing-input__toolbar">
         <view

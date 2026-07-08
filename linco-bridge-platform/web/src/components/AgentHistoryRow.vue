@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { AgentHistoryItem } from '@/bridge/types'
 import { formatConversationTime, formatSessionPreview } from '@/utils/format'
+import { resolveAgentHistoryPreviewText } from '@/utils/agent-history-preview'
 
 const props = defineProps<{
   item: AgentHistoryItem
 }>()
 
 function previewText(): string {
-  return formatSessionPreview(props.item.preview) || '暂无消息'
+  return resolveAgentHistoryPreviewText(props.item)
 }
 </script>
 
@@ -15,6 +16,7 @@ function previewText(): string {
   <view class="history-row">
     <view class="history-row__head">
       <view v-if="item.unread" class="history-row__dot" />
+      <text v-if="item.pinned" class="history-row__pin">📌</text>
       <text class="history-row__title text-ellipsis">{{ item.title }}</text>
       <text class="history-row__time">{{ formatConversationTime(item.updatedAt) }}</text>
     </view>
@@ -44,6 +46,14 @@ function previewText(): string {
   margin-right: 12rpx;
   border-radius: 50%;
   background: #00754a;
+}
+
+.history-row__pin {
+  flex-shrink: 0;
+  margin-right: 8rpx;
+  font-size: 22rpx;
+  line-height: 1;
+  opacity: 0.55;
 }
 
 .history-row__title {

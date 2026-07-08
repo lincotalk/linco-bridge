@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { AgentHistoryItem } from '@/bridge/types'
-import { formatConversationTime, formatSessionPreview } from '@/utils/format'
+import { formatConversationTime } from '@/utils/format'
+import { resolveAgentHistoryPreviewText } from '@/utils/agent-history-preview'
 import { buildHighlightSegments } from '@/utils/highlight-text'
 
 const props = defineProps<{
@@ -18,11 +19,9 @@ const emit = defineEmits<{
 }>()
 
 const titleSegments = computed(() => buildHighlightSegments(props.item.title, props.query))
-const previewText = computed(() => {
-  const normalized = formatSessionPreview(props.item.preview)
-  if (normalized) return normalized
-  return '暂无消息预览'
-})
+const previewText = computed(() =>
+  resolveAgentHistoryPreviewText(props.item, '暂无消息预览'),
+)
 const previewSegments = computed(() => buildHighlightSegments(previewText.value, props.query))
 
 function handleTap() {

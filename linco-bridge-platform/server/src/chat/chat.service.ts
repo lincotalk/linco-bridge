@@ -24,10 +24,15 @@ import {
 } from './temp-session-title.util'
 import { shouldShowSessionInList } from './session-list-filter.util'
 import {
+  deduplicateBridgeHistorySessions,
+  resolveAgentHistoryPreview,
+  resolveAgentHistoryTitle,
+  shouldShowSessionInAgentHistory,
+} from './agent-history-list.util'
+import {
   formatSessionListTitle,
   resolveConnectionDeviceName,
   resolveSessionDeviceName,
-  stripDeviceSuffixFromTitle,
 } from './session-list-title.util'
 import { groupSessionsForMessageList } from './session-list-group.util'
 import { type AgentBridgeType, agentDisplayName, isAgentBridgeType } from '../shared/constants'
@@ -140,13 +145,15 @@ export class ChatService {
         connection,
         this.presence,
       )
+      const lastAssistant = this.database.getLastAssistantMessage(row.id)
+      const preview = resolveAgentHistoryPreview(row, lastAssistant?.content)
       return {
         id: row.id,
         agentType: row.agent_type,
         connectionId: connection?.id,
         title: formatSessionListTitle(agentDisplayName(row.agent_type), deviceName),
         conversationTitle: row.title.trim() || agentDisplayName(row.agent_type),
-        lastMessage: row.last_message,
+        lastMessage: preview === '暂无消息' ? row.last_message : preview,
         updatedAt: row.update_time,
         online: connection ? this.presence.isOnline(connection.id) : false,
         bridgeProjectPath: row.bridge_project_path?.trim() || undefined,
@@ -444,7 +451,7 @@ export class ChatService {
         throw new NotFoundException('连接不存在')
       }
     }
-    return this.database
+    const filtered = this.database
       .listSessions()
       .filter((row) => row.agent_type === agentType)
       .filter(
@@ -455,8 +462,11 @@ export class ChatService {
         const connection = row.bridge_connection_id
           ? this.database.getConnectionById(row.bridge_connection_id)
           : undefined
-        return shouldShowSessionInList(row, connection)
+        return shouldShowSessionInAgentHistory(row, connection)
       })
+      .sort((a, b) => b.update_time - a.update_time)
+    const deduped = deduplicateBridgeHistorySessions(filtered)
+    return deduped
       .slice(offset, offset + limit)
       .map((row) => {
         const connection = row.bridge_connection_id
@@ -467,10 +477,12 @@ export class ChatService {
           connection,
           this.presence,
         )
+        const firstUser = this.database.getFirstUserMessage(row.id)
+        const lastAssistant = this.database.getLastAssistantMessage(row.id)
         return {
           id: row.id,
-          title: stripDeviceSuffixFromTitle(row.title.trim(), deviceName),
-          preview: normalizeSessionPreview(row.last_message) || '暂无消息',
+          title: resolveAgentHistoryTitle(row, deviceName, firstUser?.content),
+          preview: resolveAgentHistoryPreview(row, lastAssistant?.content),
           updatedAt: row.update_time,
           projectPath: row.bridge_project_path?.trim() || undefined,
           agentSessionId: row.bridge_agent_session_id?.trim() || undefined,
@@ -577,8 +589,13 @@ export class ChatService {
       isTempSession: input.tempSession ?? false,
     })
 
-    if (connection && !input.tempSession) {
-      this.database.linkConnectionSession(connection.id, session.id)
+    if (connection) {
+      if (!input.tempSession) {
+        this.database.linkConnectionSession(connection.id, session.id)
+      }
+      this.database.updateSessionBridgeBinding(session.id, {
+        deviceName: resolveConnectionDeviceName(connection.id, this.presence, connection),
+      })
     }
 
     return { sessionId: session.id }

@@ -14,6 +14,7 @@ import { useSessionStore } from '@/stores'
 import { showToast } from '@/utils/format'
 import { showAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBoundBridgeChat } from '@/utils/open-bound-chat'
+import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
 
 const VISIBLE_COUNT = 3
@@ -70,9 +71,9 @@ function viewAllHistory() {
 
 async function handleWorkspace() {
   try {
-    const picked = await pickWorkspace(agentType.value)
+    const picked = await pickWorkspace(agentType.value, connectionId.value)
     if (!picked) return
-    if (picked.sessionId?.trim()) {
+    if (hasWorkspaceSessionPick(picked)) {
       await openBoundBridgeChat(picked)
       return
     }

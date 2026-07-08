@@ -66,8 +66,8 @@ export function useAgentLanding(sdk: AgentChatSdk = createAppAgentChatSdk()) {
     }
   }
 
-  function pickWorkspace(agentType: AgentBridgeType) {
-    return sdk.pickWorkspace?.(agentType) ?? Promise.resolve(null)
+  function pickWorkspace(agentType: AgentBridgeType, connectionId?: string) {
+    return sdk.pickWorkspace?.(agentType, connectionId) ?? Promise.resolve(null)
   }
 
   function openAgentPanel(agentType: AgentBridgeType) {

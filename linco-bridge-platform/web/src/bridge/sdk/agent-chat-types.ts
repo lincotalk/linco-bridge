@@ -24,7 +24,10 @@ export interface AgentChatSdk {
   startConversation(input: StartConversationInput): Promise<StartConversationResult>
 
   /** Workspace picker — bridge plugin will implement. */
-  pickWorkspace?(agentType: AgentBridgeType): Promise<AgentWorkspace | null>
+  pickWorkspace?(
+    agentType: AgentBridgeType,
+    connectionId?: string,
+  ): Promise<AgentWorkspace | null>
   /** Agent side panel / settings — bridge plugin or native sheet. */
   openAgentPanel?(agentType: AgentBridgeType): void
   /** Attachment picker — bridge plugin or uni.chooseFile. */

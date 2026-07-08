@@ -39,10 +39,10 @@ export async function openHistorySession(item: AgentHistoryItem): Promise<void> 
 
   try {
     const result = await resumeSession(sessionId)
-    const params = new URLSearchParams({
-      sessionId: result.sessionId,
-      reloadHistory: '1',
-    })
+    const params = new URLSearchParams({ sessionId: result.sessionId })
+    if (result.agentSessionId?.trim()) {
+      params.set('reloadHistory', '1')
+    }
     uni.navigateTo({ url: `/pages/chat/index?${params.toString()}` })
   } catch (err) {
     showToast(err instanceof Error ? err.message : '打开会话失败')

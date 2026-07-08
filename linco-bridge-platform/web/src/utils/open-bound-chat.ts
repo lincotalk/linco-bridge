@@ -1,17 +1,21 @@
 import { useSessionStore } from '@/stores'
-import { isBoundWorkspacePick, type PickWorkspaceResult } from '@/utils/pick-workspace'
+import { isBoundWorkspacePick, hasWorkspaceSessionPick, type PickWorkspaceResult } from '@/utils/pick-workspace'
 
 export { isBoundWorkspacePick as isBoundWorkspaceSession }
 
-export async function openBoundBridgeChat(picked: PickWorkspaceResult): Promise<boolean> {
-  const sessionId = picked.sessionId?.trim()
-  if (!sessionId) return false
+export function shouldReloadHistoryOnOpen(picked: PickWorkspaceResult): boolean {
+  return isBoundWorkspacePick(picked)
+}
 
+export async function openBoundBridgeChat(picked: PickWorkspaceResult): Promise<boolean> {
+  if (!hasWorkspaceSessionPick(picked)) return false
+
+  const sessionId = picked.sessionId!.trim()
   const sessionStore = useSessionStore()
   await sessionStore.loadSessions().catch(() => undefined)
 
   const params = new URLSearchParams({ sessionId })
-  if (isBoundWorkspacePick(picked)) {
+  if (shouldReloadHistoryOnOpen(picked)) {
     params.set('reloadHistory', '1')
   }
 

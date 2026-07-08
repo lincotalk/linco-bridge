@@ -83,8 +83,8 @@ export function createRestAgentChatSdk(): AgentChatSdk {
       return { sessionId: res.data.sessionId }
     },
 
-    pickWorkspace(agentType) {
-      return pickBridgeWorkspace(agentType)
+    pickWorkspace(agentType, connectionId) {
+      return pickBridgeWorkspace(agentType, connectionId)
     },
 
     watchLandingHeader(agentType, listener, connectionId) {
