@@ -1,6 +1,6 @@
 # Security Notes
 
-Linco Connect runs on the user's machine and bridges remote IM with local Agents. The core security principle is: credentials stay local, file reads are constrained, and dangerous operations require an explicit policy.
+The Linco Bridge connector runs on the user's machine and bridges remote IM with local Agents. The core security principle is: credentials stay local, file reads are constrained, and dangerous operations require an explicit policy.
 
 ## Local Credentials
 

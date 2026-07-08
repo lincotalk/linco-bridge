@@ -1,8 +1,8 @@
-# Linco Connect
+# Linco Bridge connector
 
 [English](README.en-US.md) | [简体中文](README.zh-CN.md)
 
-Linco Connect 是运行在用户电脑上的本机 Agent 连接器，用于把 Linco IM 消息转发给本机 Agent CLI，并把回复、工具调用、权限确认、附件和生成文件回传到 IM。
+Linco Bridge connector 是运行在用户电脑上的本机 Agent 连接器，用于把 Linco IM 消息转发给本机 Agent CLI，并把回复、工具调用、权限确认、附件和生成文件回传到 IM。
 
 它不是鉴权服务，也不是托管式多租户服务。用户凭证保存在本机配置文件中，连接地址默认由程序内置；普通用户不需要在 README 或配置中手动填写服务端地址。
 
@@ -10,7 +10,7 @@ Linco Connect 是运行在用户电脑上的本机 Agent 连接器，用于把 L
 
 很多 Agent 桥接项目会接入飞书、微信、钉钉等既有协作平台。这种方式接入成本低，但展示和交互形式受平台限制，工具进度、权限确认、生成文件、长会话和多 Agent 状态往往很难做出舒适体验。
 
-Linco Connect 会配套开源一个参考 platform 项目，对应插件里的 `linco-demo` 通道。它不是要求所有人都使用 Linco 官方 IM，而是给用户一个可先部署体验的参考实现：如果现有 IM 平台的交互不满足需求，可以基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter，让消息协议、展示结构和交互体验按自己的产品需求演进。
+Linco Bridge connector 会配套开源一个参考 platform 项目，对应插件里的 `linco-demo` 通道。它不是要求所有人都使用 Linco 官方 IM，而是给用户一个可先部署体验的参考实现：如果现有 IM 平台的交互不满足需求，可以基于自己的 H5、小程序、App 或其他前端形态实现新的 channel adapter，让消息协议、展示结构和交互体验按自己的产品需求演进。
 
 ## 功能
 
@@ -46,7 +46,7 @@ Linco Connect 会配套开源一个参考 platform 项目，对应插件里的 `
 | OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | 支持 Gateway agent session、`openclaw agents list --json` / `openclaw gateway call --json agents.list`；Linco 会话内可用 `/agent` 查看/绑定后续 OpenClaw Agent。 |
 | Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | 支持 Hermes Gateway `/v1/runs` 和 `hermes profile list`；Linco 会话内可用 `/profile` 查看/绑定后续 Hermes Profile。 |
 
-连接器会向 Agent 注入统一的 Linco Connect 桥接身份说明：Agent 正在通过 Linco Connect 连接 Linco IM，普通文本回复会自动发送给用户，不需要额外调用发送机制。Claude/Hermes 走系统级或 `instructions` 注入，Codex/OpenClaw 保持现有协议字段结构并在输入层追加提示。
+连接器会向 Agent 注入统一的 Linco Bridge connector 桥接身份说明：Agent 正在通过 Linco Bridge connector 连接 Linco IM，普通文本回复会自动发送给用户，不需要额外调用发送机制。Claude/Hermes 走系统级或 `instructions` 注入，Codex/OpenClaw 保持现有协议字段结构并在输入层追加提示。
 
 ## 安装
 

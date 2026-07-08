@@ -1,8 +1,8 @@
 # Code of Conduct / 社区行为规范
 
-We want Linco Connect to be a respectful, technically honest, and welcoming project.
+We want Linco Bridge to be a respectful, technically honest, and welcoming project.
 
-我们希望 Linco Connect 是一个尊重他人、技术表述诚实且对新参与者友好的项目。
+我们希望 Linco Bridge 是一个尊重他人、技术表述诚实且对新参与者友好的项目。
 
 ## Expected behavior / 期望行为
 

@@ -4,7 +4,7 @@
 
 The root docs keep only project-level entry points. For complete `linco-connect` commands, configuration, environment variables, slash commands, and Agent adapter notes, refer to the connector project docs:
 
-- [Linco Connect README](../linco-bridge-connect/README.en-US.md)
+- [Linco Bridge connector README](../linco-bridge-connect/README.en-US.md)
 - [Architecture](../linco-bridge-connect/docs/architecture.en-US.md)
 - [Protocol](../linco-bridge-connect/docs/protocol.en-US.md)
 - [Slash Commands](../linco-bridge-connect/docs/slash-commands.en-US.md)

@@ -1,6 +1,6 @@
 # Slash Command Integration
 
-Slash commands are handled locally by Linco Connect inside a remote IM session. `src/command/index.js` dispatches commands, and more complex command logic is split into `src/command/*.js`.
+Slash commands are handled locally by the Linco Bridge connector inside a remote IM session. `src/command/index.js` dispatches commands, and more complex command logic is split into `src/command/*.js`.
 
 Commands not listed here are passed through to the current Agent by default. Some native Agent commands only make sense in interactive CLI/TUI mode and may produce no output in bridge mode.
 
@@ -13,7 +13,7 @@ Commands not listed here are passed through to the current Agent by default. Som
 | `/session` | Shows current Claude/Codex native Agent session ID. |
 | `/stop` | Stops the current Agent process while keeping the resumable session ID. |
 | `/reload` | Refreshes current Agent memory and tries to prestart the process. |
-| `/update` / `/upgrade` | Views, upgrades, or downgrades Linco Connect. |
+| `/update` / `/upgrade` | Views, upgrades, or downgrades the linco-connect CLI. |
 | `/remove-account` / `/delete-account` | Removes the current or specified Agent account configuration. |
 | `/base` | Shows Linco runtime, session runtime, and attachment directories. |
 | `/get <path>` | Reads an allowed non-hidden file and returns it to remote IM. |

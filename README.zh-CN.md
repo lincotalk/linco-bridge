@@ -138,7 +138,7 @@ linco-connect init \
 linco-connect start --daemon
 ```
 
-完整流程见 [快速开始](docs/zh-CN/quick-start.md)、[平台 README](linco-bridge-platform/README.md) 和 [Web / H5 README](linco-bridge-platform/web/README.md)。
+完整流程见 [快速开始](docs/zh-CN/quick-start.md)、[平台 README](linco-bridge-platform/README.zh-CN.md)、[平台 Server README](linco-bridge-platform/server/README.zh-CN.md) 和 [Web / H5 README](linco-bridge-platform/web/README.zh-CN.md)。
 
 ## 🤖 支持的 Agent
 
@@ -192,8 +192,9 @@ linco-connect start --daemon
 - [安全与隐私](docs/zh-CN/security-and-privacy.md)
 - [排障](docs/zh-CN/troubleshooting.md)
 - [连接器 README](linco-bridge-connect/README.zh-CN.md)
-- [参考平台 README](linco-bridge-platform/README.md)
-- [参考平台 Web / H5 README](linco-bridge-platform/web/README.md)
+- [参考平台 README](linco-bridge-platform/README.zh-CN.md)
+- [参考平台 Server README](linco-bridge-platform/server/README.zh-CN.md)
+- [参考平台 Web / H5 README](linco-bridge-platform/web/README.zh-CN.md)
 - [支持边界](SUPPORT.md)
 - [参与贡献](CONTRIBUTING.md)
 

@@ -31,4 +31,4 @@
 
 ## 提交 Issue 前
 
-提供 Linco Connect 版本、操作系统、Node.js 版本、安装方式、Agent 及版本、通道名、复现步骤、预期与实际结果和脱敏日志。
+提供 linco-connect CLI 版本、操作系统、Node.js 版本、安装方式、Agent 及版本、通道名、复现步骤、预期与实际结果和脱敏日志。
