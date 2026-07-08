@@ -10,6 +10,8 @@ import type {
   BridgeWorkspaceApplyInput,
   BridgeWorkspaceSelection,
   BridgeWorkspaceSession,
+  BridgeSettingsOptions,
+  BridgeSessionSettings,
 } from '../types'
 
 /** HTTP transport for bridge SDK — swappable when real backend is wired. */
@@ -47,6 +49,21 @@ export interface BridgeSdk {
   ): Promise<BridgeBindContextResult>
   /** Link seeded session after connector online — codex / claude path. */
   syncAgent(type: AgentBridgeType, connectionId?: string): Promise<BridgeSyncResult>
+  loadSettingsOptions(
+    type: AgentBridgeType,
+    connectionId?: string,
+    sessionId?: string,
+  ): Promise<BridgeSettingsOptions>
+  updateBridgeSettings(
+    type: AgentBridgeType,
+    input: {
+      connectionId?: string
+      sessionId: string
+      reasoningEffort?: string
+      modelId?: string
+      modelName?: string
+    },
+  ): Promise<BridgeSessionSettings>
 }
 
 export type BridgeSdkFactory = (client: BridgeHttpClient) => BridgeSdk

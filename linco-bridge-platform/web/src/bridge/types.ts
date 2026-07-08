@@ -85,6 +85,44 @@ export interface ChatSessionItem {
   deviceName?: string
   boundContextName?: string
   boundContextId?: string
+  bridgeSettings?: BridgeSessionSettings
+}
+
+export interface BridgeReasoningOption {
+  id: string
+  label: string
+  description?: string
+}
+
+export interface BridgeReasoningState {
+  currentId: string
+  defaultId: string
+  model: string
+  options: BridgeReasoningOption[]
+}
+
+export interface BridgeSettingsModelOption {
+  id: string
+  label: string
+  description?: string
+}
+
+export interface BridgeSettingsOptions {
+  reasoning: BridgeReasoningState
+  model: { items: BridgeSettingsModelOption[] }
+}
+
+export interface BridgeSessionSettings {
+  reasoningEffort?: string
+  modelId?: string
+  modelName?: string
+  updatedAt?: number
+}
+
+export interface BridgeSettingsPickerResult {
+  reasoningEffort?: string
+  modelId?: string
+  modelName?: string
 }
 
 export type ChatMessageRole = 'user' | 'assistant' | 'system'
@@ -175,6 +213,7 @@ export interface StartConversationInput {
   tempSession?: boolean
   title?: string
   connectionId?: string
+  bridgeSettings?: BridgeSessionSettings
 }
 
 export interface StartConversationResult {

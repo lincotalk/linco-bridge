@@ -49,3 +49,8 @@ export function supportsBridgeContextSelector(type: AgentBridgeType): boolean {
 export function supportsBridgeWorkspaceSelector(type: AgentBridgeType): boolean {
   return type === 'codex' || type === 'claude'
 }
+
+/** Codex / Claude Code only — model + reasoning settings entry in input toolbar. */
+export function supportsBridgeSettingsSelector(type: AgentBridgeType): boolean {
+  return type === 'codex' || type === 'claude'
+}

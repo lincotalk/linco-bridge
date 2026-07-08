@@ -2,6 +2,7 @@ import { Body, Controller, Get, BadRequestException, NotFoundException, Param, P
 import type { Response } from 'express'
 import { ok } from '../shared/api-response'
 import { isAgentBridgeType } from '../shared/constants'
+import { parseBridgeSessionSettings } from '../bridge/bridge-settings.util'
 import { ChatService } from './chat.service'
 
 function writeSse(res: Response, event: string, data: Record<string, unknown>): void {
@@ -143,11 +144,23 @@ export class ChatController {
       temp_session?: boolean
       title?: string
       connectionId?: string
+      bridgeSettings?: {
+        reasoningEffort?: string
+        modelId?: string
+        modelName?: string
+      }
+      bridge_settings?: {
+        reasoning_effort?: string
+        model_id?: string
+        model_name?: string
+      }
     },
   ) {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
+    const bridgeSettings =
+      parseBridgeSessionSettings(body.bridgeSettings ?? body.bridge_settings) ?? undefined
     return ok(
       await this.chatService.createConversation({
         agentType: type,
@@ -155,6 +168,7 @@ export class ChatController {
         tempSession: body.tempSession ?? body.temp_session,
         title: body.title,
         connectionId: body.connectionId,
+        bridgeSettings,
       }),
     )
   }
