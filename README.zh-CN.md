@@ -1,10 +1,47 @@
-# Linco Bridge
+<p align="center">
+  <img src="docs/readme-logo-temp.png" alt="Linco Bridge logo" width="140" />
+</p>
 
-[English](README.md)
+<h1 align="center">Linco Bridge</h1>
 
-> 一个开放的桥接层，用来把运行在个人电脑上的 AI Agent 工具连接到 Web、H5、小程序、App、IM 或其他客户端。
+<p align="center">
+  一个开放的桥接层，用来把运行在个人电脑上的 AI Agent 工具连接到
+  Web、H5、小程序、App、IM 或其他客户端。
+</p>
+
+<p align="center">
+  <a href="README.md">English</a>
+  ·
+  <a href="docs/zh-CN/quick-start.md">快速开始</a>
+  ·
+  <a href="COMMUNITY.zh-CN.md">社区</a>
+  ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/status-open%20source%20alpha-0f766e" alt="status: open source alpha" />
+  <img src="https://img.shields.io/badge/agents-Codex%20%7C%20Claude%20%7C%20Hermes%20%7C%20OpenClaw-2563eb" alt="supported agents" />
+  <img src="https://img.shields.io/badge/channel-official%20%2B%20reference%20platform-f59e0b" alt="channel types" />
+  <img src="https://img.shields.io/badge/license-MIT-111827" alt="license: MIT" />
+</p>
 
 **项目状态：** Open Source Alpha。接口、兼容性和文档仍可能变化；首期开源版本聚焦于可运行的本地连接器、可部署的参考平台通道，以及 Codex CLI、Claude Code、Hermes、OpenClaw 四类 Agent 的桥接验证。
+
+## 一眼看懂
+
+| 你想做什么 | 从这里开始 |
+| --- | --- |
+| 直接体验官方 Linco 产品链路 | [方式一：使用官方通道](#方式一使用官方通道) |
+| 快速自部署一条参考桥接链路 | [方式二：部署开源参考平台](#方式二部署开源参考平台) |
+| 基于现有能力做二开 | [SDK 与扩展点](#sdk-与扩展点) |
+| 先看清仓库边界 | [项目边界](#项目边界) |
+
+## 亮点
+
+| 本地优先桥接 | 更适合 Agent 的交互形态 | 开放扩展面 |
+| --- | --- | --- |
+| Agent CLI 继续运行在用户自己的电脑上，同时把会话、附件和生成文件桥接到远端客户端。 | 不把长流程 Agent 工作强行塞进通用 IM 里，而是用参考 Web / App 形态验证更舒服的交互方式。 | 复用连接器、协议工具和 channel adapter 机制，搭建自己的 H5、小程序、App、Web 或 IM 入口。 |
 
 ## 它是什么
 
@@ -40,6 +77,14 @@ Linco App、Reference Web、自定义 H5/小程序/App/IM 客户端
 ```
 
 `linco-bridge-connect` 负责适配本地 Agent，并把会话、消息、权限请求、附件和生成文件中继到兼容产品中。`linco-bridge-platform` 提供一套可本地部署的后端和 H5 体验，方便验证完整链路，也方便团队在此基础上改造自己的交互体验。
+
+## 架构速览
+
+| 层次 | 作用 |
+| --- | --- |
+| `linco-bridge-connect` | 运行在用户电脑上，连接本地 Agent CLI，并转发消息、权限、文件和会话状态。 |
+| Bridge backend / channel | 负责设备鉴权、桥接会话维护，以及对外提供 API 或 WebSocket 能力。 |
+| Client surface | 可以是官方 Linco 体验、开源参考平台，也可以是自定义 H5 / App / 小程序 / IM 客户端。 |
 
 ## 推荐使用路径
 
@@ -157,6 +202,11 @@ linco-connect start --daemon
 - [参考平台 README](linco-bridge-platform/README.md)
 - [支持边界](SUPPORT.md)
 - [参与贡献](CONTRIBUTING.md)
+
+## 视觉资源
+
+- 临时 README 头图：[`docs/readme-logo-temp.png`](docs/readme-logo-temp.png)
+- 社区二维码：[`docs/community-wechat-group.jpg`](docs/community-wechat-group.jpg)
 
 ## 社区与动态
 

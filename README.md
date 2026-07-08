@@ -1,10 +1,47 @@
-# Linco Bridge
+<p align="center">
+  <img src="docs/readme-logo-temp.png" alt="Linco Bridge logo" width="140" />
+</p>
 
-[简体中文](README.zh-CN.md)
+<h1 align="center">Linco Bridge</h1>
 
-> An open bridge layer for connecting AI agent tools running on a personal computer to Web, H5, mini program, app, IM, or other clients.
+<p align="center">
+  An open bridge layer for connecting AI agent tools running on a personal computer
+  to Web, H5, mini program, app, IM, or other clients.
+</p>
+
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a>
+  ·
+  <a href="docs/quick-start.md">Quick Start</a>
+  ·
+  <a href="COMMUNITY.md">Community</a>
+  ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/status-open%20source%20alpha-0f766e" alt="status: open source alpha" />
+  <img src="https://img.shields.io/badge/agents-Codex%20%7C%20Claude%20%7C%20Hermes%20%7C%20OpenClaw-2563eb" alt="supported agents" />
+  <img src="https://img.shields.io/badge/channel-official%20%2B%20reference%20platform-f59e0b" alt="channel types" />
+  <img src="https://img.shields.io/badge/license-MIT-111827" alt="license: MIT" />
+</p>
 
 **Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change. The first open-source release focuses on a working local connector, a deployable reference platform channel, and bridge validation for Codex CLI, Claude Code, Hermes, and OpenClaw.
+
+## At a Glance
+
+| You want to... | Start here |
+| --- | --- |
+| Try the official Linco product flow | [Option 1: Official Channel](#option-1-official-channel) |
+| Self-host a reference bridge flow quickly | [Option 2: Open Reference Platform](#option-2-open-reference-platform) |
+| Build your own client or channel | [SDKs and Extension Points](#sdks-and-extension-points) |
+| Understand system boundaries first | [Project Boundaries](#project-boundaries) |
+
+## Highlights
+
+| Local-first bridge | Better interaction model | Open extension surface |
+| --- | --- | --- |
+| Keep Agent CLIs running on the user's own computer while exposing sessions, attachments, and generated files to remote clients. | Avoid squeezing long-running Agent workflows into a generic IM UI by validating with a dedicated reference web/app flow. | Reuse the connector, protocol helpers, and channel adapter mechanism to build your own H5, mini program, app, web, or IM experience. |
 
 ## What It Is
 
@@ -40,6 +77,14 @@ Linco App, Reference Web, custom H5/mini program/app/IM client
 ```
 
 `linco-bridge-connect` adapts the local agent and relays sessions, messages, permission requests, attachments, and generated files to compatible products. `linco-bridge-platform` provides a locally deployable backend and H5 experience for validating the full flow and for building a better custom interaction model.
+
+## Architecture Snapshot
+
+| Layer | Role |
+| --- | --- |
+| `linco-bridge-connect` | Runs on the user's computer, talks to local Agent CLIs, and forwards messages, permissions, files, and session state. |
+| Bridge backend / channel | Authenticates the device, maintains the bridge session, and exposes APIs or WebSocket endpoints to compatible clients. |
+| Client surface | Can be the official Linco experience, the open reference platform, or a custom H5 / app / mini program / IM client. |
 
 ## Recommended Paths
 
@@ -157,6 +202,11 @@ Exact compatibility should follow release notes and each subproject README.
 - [Platform README](linco-bridge-platform/README.md)
 - [Support Boundary](SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)
+
+## Screens and Assets
+
+- Temporary README logo: [`docs/readme-logo-temp.png`](docs/readme-logo-temp.png)
+- Community QR image: [`docs/community-wechat-group.jpg`](docs/community-wechat-group.jpg)
 
 ## Community
 
