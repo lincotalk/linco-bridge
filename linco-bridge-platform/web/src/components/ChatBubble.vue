@@ -24,6 +24,14 @@ const props = defineProps<{
 
 
 
+const emit = defineEmits<{
+
+  layoutChange: []
+
+}>()
+
+
+
 const sheetVisible = ref(false)
 
 
@@ -48,7 +56,7 @@ const reasoningContent = computed(() => props.message.reasoning?.content ?? '')
 
 <template>
 
-  <view class="message-row" :class="`message-row--${message.role}`">
+  <view class="message-row" :class="`message-row--${message.role}`" :id="message.id">
 
     <view v-if="message.role === 'user'" class="message-row__user-wrap">
 
@@ -61,6 +69,8 @@ const reasoningContent = computed(() => props.message.reasoning?.content ?? '')
           :attachments="message.attachments"
 
           variant="user"
+
+          @preview-load="emit('layoutChange')"
 
         />
 
@@ -109,6 +119,8 @@ const reasoningContent = computed(() => props.message.reasoning?.content ?? '')
         :attachments="message.attachments"
 
         variant="assistant"
+
+        @preview-load="emit('layoutChange')"
 
       />
 

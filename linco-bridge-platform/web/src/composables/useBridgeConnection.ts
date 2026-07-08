@@ -237,8 +237,10 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
 
   function navigateAfterConnect(result: BridgeConnectionCompleteResult) {
     if (requiresContextBinding(result.agentType)) {
+      const params = new URLSearchParams({ sessionId: result.sessionId })
+      params.set('agentType', result.agentType)
       uni.redirectTo({
-        url: `/pages/chat/index?sessionId=${encodeURIComponent(result.sessionId)}`,
+        url: `/pages/chat/index?${params.toString()}`,
       })
       return
     }

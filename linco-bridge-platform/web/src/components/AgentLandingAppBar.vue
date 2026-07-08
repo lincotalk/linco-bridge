@@ -6,12 +6,14 @@ defineProps<{
   subtitle?: string
   avatar: string
   showWorkspace?: boolean
+  showContext?: boolean
   showMore?: boolean
 }>()
 
 const emit = defineEmits<{
   back: []
   workspace: []
+  context: []
   more: []
 }>()
 
@@ -45,6 +47,18 @@ function handleBack() {
           @tap="emit('workspace')"
         >
           <image class="landing-bar__folder" :src="CHAT_ICON.workspaceFolder" mode="aspectFit" />
+        </view>
+        <view
+          v-if="showContext"
+          class="landing-bar__action"
+          @tap="emit('context')"
+        >
+          <image
+            class="landing-bar__folder"
+            :src="CHAT_ICON.contextProfile"
+            mode="aspectFit"
+            aria-label="切换 Profile"
+          />
         </view>
         <view v-if="showMore !== false" class="landing-bar__action" @tap="emit('more')">
           <view class="landing-bar__more-dots" aria-label="更多">

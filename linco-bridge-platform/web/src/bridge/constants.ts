@@ -39,3 +39,13 @@ export function getBridgeSourceCard(type: AgentBridgeType): BridgeSourceCard | u
 export function requiresContextBinding(type: AgentBridgeType): boolean {
   return type === 'openclaw' || type === 'hermes'
 }
+
+/** Hermes only — AppBar profile switcher. OpenClaw binds agent at import; no in-chat picker. */
+export function supportsBridgeContextSelector(type: AgentBridgeType): boolean {
+  return type === 'hermes'
+}
+
+/** Codex / Claude Code only — aligned with Flutter `_supportsBridgeWorkspaceSelector`. */
+export function supportsBridgeWorkspaceSelector(type: AgentBridgeType): boolean {
+  return type === 'codex' || type === 'claude'
+}

@@ -1,3 +1,4 @@
+import { appendAgentTypeQuery } from '@/bridge/sdk/agent-chat'
 import { useSessionStore } from '@/stores'
 import { isBoundWorkspacePick, hasWorkspaceSessionPick, type PickWorkspaceResult } from '@/utils/pick-workspace'
 
@@ -15,6 +16,7 @@ export async function openBoundBridgeChat(picked: PickWorkspaceResult): Promise<
   await sessionStore.loadSessions().catch(() => undefined)
 
   const params = new URLSearchParams({ sessionId })
+  appendAgentTypeQuery(params, sessionStore.getSession(sessionId)?.agentType ?? null)
   if (shouldReloadHistoryOnOpen(picked)) {
     params.set('reloadHistory', '1')
   }

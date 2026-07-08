@@ -83,6 +83,8 @@ export interface ChatSessionItem {
   bridgeProjectPath?: string
   isTempSession?: boolean
   deviceName?: string
+  boundContextName?: string
+  boundContextId?: string
 }
 
 export type ChatMessageRole = 'user' | 'assistant' | 'system'
@@ -117,6 +119,8 @@ export interface BridgeStatusResult {
   accountId?: string
   connectionId?: string
   deviceName?: string
+  boundContextName?: string
+  boundContextId?: string
 }
 
 export interface BridgeBindContextResult {
@@ -161,6 +165,7 @@ export interface AgentLandingHeader {
   title: string
   avatar: string
   deviceId?: string
+  boundContextName?: string
   status: BridgeConnectionStatus
 }
 

@@ -18,6 +18,7 @@ export function importBridgeHistoryRounds(
       role: message.role,
       content: message.content,
       createTime: message.createdAt,
+      attachments: message.attachments,
     })
     changed++
   }

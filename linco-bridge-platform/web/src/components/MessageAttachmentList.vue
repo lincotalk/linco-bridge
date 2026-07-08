@@ -8,6 +8,10 @@ const props = defineProps<{
   variant?: 'user' | 'assistant'
 }>()
 
+const emit = defineEmits<{
+  previewLoad: []
+}>()
+
 async function handleAttachmentTap(item: ChatMessageAttachment) {
   if (isImageAttachment(item) && item.previewUrl) {
     const urls = props.attachments
@@ -38,6 +42,7 @@ async function handleAttachmentTap(item: ChatMessageAttachment) {
         class="attachment-list__image"
         :src="item.previewUrl"
         mode="aspectFill"
+        @load="emit('previewLoad')"
       />
       <view v-else class="attachment-list__file">
         <text class="attachment-list__file-icon">📎</text>

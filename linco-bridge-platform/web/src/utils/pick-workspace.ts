@@ -1,4 +1,5 @@
 import type { AgentBridgeType, AgentWorkspace, BridgeWorkspaceSelection } from '@/bridge/types'
+import { supportsBridgeWorkspaceSelector } from '@/bridge/constants'
 import { useBridgeStore } from '@/stores'
 import { showBridgeWorkspacePicker } from '@/utils/bridge-workspace-picker'
 import { showToast } from '@/utils/format'
@@ -50,7 +51,7 @@ export async function pickBridgeWorkspace(
   const resolvedConnectionId = await ensureBridgeOnline(agentType, connectionId)
   if (!resolvedConnectionId) return null
 
-  const supportsProjectPicker = agentType === 'codex' || agentType === 'claude'
+  const supportsProjectPicker = supportsBridgeWorkspaceSelector(agentType)
   if (!supportsProjectPicker) {
     showToast('当前 Agent 不支持工作区选择')
     return null

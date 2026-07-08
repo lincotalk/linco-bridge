@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { parseAgentTypeFromSessionId } from '@/bridge/sdk/agent-chat'
 import type { OutboundChatFile } from '@/api/session-api'
 import { useBridgeStore, useSessionStore } from '@/stores'
@@ -22,10 +22,6 @@ export function useChatSession() {
   const abortController = ref<AbortController | null>(null)
 
   const messages = computed(() => sessionStore.getMessages(sessionId.value))
-  const lastMessageId = computed(() => {
-    const items = messages.value
-    return items.length > 0 ? (items[items.length - 1]?.id ?? '') : ''
-  })
 
   async function refreshHeader() {
     if (!sessionId.value) return
@@ -33,7 +29,7 @@ export function useChatSession() {
     const session = sessionStore.getSession(sessionId.value)
     const agentType = session?.agentType ?? parseAgentTypeFromSessionId(sessionId.value)
 
-    if (agentType && !bridgeStore.statusByType[agentType]) {
+    if (agentType) {
       await bridgeStore
         .checkStatus(agentType, session?.connectionId)
         .catch(() => undefined)
@@ -42,8 +38,16 @@ export function useChatSession() {
     const status = agentType ? bridgeStore.statusByType[agentType] : undefined
     const online = session?.online ?? status?.connected ?? false
     const deviceName = status?.deviceName ?? session?.deviceName
+    const boundContextName =
+      status?.boundContextName ?? session?.boundContextName
 
-    header.value = resolveChatHeader(sessionId.value, session, online, deviceName)
+    header.value = resolveChatHeader(
+      sessionId.value,
+      session,
+      online,
+      deviceName,
+      boundContextName,
+    )
   }
 
   async function loadSession(
@@ -70,7 +74,7 @@ export function useChatSession() {
 
       const session = sessionStore.getSession(id)
       const agentType = session?.agentType ?? parseAgentTypeFromSessionId(id)
-      if (agentType && !bridgeStore.statusByType[agentType]) {
+      if (agentType) {
         await bridgeStore
           .checkStatus(agentType, session?.connectionId)
           .catch(() => undefined)
@@ -78,7 +82,15 @@ export function useChatSession() {
 
       const status = agentType ? bridgeStore.statusByType[agentType] : undefined
       const deviceName = status?.deviceName ?? session?.deviceName
-      header.value = resolveChatHeader(id, session, session?.online ?? status?.connected, deviceName)
+      const boundContextName =
+        status?.boundContextName ?? session?.boundContextName
+      header.value = resolveChatHeader(
+        id,
+        session,
+        session?.online ?? status?.connected,
+        deviceName,
+        boundContextName,
+      )
 
       if (hasAutoSend) {
         sessionStore.setMessages(id, [])
@@ -114,8 +126,14 @@ export function useChatSession() {
 
   function scrollToBottom() {
     scrollAnchor.value = ''
-    requestAnimationFrame(() => {
-      scrollAnchor.value = lastMessageId.value || 'chat-bottom'
+    void nextTick(() => {
+      requestAnimationFrame(() => {
+        scrollAnchor.value = 'chat-bottom'
+      })
+      window.setTimeout(() => {
+        scrollAnchor.value = ''
+        scrollAnchor.value = 'chat-bottom'
+      }, 160)
     })
   }
 
@@ -129,6 +147,7 @@ export function useChatSession() {
 
     const controller = new AbortController()
     abortController.value = controller
+    scrollToBottom()
 
     try {
       await sessionStore.sendMessageStream(sessionId.value, content, {
