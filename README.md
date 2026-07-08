@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme-logo-temp.png" alt="Linco Bridge logo" width="140" />
+  <img src="docs/images/readme-logo-temp.png" alt="Linco Bridge logo" width="140" />
 </p>
 
 <h1 align="center">Linco Bridge</h1>
@@ -122,7 +122,6 @@ npm run start:dev
 
 cd ../web
 npm install
-node scripts/generate-icons.mjs
 npm run dev:h5
 ```
 
@@ -139,7 +138,7 @@ linco-connect init \
 linco-connect start --daemon
 ```
 
-For the detailed flow, see [Quick Start](docs/quick-start.md) and the [platform README](linco-bridge-platform/README.md).
+For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
 
 ## 🤖 Supported Agents
 
@@ -194,6 +193,7 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 - [Troubleshooting](docs/troubleshooting.md)
 - [Connector README](linco-bridge-connect/README.en-US.md)
 - [Platform README](linco-bridge-platform/README.md)
+- [Platform Web / H5 README](linco-bridge-platform/web/README.md)
 - [Support Boundary](SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
