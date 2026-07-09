@@ -113,21 +113,44 @@ Then open a compatible client, confirm the device is online, enter a session, an
 
 ### Option 2: Open Reference Platform
 
-Start the reference backend and H5 frontend:
+Start the reference backend first:
 
 ```bash
 cd linco-bridge-platform/server
 npm install
 npm run start:dev
+```
 
-cd ../web
+Verify the backend:
+
+```bash
+curl http://127.0.0.1:3300/api/demo-config
+```
+
+Then start the H5 frontend:
+
+```bash
+cd linco-bridge-platform/web
 npm install
 npm run dev:h5
 ```
 
-Open the bridge page in the H5 frontend and copy the generated `linco-connect` setup command. A manual command usually looks like this:
+Open the local H5 URL printed by `npm run dev:h5`, then complete the bridge flow:
+
+1. go to the **Bridge** tab;
+2. click **Import from Codex**;
+3. copy the generated `setupCommands`;
+4. run the commands on the local machine;
+5. return to the page and click `I have copied it, get connection status`;
+6. wait for the page to confirm the connector is online;
+7. click `Enter Codex` to enter the chat page;
+8. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new session with `+`.
+
+A typical command set looks like this:
 
 ```bash
+npm install -g linco-connect
+
 linco-connect init \
   --token "demo-codex-app:demo-codex-secret" \
   --agent codex \
@@ -138,7 +161,7 @@ linco-connect init \
 linco-connect start --daemon
 ```
 
-For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
+For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), the [platform server README](linco-bridge-platform/server/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
 
 ### Option 3: Official Hosted Demo
 

@@ -113,21 +113,44 @@ linco-connect start --daemon
 
 ### 方式二：部署开源参考平台
 
-启动参考平台后端和 H5：
+先启动参考平台后端：
 
 ```bash
 cd linco-bridge-platform/server
 npm install
 npm run start:dev
+```
 
-cd ../web
+确认后端可用：
+
+```bash
+curl http://127.0.0.1:3300/api/demo-config
+```
+
+然后启动 H5 前端：
+
+```bash
+cd linco-bridge-platform/web
 npm install
 npm run dev:h5
 ```
 
-在 H5 中进入桥接页面，复制页面生成的 `linco-connect` 初始化命令。手动执行时，命令形态通常如下：
+打开 `npm run dev:h5` 输出的本地 H5 地址，然后按下面流程操作：
+
+1. 进入 **桥接** Tab；
+2. 点击 **从 Codex 导入**；
+3. 复制页面生成的 `setupCommands`；
+4. 在本机终端执行这些命令；
+5. 回到页面点击 `我已复制，获取连接状态`；
+6. 等待页面确认连接成功；
+7. 点击 `进入 Codex` 进入聊天页；
+8. 如需选择项目、进入已有会话或新建会话，可点击右上角文件夹图标。
+
+手动执行时，命令形态通常如下：
 
 ```bash
+npm install -g linco-connect
+
 linco-connect init \
   --token "demo-codex-app:demo-codex-secret" \
   --agent codex \
