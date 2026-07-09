@@ -21,20 +21,20 @@ describe('public-endpoint.util', () => {
   })
 
   it('builds https/wss origins for hosted demo', () => {
-    process.env.PUBLIC_HOST = 'demo.lincotalk.com'
+    process.env.PUBLIC_HOST = 'bridge-demo.lincotalk.com'
     delete process.env.PUBLIC_HTTP_SCHEME
     delete process.env.PUBLIC_WS_SCHEME
     expect(isLocalPublicHost()).toBe(false)
     expect(shouldEmbedWsUrlInSetupCommands()).toBe(true)
-    expect(resolvePublicHttpOrigin()).toBe('https://demo.lincotalk.com')
-    expect(resolvePublicWsBaseUrl()).toBe('wss://demo.lincotalk.com/bridge/ws')
+    expect(resolvePublicHttpOrigin()).toBe('https://bridge-demo.lincotalk.com')
+    expect(resolvePublicWsBaseUrl()).toBe('wss://bridge-demo.lincotalk.com/bridge/ws')
   })
 
   it('respects explicit scheme overrides', () => {
-    process.env.PUBLIC_HOST = 'demo.lincotalk.com'
+    process.env.PUBLIC_HOST = 'bridge-demo.lincotalk.com'
     process.env.PUBLIC_HTTP_SCHEME = 'http'
     process.env.PUBLIC_WS_SCHEME = 'ws'
-    expect(resolvePublicHttpOrigin()).toBe('http://demo.lincotalk.com')
-    expect(resolvePublicWsBaseUrl()).toBe('ws://demo.lincotalk.com/bridge/ws')
+    expect(resolvePublicHttpOrigin()).toBe('http://bridge-demo.lincotalk.com')
+    expect(resolvePublicWsBaseUrl()).toBe('ws://bridge-demo.lincotalk.com/bridge/ws')
   })
 })

@@ -41,12 +41,12 @@ cd linco-bridge-platform
 docker compose up --build -d
 ```
 
-`docker-compose.yml` 中设置环境变量（示例域名请替换）：
+`docker-compose.yml` 中设置环境变量（官方在线 Demo）：
 
 ```yaml
 environment:
   PORT: '3300'
-  PUBLIC_HOST: 'demo.lincotalk.com'
+  PUBLIC_HOST: 'bridge-demo.lincotalk.com'
   PUBLIC_HTTP_SCHEME: 'https'
   PUBLIC_WS_SCHEME: 'wss'
   SQLITE_PATH: /app/data/linco-bridge.db
@@ -57,7 +57,7 @@ environment:
 | 变量 | 本地默认 | 在线 Demo 示例 | 说明 |
 | --- | --- | --- | --- |
 | `PORT` | `3300` | `3300` | 容器内 HTTP/WS 端口 |
-| `PUBLIC_HOST` | `127.0.0.1` | `demo.lincotalk.com` | 写入 demo-config 与 setup 命令 |
+| `PUBLIC_HOST` | `127.0.0.1` | `bridge-demo.lincotalk.com` | 写入 demo-config 与 setup 命令 |
 | `PUBLIC_HTTP_SCHEME` | 本地 `http`，否则 `https` | `https` | REST 根地址 scheme |
 | `PUBLIC_WS_SCHEME` | 本地 `ws`，否则 `wss` | `wss` | connector WebSocket scheme |
 | `SQLITE_PATH` | `./data/linco-bridge.db` | `/app/data/...` | SQLite 文件路径 |
@@ -65,7 +65,7 @@ environment:
 当 `PUBLIC_HOST` 不是 `127.0.0.1` / `localhost` 时，导入页生成的 `setupCommands` 会自动带上：
 
 ```bash
-linco-connect init ... --ws-url wss://demo.lincotalk.com/bridge/ws/codex
+linco-connect init ... --ws-url wss://bridge-demo.lincotalk.com/bridge/ws/codex
 ```
 
 本地开发保持原样（不含 `--ws-url`，使用 `--allow-insecure-ws`）。
@@ -73,22 +73,22 @@ linco-connect init ... --ws-url wss://demo.lincotalk.com/bridge/ws/codex
 ### 健康检查
 
 ```bash
-curl https://demo.lincotalk.com/api/demo-config
+curl https://bridge-demo.lincotalk.com/api/demo-config
 ```
 
-期望返回 `apiBaseUrl` 为 `https://demo.lincotalk.com`，`wsBaseUrl` 为 `wss://demo.lincotalk.com/bridge/ws`。
+期望返回 `apiBaseUrl` 为 `https://bridge-demo.lincotalk.com`，`wsBaseUrl` 为 `wss://bridge-demo.lincotalk.com/bridge/ws`。
 
 ## 2. Nginx 反向代理
 
-示例（域名 `demo.lincotalk.com` 请替换）：
+官方在线 Demo 域名 `bridge-demo.lincotalk.com`：
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name demo.lincotalk.com;
+    server_name bridge-demo.lincotalk.com;
 
-    ssl_certificate     /etc/letsencrypt/live/demo.lincotalk.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/demo.lincotalk.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/bridge-demo.lincotalk.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bridge-demo.lincotalk.com/privkey.pem;
 
     root /var/www/linco-bridge-h5;
     index index.html;
@@ -141,28 +141,28 @@ npm run build:h5
 若静态与 API 不同域：
 
 ```bash
-VITE_API_BASE_URL=https://demo.lincotalk.com npm run build:h5
+VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:h5
 ```
 
 ## 4. 发布微信小程序
 
 ```bash
 cd linco-bridge-platform/web
-VITE_API_BASE_URL=https://demo.lincotalk.com npm run build:mp-weixin
+VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:mp-weixin
 ```
 
 1. 在 `web/src/manifest.json` 填写 `mp-weixin.appid`
 2. 微信开发者工具导入 `dist/build/mp-weixin`
 3. **开发管理 → 开发设置 → 服务器域名**：
-   - request 合法域名：`https://demo.lincotalk.com`
-   - socket 合法域名：`wss://demo.lincotalk.com`
+   - request 合法域名：`https://bridge-demo.lincotalk.com`
+   - socket 合法域名：`wss://bridge-demo.lincotalk.com`
 4. 提审前域名需 **ICP 备案**
 
 开发阶段可临时设 `urlCheck: false`，正式版必须配置合法域名。
 
 ## 5. 用户侧体验流程（文档可原文复制）
 
-1. 打开 `https://demo.lincotalk.com` 或微信小程序
+1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) 或微信小程序
 2. 进入 **桥接** → 选择 Agent（如 **从 Codex 导入**）
 3. 复制页面 `setupCommands`，在本机终端执行
 4. 回到页面点击 **我已复制，获取连接状态**
@@ -190,7 +190,7 @@ npm publish
 Release 中至少包含：
 
 - **本地 Demo**：clone → `server` + `web` 快速开始链接
-- **在线 Demo**：H5 URL、小程序名称/码
+- **在线 Demo**：[https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)、小程序名称/码
 - **支持 Agent**：Codex、Claude Code、Hermes、OpenClaw
 - **免责声明**：公共演示、数据共享、非生产环境
 

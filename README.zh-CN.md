@@ -144,7 +144,7 @@ linco-connect start --daemon
 
 若你们已部署托管 Demo（H5 / 微信小程序），用户只需：
 
-1. 打开在线 Demo 地址或小程序
+1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) 或小程序；
 2. **桥接** → 复制 `setupCommands` → 本机执行
 3. 本机安装并运行 `linco-connect` + 对应 Agent CLI
 

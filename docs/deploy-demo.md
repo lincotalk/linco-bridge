@@ -34,11 +34,11 @@ User PC
 
 ## 1. Deploy server
 
-Set environment variables (replace the sample domain):
+Set environment variables for the official hosted demo at [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com):
 
 ```yaml
 PORT: '3300'
-PUBLIC_HOST: 'demo.lincotalk.com'
+PUBLIC_HOST: 'bridge-demo.lincotalk.com'
 PUBLIC_HTTP_SCHEME: 'https'
 PUBLIC_WS_SCHEME: 'wss'
 SQLITE_PATH: /app/data/linco-bridge.db
@@ -47,13 +47,13 @@ SQLITE_PATH: /app/data/linco-bridge.db
 When `PUBLIC_HOST` is not loopback, setup commands include:
 
 ```bash
-linco-connect init ... --ws-url wss://demo.lincotalk.com/bridge/ws/codex
+linco-connect init ... --ws-url wss://bridge-demo.lincotalk.com/bridge/ws/codex
 ```
 
 Health check:
 
 ```bash
-curl https://demo.lincotalk.com/api/demo-config
+curl https://bridge-demo.lincotalk.com/api/demo-config
 ```
 
 ## 2. Nginx
@@ -72,7 +72,7 @@ npm run build:h5
 Cross-origin:
 
 ```bash
-VITE_API_BASE_URL=https://demo.lincotalk.com npm run build:h5
+VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:h5
 ```
 
 Deploy `dist/build/h5` to static hosting.
@@ -80,7 +80,7 @@ Deploy `dist/build/h5` to static hosting.
 ## 4. WeChat mini program
 
 ```bash
-VITE_API_BASE_URL=https://demo.lincotalk.com npm run build:mp-weixin
+VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:mp-weixin
 ```
 
 Configure the `manifest.json` appid and the allowed request and WebSocket domains in the WeChat Mini Program console.

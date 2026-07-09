@@ -26,7 +26,7 @@ For the official hosted demo, users usually only need to:
 2. go to **Bridge**, import an Agent, and copy the generated `setupCommands`;
 3. run `linco-connect` plus the target Agent CLI on their own PC.
 
-Deployment details are documented in [Hosted Demo Deployment](deploy-demo.md).
+To use the official hosted demo, open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). To deploy your own hosted demo, see [Hosted Demo Deployment](deploy-demo.md).
 
 ## Detailed Docs
 
