@@ -62,25 +62,23 @@ See the Chinese doc for a full sample: [`zh-CN/deploy-demo.md`](zh-CN/deploy-dem
 
 ## 3. Build H5
 
-Same-origin (recommended):
+Production env lives in [`linco-bridge-platform/web/prod.env`](../linco-bridge-platform/web/prod.env). `npm run build:h5` loads it automatically.
 
 ```bash
 cd linco-bridge-platform/web
+npm install
 npm run build:h5
 ```
 
-Cross-origin:
+Deploy the entire `dist/build/h5` directory (including `assets/` and `static/`) to static hosting.
 
-```bash
-VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:h5
-```
-
-Deploy `dist/build/h5` to static hosting.
+If static files and API are on different origins, update `VITE_API_BASE_URL` in `prod.env` and rebuild.
 
 ## 4. WeChat mini program
 
 ```bash
-VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:mp-weixin
+cd linco-bridge-platform/web
+npm run build:mp-weixin
 ```
 
 Configure the `manifest.json` appid and the allowed request and WebSocket domains in the WeChat Mini Program console.

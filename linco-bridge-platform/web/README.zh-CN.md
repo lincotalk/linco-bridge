@@ -92,13 +92,15 @@ npm run build:mp-weixin
 
 ## 环境变量
 
+生产构建（`build:h5` / `build:mp-weixin`）会自动加载仓库根目录 [`prod.env`](prod.env)，无需在命令行手写 `VITE_*`。
+
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | 空 | REST 根地址 |
+| `VITE_API_BASE_URL` | 见 `prod.env` | REST 根地址；与 API 同域时可留空 |
 | `VITE_USE_REMOTE_API` | `true` | 设为 `false` 时使用内存 Mock |
 | `VITE_AGENT_CHAT_SDK` | 空 | 设为 `mock` 时强制 AgentChat SDK 走 Mock |
 
-开发代理：
+本地开发不读 `prod.env`，`VITE_API_BASE_URL` 保持空，走 Vite 代理：
 
 ```text
 /api → http://127.0.0.1:3300

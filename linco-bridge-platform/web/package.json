@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev:h5": "uni",
-    "build:h5": "uni build",
+    "build:h5": "node scripts/with-prod-env.mjs build",
     "dev:mp-weixin": "uni -p mp-weixin",
-    "build:mp-weixin": "uni build -p mp-weixin",
+    "build:mp-weixin": "node scripts/with-prod-env.mjs build -p mp-weixin",
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
