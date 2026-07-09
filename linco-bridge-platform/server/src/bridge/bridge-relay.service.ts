@@ -498,7 +498,7 @@ export class BridgeRelayService {
     if (!pending) return
 
     const command = typeof frame.command === 'string' ? frame.command.trim() : ''
-    if (command && command !== pending.expectedCommand) return
+    if (command && !this.matchesExpectedSlashCommand(command, pending.expectedCommand)) return
 
     clearTimeout(pending.timeout)
     this.pendingSlashCommands.delete(streamId)
@@ -515,6 +515,12 @@ export class BridgeRelayService {
     }
 
     pending.resolve({})
+  }
+
+  private matchesExpectedSlashCommand(received: string, expected: string): boolean {
+    if (received === expected) return true
+    if (expected === 'history' && received === 'history-reload') return true
+    return false
   }
 
   private buildInboundPayload(

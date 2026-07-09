@@ -1,5 +1,6 @@
 import { computed, nextTick, ref } from 'vue'
 import { parseAgentTypeFromSessionId } from '@/bridge/sdk/agent-chat'
+import { BRIDGE_HISTORY_SYNC_LIMIT } from '@/bridge/constants'
 import type { OutboundChatFile } from '@/api/session-api'
 import { useBridgeStore, useSessionStore } from '@/stores'
 import { takePendingFiles } from '@/composables/pendingAttachmentTransfer'
@@ -100,7 +101,10 @@ export function useChatSession() {
         }
 
         try {
-          await sessionStore.loadMessages(id, normalized.reloadHistory ? 5 : undefined)
+          await sessionStore.loadMessages(id, {
+            limit: normalized.reloadHistory ? BRIDGE_HISTORY_SYNC_LIMIT : undefined,
+            reload: normalized.reloadHistory,
+          })
         } catch (err) {
           sessionStore.setMessages(id, [])
           const message = err instanceof Error ? err.message : '加载消息失败'
@@ -194,14 +198,15 @@ export function useChatSession() {
     scrollToBottom()
   }
 
-  async function reloadHistory(limit?: number) {
+  async function reloadHistory(limit = BRIDGE_HISTORY_SYNC_LIMIT, reload = true) {
     if (!sessionId.value) return
     loading.value = true
     try {
-      await sessionStore.loadMessages(sessionId.value, limit)
+      await sessionStore.loadMessages(sessionId.value, { limit, reload })
       scrollToBottom()
     } finally {
       loading.value = false
+      await refreshHeader()
     }
   }
 

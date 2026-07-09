@@ -23,6 +23,29 @@ export function buildHistoryReloadCommand(input: {
   return limit > 0 ? `/history-reload ${limit}` : '/history-reload'
 }
 
+/** Read-only history fetch — aligned with Flutter `bridgeHistoryCommandForSelection`. */
+export function buildHistoryCommand(input: {
+  limit?: number
+  projectPath?: string | null
+  agentSessionId?: string | null
+  bridgeType?: string | null
+}): string {
+  const limit = input.limit && input.limit > 0 ? Math.floor(input.limit) : 0
+  const projectPath = input.projectPath?.trim() ?? ''
+  const agentSessionId = input.agentSessionId?.trim() ?? ''
+  const suffix = limit > 0 ? ` ${limit}` : ''
+
+  if (!projectPath && agentSessionId && input.bridgeType === 'codex') {
+    return `/history --chat ${quoteBridgeCommandArg(agentSessionId)}${suffix}`
+  }
+
+  if (projectPath && agentSessionId) {
+    return `/history --project ${quoteBridgeCommandArg(projectPath)} --session ${quoteBridgeCommandArg(agentSessionId)}${suffix}`
+  }
+
+  return limit > 0 ? `/history ${limit}` : '/history'
+}
+
 export interface SessionsItemPayload {
   id?: string
   title?: string

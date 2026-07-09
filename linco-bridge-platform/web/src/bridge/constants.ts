@@ -65,3 +65,6 @@ export function supportsBridgeSlashCommands(type: AgentBridgeType): boolean {
     type === 'openclaw'
   )
 }
+
+/** Aligned with Flutter `kBridgeLandingHistorySyncLimit`. */
+export const BRIDGE_HISTORY_SYNC_LIMIT = 5

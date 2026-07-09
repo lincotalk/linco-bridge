@@ -616,6 +616,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .run(bridgeSettingsJson, Date.now(), sessionId)
   }
 
+  clearSessionMessages(sessionId: string): void {
+    this.db.prepare(`DELETE FROM chat_messages WHERE session_id = ?`).run(sessionId)
+  }
+
   listMessages(sessionId: string, limit?: number): ChatMessageRow[] {
     if (limit && limit > 0) {
       const rows = this.db

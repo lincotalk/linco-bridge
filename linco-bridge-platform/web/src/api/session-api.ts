@@ -27,9 +27,21 @@ export async function resumeSession(sessionId: string): Promise<ResumeSessionRes
   return res.data
 }
 
-export async function fetchMessages(sessionId: string, limit?: number): Promise<ChatMessage[]> {
-  const query = typeof limit === 'number' && limit > 0 ? `?limit=${limit}` : ''
-  const res = await apiGet<ChatMessage[]>(`/api/sessions/${sessionId}/messages${query}`)
+export async function fetchMessages(
+  sessionId: string,
+  options?: { limit?: number; reload?: boolean },
+): Promise<ChatMessage[]> {
+  const params = new URLSearchParams()
+  if (typeof options?.limit === 'number' && options.limit > 0) {
+    params.set('limit', String(options.limit))
+  }
+  if (options?.reload) {
+    params.set('reload', '1')
+  }
+  const query = params.toString()
+  const res = await apiGet<ChatMessage[]>(
+    `/api/sessions/${sessionId}/messages${query ? `?${query}` : ''}`,
+  )
   if (!res.success || !res.data) {
     throw new Error(res.message || '加载消息失败')
   }
