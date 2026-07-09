@@ -7,7 +7,10 @@ services:
       - '3300:3300'
     environment:
       PORT: '3300'
-      # 在线 Demo：改为公网域名，并设 PUBLIC_HTTP_SCHEME / PUBLIC_WS_SCHEME
+      # 在线 Demo：https://bridge-demo.lincotalk.com
+      # PUBLIC_HOST: 'bridge-demo.lincotalk.com'
+      # PUBLIC_HTTP_SCHEME: 'https'
+      # PUBLIC_WS_SCHEME: 'wss'
       PUBLIC_HOST: '127.0.0.1'
       SQLITE_PATH: /app/data/linco-bridge.db
     volumes:
