@@ -44,4 +44,4 @@ For the full official product experience, see Linco App:
 
 - The community group is a good place to ask integration questions, share usage feedback, and discuss AI coding, Agent workflows, and Linco-related practice.
 - If you run into issues while using Linco Bridge, you are welcome to raise them in the community first. We will continue turning common questions into clearer repository documentation.
-- If you discover a security vulnerability or another sensitive issue, please follow [SECURITY.md](SECURITY.md) or contact a group administrator for a private report.
+- If you discover a security vulnerability or another sensitive issue, please follow [SECURITY.md](SECURITY.md) or email `369805210@qq.com` for a private report.

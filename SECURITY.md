@@ -6,9 +6,9 @@ Do not open a public issue for vulnerabilities involving credentials, authentica
 
 如问题涉及凭证、鉴权绕过、远程执行、未授权文件访问、会话串线或私密数据暴露，请不要提交公开 Issue。
 
-Use GitHub Private Vulnerability Reporting for this repository. If private reporting is unavailable in your environment, open a minimal public issue that only requests a secure contact path and does not include technical details, proof of concept, credentials, payloads, or affected private data.
+Use GitHub Private Vulnerability Reporting for this repository. If private reporting is unavailable in your environment, email `369805210@qq.com`, or open a minimal public issue that only requests a secure contact path and does not include technical details, proof of concept, credentials, payloads, or affected private data.
 
-请优先使用本仓库的 GitHub Private Vulnerability Reporting。如果当前环境无法使用私密报告能力，请提交一个最小化的公开 Issue，仅说明你需要一个安全反馈渠道，不要包含技术细节、PoC、凭证、攻击载荷或受影响的私密数据。
+请优先使用本仓库的 GitHub Private Vulnerability Reporting。如果当前环境无法使用私密报告能力，请发送邮件至 `369805210@qq.com`，或提交一个最小化的公开 Issue，仅说明你需要一个安全反馈渠道，不要包含技术细节、PoC、凭证、攻击载荷或受影响的私密数据。
 
 Include:
 
