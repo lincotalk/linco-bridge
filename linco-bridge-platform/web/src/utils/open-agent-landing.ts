@@ -27,6 +27,19 @@ export function buildAgentHistoryUrl(input: AgentLandingRouteInput): string {
   return `/pages/chat/history?${params.toString()}`
 }
 
+export function buildBotConfigUrl(input: AgentLandingRouteInput): string {
+  const params = new URLSearchParams({ agentType: input.agentType })
+  const connectionId = input.connectionId?.trim()
+  if (connectionId) {
+    params.set('connectionId', connectionId)
+  }
+  return `/pages/chat/bot-config?${params.toString()}`
+}
+
+export function openBotConfig(input: AgentLandingRouteInput): void {
+  uni.navigateTo({ url: buildBotConfigUrl(input) })
+}
+
 export function openAgentLanding(input: AgentLandingRouteInput): void {
   uni.navigateTo({ url: buildAgentLandingUrl(input) })
 }

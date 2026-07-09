@@ -1,9 +1,11 @@
 import type {
   AgentBridgeBindableContext,
+  AgentBridgeConnectionDetail,
   AgentBridgeSetup,
   AgentBridgeType,
   ApiResponse,
   BridgeBindContextResult,
+  BridgeConnectionDeleteResult,
   BridgeProjectItem,
   BridgeStatusResult,
   BridgeSyncResult,
@@ -49,6 +51,13 @@ export interface BridgeSdk {
   ): Promise<BridgeBindContextResult>
   /** Link seeded session after connector online — codex / claude path. */
   syncAgent(type: AgentBridgeType, connectionId?: string): Promise<BridgeSyncResult>
+  getConnectionDetail(type: AgentBridgeType, connectionId?: string): Promise<AgentBridgeConnectionDetail>
+  renameConnection(
+    type: AgentBridgeType,
+    connectionId: string,
+    displayName: string,
+  ): Promise<AgentBridgeConnectionDetail>
+  deleteConnection(type: AgentBridgeType, connectionId: string): Promise<BridgeConnectionDeleteResult>
   loadSettingsOptions(
     type: AgentBridgeType,
     connectionId?: string,

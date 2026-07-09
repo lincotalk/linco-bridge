@@ -32,19 +32,18 @@ import {
   shouldShowSessionInAgentHistory,
 } from './agent-history-list.util'
 import {
-  formatSessionListTitle,
   resolveConnectionDeviceName,
   resolveSessionDeviceName,
 } from './session-list-title.util'
 import { groupSessionsForMessageList } from './session-list-group.util'
-import { type AgentBridgeType, agentDisplayName, isAgentBridgeType } from '../shared/constants'
+import { type AgentBridgeType, agentDisplayName, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
 import type { ConnectorFileInput, ConnectorSendInput } from '../bridge/bridge-relay.service'
 
 export interface ChatSessionDto {
   id: string
   agentType: string
   connectionId?: string
-  /** Message tab row title: agent name + device. */
+  /** Message tab row title: agent display name. */
   title: string
   /** Conversation title for chat page header. */
   conversationTitle?: string
@@ -161,6 +160,9 @@ export class ChatService {
         connection,
         this.presence,
       )
+      const agentName = connection
+        ? resolveConnectionDisplayName(connection)
+        : agentDisplayName(row.agent_type)
       const lastAssistant = this.database.getLastAssistantMessage(row.id)
       const preview = resolveAgentHistoryPreview(row, lastAssistant?.content)
       const bridgeSettings = parseBridgeSessionSettings(row.bridge_settings_json ?? null) ?? undefined
@@ -168,8 +170,8 @@ export class ChatService {
         id: row.id,
         agentType: row.agent_type,
         connectionId: connection?.id,
-        title: formatSessionListTitle(agentDisplayName(row.agent_type), deviceName),
-        conversationTitle: row.title.trim() || agentDisplayName(row.agent_type),
+        title: agentName,
+        conversationTitle: row.title.trim() || agentName,
         lastMessage: preview === '暂无消息' ? row.last_message : preview,
         updatedAt: row.update_time,
         online: connection ? this.presence.isOnline(connection.id) : false,
@@ -506,7 +508,7 @@ export class ChatService {
 
     return {
       agentType,
-      title: agentDisplayName(agentType),
+      title: connection ? resolveConnectionDisplayName(connection) : agentDisplayName(agentType),
       avatar: BRIDGE_AVATAR[agentType],
       deviceId: deviceName || undefined,
       boundContextName: connection?.bound_context_name?.trim() || undefined,

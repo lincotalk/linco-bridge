@@ -40,6 +40,43 @@ export class BridgeController {
     return ok(this.bridgeService.getStatus(type, (connectionId ?? snakeConnectionId)?.trim()))
   }
 
+  @Get(':type/connection-detail')
+  getConnectionDetail(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+  ) {
+    return ok(this.bridgeService.getConnectionDetail(type, (connectionId ?? snakeConnectionId)?.trim()))
+  }
+
+  @Post(':type/connection/rename')
+  renameConnection(
+    @Param('type') type: string,
+    @Body() body: { connectionId?: string; connection_id?: string; displayName?: string; display_name?: string },
+  ) {
+    const connectionId = (body.connectionId ?? body.connection_id)?.trim()
+    const displayName = (body.displayName ?? body.display_name)?.trim()
+    if (!connectionId) {
+      throw new NotFoundException('connectionId 不能为空')
+    }
+    if (!displayName) {
+      throw new NotFoundException('名称不能为空')
+    }
+    return ok(this.bridgeService.renameConnection(type, connectionId, displayName))
+  }
+
+  @Post(':type/connection/delete')
+  deleteConnection(
+    @Param('type') type: string,
+    @Body() body: { connectionId?: string; connection_id?: string },
+  ) {
+    const connectionId = (body.connectionId ?? body.connection_id)?.trim()
+    if (!connectionId) {
+      throw new NotFoundException('connectionId 不能为空')
+    }
+    return ok(this.bridgeService.deleteConnection(type, connectionId))
+  }
+
   @Get(':type/contexts')
   async listContexts(
     @Param('type') type: string,

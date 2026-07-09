@@ -73,7 +73,7 @@ export interface ChatSessionItem {
   id: string
   agentType: AgentBridgeType
   connectionId?: string
-  /** Message tab row title: agent name + device. */
+  /** Message tab row title: agent display name. */
   title: string
   /** Conversation title for chat page header. */
   conversationTitle?: string
@@ -175,6 +175,30 @@ export interface BridgeSyncResult {
   connectionId: string
   sessionId: string
   agentName: string
+}
+
+/** Bot config — bridge connection detail (aligned with Flutter AgentBridgeConnectionDetail). */
+export interface AgentBridgeConnectionDetail {
+  bridgeType: AgentBridgeType
+  connectionId: string
+  displayName: string
+  description: string
+  avatar: string
+  appId: string
+  appSecret: string
+  accountId: string
+  status: BridgeConnectionStatus
+  deviceName?: string
+  lastSeenAt?: number
+  clientVersion?: string
+  setupCommands: string
+  connectChannel?: string
+}
+
+export interface BridgeConnectionDeleteResult {
+  deleted: boolean
+  commandSent: boolean
+  connectionId: string
 }
 
 /** Agent landing — recent conversation row (aligned with Flutter AgentSidePanelSession). */

@@ -27,6 +27,9 @@ export interface BridgeConnectionRow {
   session_id: string | null
   device_id: string | null
   device_name: string | null
+  display_name: string | null
+  last_seen_at: number | null
+  client_version: string | null
   hidden_from_message_list?: number
   create_time: number
   update_time: number
@@ -122,6 +125,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.ensureColumn('bridge_connections', 'device_id', 'TEXT')
     this.ensureColumn('bridge_connections', 'device_name', 'TEXT')
     this.ensureColumn('bridge_connections', 'hidden_from_message_list', 'INTEGER NOT NULL DEFAULT 0')
+    this.ensureColumn('bridge_connections', 'display_name', 'TEXT')
+    this.ensureColumn('bridge_connections', 'last_seen_at', 'INTEGER')
+    this.ensureColumn('bridge_connections', 'client_version', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_project_path', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_agent_session_id', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_device_name', 'TEXT')
@@ -472,6 +478,43 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       stmt.run(now, sessionId)
     }
     return unique
+  }
+
+  updateConnectionDisplayName(connectionId: string, displayName: string): BridgeConnectionRow | undefined {
+    const normalized = displayName.trim()
+    const now = Date.now()
+    this.db
+      .prepare(`UPDATE bridge_connections SET display_name = ?, update_time = ? WHERE id = ?`)
+      .run(normalized || null, now, connectionId)
+    return this.getConnectionById(connectionId)
+  }
+
+  touchConnectionLastSeen(connectionId: string, seenAt = Date.now()): void {
+    this.db
+      .prepare(`UPDATE bridge_connections SET last_seen_at = ?, update_time = ? WHERE id = ?`)
+      .run(seenAt, seenAt, connectionId)
+  }
+
+  updateConnectionClientVersion(connectionId: string, clientVersion: string): void {
+    const normalized = clientVersion.trim()
+    if (!normalized) return
+    const now = Date.now()
+    this.db
+      .prepare(`UPDATE bridge_connections SET client_version = ?, update_time = ? WHERE id = ?`)
+      .run(normalized, now, connectionId)
+  }
+
+  deleteBridgeConnectionPermanently(connectionId: string): boolean {
+    const normalized = connectionId.trim()
+    if (!normalized) return false
+    const sessionIds = this.listSessionIdsByBridgeConnectionId(normalized)
+    if (sessionIds.length > 0) {
+      this.deleteSessionsPermanently(sessionIds)
+    }
+    const result = this.db
+      .prepare(`DELETE FROM bridge_connections WHERE id = ?`)
+      .run(normalized)
+    return result.changes > 0
   }
 
   deleteSessionsPermanently(sessionIds: string[]): string[] {

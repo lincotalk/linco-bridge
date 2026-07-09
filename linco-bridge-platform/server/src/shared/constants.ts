@@ -40,6 +40,17 @@ export function agentDisplayName(type: AgentBridgeType): string {
   }
 }
 
+export function agentBridgeSubtitle(type: AgentBridgeType): string {
+  return `${agentDisplayName(type)} 桥接`
+}
+
+export function resolveConnectionDisplayName(
+  connection: { display_name?: string | null; bridge_type: AgentBridgeType },
+): string {
+  const custom = connection.display_name?.trim()
+  return custom || agentDisplayName(connection.bridge_type)
+}
+
 export function connectAgentFlag(type: AgentBridgeType): string {
   return type
 }
