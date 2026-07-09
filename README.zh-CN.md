@@ -89,6 +89,11 @@ Linco App、Reference Web、自定义 H5/小程序/App/IM 客户端
 
 ### 方式一：使用官方通道
 
+官方通道通常配合 Linco App 使用：
+
+- iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
+- Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
+
 安装本地连接器：
 
 ```bash
@@ -170,6 +175,10 @@ linco-connect start --daemon
 1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) 或小程序；
 2. **桥接** → 复制 `setupCommands` → 本机执行
 3. 本机安装并运行 `linco-connect` + 对应 Agent CLI
+
+当前在线 Demo 更适合作为轻量公开体验环境，不提供正式账号体系。用户状态通常通过匿名访客 ID 与浏览器本地缓存做隔离；如果清理浏览器缓存、更换设备或使用无痕模式，本地 Demo 历史记录和状态可能丢失。
+
+请不要在在线 Demo 中输入敏感信息、长期保存数据或正式业务数据。
 
 部署说明见 [在线 Demo 部署指南](docs/zh-CN/deploy-demo.md)。
 
