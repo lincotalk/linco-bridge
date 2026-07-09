@@ -89,6 +89,11 @@ Linco App, Reference Web, custom H5/mini program/app/IM client
 
 ### Option 1: Official Channel
 
+The official channel is typically used together with Linco App:
+
+- iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
+- Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
+
 Install the local connector:
 
 ```bash
@@ -170,6 +175,10 @@ If you already provide a hosted demo experience such as H5 or a WeChat Mini Prog
 1. open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) or the mini program;
 2. go to **Bridge**, copy the generated `setupCommands`, and run them locally;
 3. install and run `linco-connect` together with the target Agent CLI on their own PC.
+
+The current hosted demo is designed as a lightweight public experience. It does not require a formal account system. User state is typically isolated through an anonymous visitor ID together with browser-local cache. If the browser cache is cleared, the device is changed, or an incognito window is used, local demo history and state may be lost.
+
+Do not use the hosted demo for sensitive information, long-term storage, or formal production data.
 
 For deployment details, see [Hosted Demo Deployment](docs/deploy-demo.md).
 
