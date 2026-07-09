@@ -31,6 +31,6 @@ We want Linco Bridge to be a respectful, technically honest, and welcoming proje
 - Do not repost private or harmful content more widely than needed for moderation.
 - If a report also contains a security problem, use the security process in `SECURITY.md` for the technical details.
 
-Report conduct issues privately to the maintainers through repository contact channels or platform moderation tools. Maintainers may edit, hide, reject, or ban participation when needed to protect the community.
+Report conduct issues privately to the maintainers at `369805210@qq.com` or through platform moderation tools. Maintainers may edit, hide, reject, or ban participation when needed to protect the community.
 
-行为问题请通过仓库私密联系渠道或平台治理工具联系维护者。为保护社区，维护者可编辑、隐藏、拒绝内容或限制参与。
+行为问题请通过 `369805210@qq.com` 或平台治理工具私密联系维护者。为保护社区，维护者可编辑、隐藏、拒绝内容或限制参与。
