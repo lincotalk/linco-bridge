@@ -35,6 +35,7 @@ export class BridgeGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     client.__connectionId = connection.id
     this.presence.attach(connection.id, client)
+    this.bridgeService.markConnectionOnline(connection.id)
     this.logger.log(`Bridge connected type=${connection.bridge_type} id=${connection.id}`)
 
     client.on('message', (data: RawData) => {
@@ -54,6 +55,7 @@ export class BridgeGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const connectionId = client.__connectionId
     if (!connectionId) return
     this.presence.detach(connectionId, client)
+    this.bridgeService.markConnectionOffline(connectionId)
     this.logger.log(`Bridge disconnected id=${connectionId}`)
   }
 
@@ -73,12 +75,22 @@ export class BridgeGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (frame.type === 'presence_event' && client.__connectionId) {
       const device = frame.device
+      let clientVersion: string | undefined
+      const clientInfo = frame.client
+      if (clientInfo && typeof clientInfo === 'object') {
+        const record = clientInfo as Record<string, unknown>
+        if (typeof record.version === 'string') {
+          clientVersion = record.version
+        }
+      }
       if (device && typeof device === 'object') {
         const record = device as Record<string, unknown>
         this.bridgeService.persistConnectionDeviceInfo(client.__connectionId, {
           id: typeof record.id === 'string' ? record.id : undefined,
           name: typeof record.name === 'string' ? record.name : undefined,
-        })
+        }, clientVersion)
+      } else if (clientVersion) {
+        this.bridgeService.persistConnectionDeviceInfo(client.__connectionId, {}, clientVersion)
       }
       return
     }

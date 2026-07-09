@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { DatabaseService, type BridgeConnectionRow } from '../database/database.service'
-import { type AgentBridgeType, agentDisplayName, isAgentBridgeType } from '../shared/constants'
+import { type AgentBridgeType, agentDisplayName, agentBridgeSubtitle, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
 import {
   buildSessionsCommand,
   parseAgentPickerPayload,
@@ -13,6 +13,8 @@ import {
 import { BridgePresenceService } from './bridge-presence.service'
 import { BridgeRelayService, type ConnectorSendInput } from './bridge-relay.service'
 import { toBridgeSetupDto } from './bridge-setup.dto'
+import type { BridgeConnectionDetailDto } from './bridge-connection-detail.dto'
+import { BRIDGE_CONNECT_CHANNEL } from './bridge.commands'
 import { resolveConnectionDeviceName } from '../chat/session-list-title.util'
 import { resolvePublicWsBaseUrl } from '../shared/public-endpoint.util'
 import {
@@ -52,6 +54,13 @@ const DEFAULT_CONTEXTS: Record<AgentBridgeType, BindableContextDto[]> = {
   openclaw: [{ id: 'agent-main', label: 'main', description: 'OpenClaw agent' }],
 }
 
+const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
+  codex: '/static/icons/bot/bridge_codex.png',
+  claude: '/static/icons/bot/bridge_claude.png',
+  hermes: '/static/icons/bot/bridge_hermes.png',
+  openclaw: '/static/icons/bot/bridge_claw.png',
+}
+
 const CONNECTOR_CONTEXT_TYPES = new Set<AgentBridgeType>(['codex', 'claude'])
 const CONNECTOR_SELECTOR_TYPES = new Set<AgentBridgeType>(['openclaw', 'hermes'])
 
@@ -73,9 +82,22 @@ export class BridgeService {
   persistConnectionDeviceInfo(
     connectionId: string,
     device: { id?: string; name?: string },
+    clientVersion?: string,
   ): void {
     this.presence.updateDeviceInfo(connectionId, device)
     this.database.updateConnectionDevice(connectionId, device)
+    this.database.touchConnectionLastSeen(connectionId)
+    if (clientVersion?.trim()) {
+      this.database.updateConnectionClientVersion(connectionId, clientVersion)
+    }
+  }
+
+  markConnectionOnline(connectionId: string): void {
+    this.database.touchConnectionLastSeen(connectionId)
+  }
+
+  markConnectionOffline(connectionId: string): void {
+    this.database.touchConnectionLastSeen(connectionId)
   }
 
   getSetup(type: string, connectionId?: string) {
@@ -153,6 +175,113 @@ export class BridgeService {
         resolveConnectionDeviceName(connection.id, this.presence, connection) || undefined,
       boundContextName: connection.bound_context_name?.trim() || undefined,
       boundContextId: connection.bound_context_id?.trim() || undefined,
+    }
+  }
+
+  getConnectionDetail(type: string, connectionId?: string): BridgeConnectionDetailDto {
+    if (!isAgentBridgeType(type)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    const connection = this.lookupConnection(type, connectionId)
+    const setup = toBridgeSetupDto(
+      {
+        bridgeType: connection.bridge_type,
+        connectionId: connection.id,
+        appId: connection.app_id,
+        appSecret: connection.app_secret,
+        accountId: connection.account_id,
+        boundContextId: connection.bound_context_id,
+      },
+      this.getWsUrl(connection.bridge_type),
+    )
+    const online = this.presence.isOnline(connection.id)
+    const deviceName =
+      resolveConnectionDeviceName(connection.id, this.presence, connection) || undefined
+
+    return {
+      bridgeType: connection.bridge_type,
+      connectionId: connection.id,
+      displayName: resolveConnectionDisplayName(connection),
+      description: agentBridgeSubtitle(connection.bridge_type),
+      avatar: BRIDGE_AVATAR[connection.bridge_type],
+      appId: connection.app_id,
+      appSecret: connection.app_secret,
+      accountId: connection.account_id,
+      status: online ? 'online' : 'offline',
+      deviceName,
+      lastSeenAt: online ? Date.now() : connection.last_seen_at ?? undefined,
+      clientVersion: connection.client_version?.trim() || undefined,
+      setupCommands: setup.setupCommands,
+      connectChannel: setup.connectChannel,
+    }
+  }
+
+  renameConnection(type: string, connectionId: string, displayName: string): BridgeConnectionDetailDto {
+    if (!isAgentBridgeType(type)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    const normalizedId = connectionId.trim()
+    const normalizedName = displayName.trim()
+    if (!normalizedId) {
+      throw new NotFoundException('connectionId 不能为空')
+    }
+    if (!normalizedName) {
+      throw new NotFoundException('名称不能为空')
+    }
+    const connection = this.database.getConnectionById(normalizedId)
+    if (!connection || connection.bridge_type !== type) {
+      throw new NotFoundException('连接配置不存在')
+    }
+    this.database.updateConnectionDisplayName(normalizedId, normalizedName)
+    return this.getConnectionDetail(type, normalizedId)
+  }
+
+  deleteConnection(type: string, connectionId: string): {
+    deleted: boolean
+    commandSent: boolean
+    connectionId: string
+  } {
+    if (!isAgentBridgeType(type)) {
+      throw new NotFoundException('不支持的 Agent 类型')
+    }
+    const normalizedId = connectionId.trim()
+    if (!normalizedId) {
+      throw new NotFoundException('connectionId 不能为空')
+    }
+    const connection = this.database.getConnectionById(normalizedId)
+    if (!connection || connection.bridge_type !== type) {
+      throw new NotFoundException('连接配置不存在')
+    }
+
+    let commandSent = false
+    if (this.presence.isOnline(connection.id)) {
+      const sessionId =
+        connection.session_id ??
+        this.database.getSessionByConnectionId(connection.id)?.id ??
+        `delete:${connection.id}`
+      const removeCommand = `/remove-account --agent ${type} --account ${connection.account_id}`
+      commandSent = this.presence.sendJson(connection.id, {
+        type: 'inbound_message',
+        to: type,
+        accountId: connection.account_id,
+        agentId: connection.bound_context_id ?? 'main',
+        channel: BRIDGE_CONNECT_CHANNEL,
+        chatType: 'direct',
+        userId: this.database.demoUserId,
+        messageId: `remove_account_${connection.id}_${Date.now()}`,
+        streamId: `linco-remove-account-${connection.id}-${Date.now()}`,
+        sessionKey: sessionId,
+        text: removeCommand,
+        files: [],
+      })
+      this.presence.disconnect(connection.id, 'Connection deleted')
+    }
+
+    const deleted = this.database.deleteBridgeConnectionPermanently(normalizedId)
+    return {
+      deleted,
+      commandSent,
+      connectionId: normalizedId,
     }
   }
 
@@ -900,13 +1029,18 @@ export class BridgeService {
     return sessionId
   }
 
-  private resolveConnection(type: AgentBridgeType, connectionId?: string): BridgeConnectionRow {
+  private lookupConnection(type: AgentBridgeType, connectionId?: string): BridgeConnectionRow {
     const connection = connectionId?.trim()
       ? this.database.getConnectionById(connectionId.trim())
       : this.database.getPrimaryConnectionByType(type)
     if (!connection || connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
+    return connection
+  }
+
+  private resolveConnection(type: AgentBridgeType, connectionId?: string): BridgeConnectionRow {
+    const connection = this.lookupConnection(type, connectionId)
     if (!this.presence.isOnline(connection.id)) {
       throw new ConflictException('本机 Agent 尚未连接')
     }

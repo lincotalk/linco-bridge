@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import AgentHistoryRow from '@/components/AgentHistoryRow.vue'
 import { buildLandingSubtitle } from '@/bridge/sdk/agent-chat'
 import { agentSidePanelState, closeAgentSidePanel } from '@/utils/agent-side-panel'
+import { openBotConfig } from '@/utils/open-agent-landing'
 
 const VISIBLE_PANEL_HISTORY_COUNT = 4
 
@@ -33,6 +34,16 @@ function handleOpenHistorySearch() {
   options.value?.onViewAllHistory?.()
   closeAgentSidePanel()
 }
+
+function handleOpenBotConfig() {
+  const current = options.value
+  if (!current) return
+  closeAgentSidePanel()
+  openBotConfig({
+    agentType: current.agentType,
+    connectionId: current.connectionId,
+  })
+}
 </script>
 
 <template>
@@ -47,7 +58,10 @@ function handleOpenHistorySearch() {
       <scroll-view class="agent-side-panel__body" scroll-y :show-scrollbar="false">
         <view class="agent-side-panel__hero">
           <image class="agent-side-panel__avatar" :src="header.avatar" mode="aspectFill" />
-          <text class="agent-side-panel__title">{{ header.title }}</text>
+          <view class="agent-side-panel__title-entry" @tap="handleOpenBotConfig">
+            <text class="agent-side-panel__title">{{ header.title }}</text>
+            <text class="agent-side-panel__chevron">›</text>
+          </view>
           <text v-if="subtitle" class="agent-side-panel__subtitle">{{ subtitle }}</text>
         </view>
 
@@ -135,12 +149,27 @@ function handleOpenHistorySearch() {
 }
 
 .agent-side-panel__title {
-  margin-top: 24rpx;
   font-size: 34rpx;
   font-weight: 600;
   line-height: 1.25;
   color: #1a1a1a;
   text-align: center;
+}
+
+.agent-side-panel__title-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  margin-top: 24rpx;
+  padding: 4rpx 8rpx;
+}
+
+.agent-side-panel__chevron {
+  margin-left: 8rpx;
+  font-size: 34rpx;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.34);
 }
 
 .agent-side-panel__subtitle {

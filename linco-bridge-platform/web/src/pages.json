@@ -50,6 +50,14 @@
         "navigationStyle": "custom",
         "backgroundColor": "#ffffff"
       }
+    },
+    {
+      "path": "pages/chat/bot-config",
+      "style": {
+        "navigationBarTitleText": "机器人配置",
+        "navigationStyle": "custom",
+        "backgroundColor": "#f5f5f5"
+      }
     }
   ],
   "globalStyle": {

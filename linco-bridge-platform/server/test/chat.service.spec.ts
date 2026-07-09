@@ -76,9 +76,20 @@ describe('ChatService', () => {
     database.updateConnectionDevice(connection.id, { name: 'ThinkPad' })
 
     const sessions = chatService.listSessions()
-    expect(sessions[0]?.title).toBe('Codex - MacBook Pro')
+    expect(sessions[0]?.title).toBe('Codex')
     expect(sessions[0]?.conversationTitle).toBe('今天星期几啊')
     expect(sessions[0]?.connectionId).toBe(connection.id)
+  })
+
+  it('uses connection display name in message list title', () => {
+    const connection = database.getConnectionByType('codex')!
+    database.updateConnectionDisplayName(connection.id, '我的 Codex')
+    database.updateConnectionDevice(connection.id, { name: 'HQ-TS-0182' })
+    const session = database.getSessionByConnectionId(connection.id)!
+    database.touchSession(session.id, '你好，我在。')
+
+    const sessions = chatService.listSessions()
+    expect(sessions[0]?.title).toBe('我的 Codex')
   })
 
   it('scopes agent history by connection id', () => {

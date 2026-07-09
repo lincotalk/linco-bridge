@@ -440,4 +440,50 @@ describe('BridgeService', () => {
 
     expect(second.sessionId).toBe(first.sessionId)
   })
+
+  it('returns connection detail for bot config page', () => {
+    const setup = service.getSetup('codex')
+    const detail = service.getConnectionDetail('codex', setup.connectionId)
+    expect(detail.connectionId).toBe(setup.connectionId)
+    expect(detail.appId).toBe(setup.appId)
+    expect(detail.description).toBe('Codex 桥接')
+    expect(detail.setupCommands).toContain('linco-connect init')
+  })
+
+  it('renames connection display name', () => {
+    const setup = service.getSetup('codex')
+    const renamed = service.renameConnection('codex', setup.connectionId, '我的 Codex')
+    expect(renamed.displayName).toBe('我的 Codex')
+    const header = database.getConnectionById(setup.connectionId)
+    expect(header?.display_name).toBe('我的 Codex')
+  })
+
+  it('deletes connection and related sessions permanently', () => {
+    const setup = service.getSetup('codex')
+    const sessionIds = database.listSessionIdsByBridgeConnectionId(setup.connectionId)
+    expect(sessionIds.length).toBeGreaterThan(0)
+
+    const result = service.deleteConnection('codex', setup.connectionId)
+    expect(result.deleted).toBe(true)
+    expect(database.getConnectionById(setup.connectionId)).toBeUndefined()
+    for (const sessionId of sessionIds) {
+      expect(database.getSession(sessionId)).toBeUndefined()
+    }
+  })
+
+  it('sends remove-account command when deleting an online connection', () => {
+    const setup = service.getSetup('codex')
+    const socket = onlineSocket()
+    presence.attach(setup.connectionId, socket)
+
+    const result = service.deleteConnection('codex', setup.connectionId)
+    expect(result.deleted).toBe(true)
+    expect(result.commandSent).toBe(true)
+    expect(socket.send).toHaveBeenCalled()
+    const payload = JSON.parse(String((socket.send as jest.Mock).mock.calls[0][0])) as {
+      text?: string
+    }
+    expect(payload.text).toContain('/remove-account')
+    expect(payload.text).toContain('--agent codex')
+  })
 })

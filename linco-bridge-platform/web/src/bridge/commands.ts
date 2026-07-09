@@ -38,6 +38,10 @@ export function getAgentDisplayName(type: AgentBridgeType): string {
   }
 }
 
+export function getAgentBridgeSubtitle(type: AgentBridgeType): string {
+  return `${getAgentDisplayName(type)} 桥接`
+}
+
 /** CLI agent flag passed to linco-connect init --agent. */
 export function getConnectAgentFlag(type: AgentBridgeType): string {
   return type === 'openclaw' ? 'openclaw' : type === 'claude' ? 'claude' : type

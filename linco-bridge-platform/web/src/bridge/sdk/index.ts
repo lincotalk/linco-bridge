@@ -4,14 +4,17 @@ import {
   defaultAccountId,
   generateConnectionAccountId,
   DEFAULT_BRIDGE_WS_URL,
+  getAgentBridgeSubtitle,
   getAgentDisplayName,
 } from '../commands'
 import type {
   AgentBridgeBindableContext,
+  AgentBridgeConnectionDetail,
   AgentBridgeSetup,
   AgentBridgeType,
   ApiResponse,
   BridgeBindContextResult,
+  BridgeConnectionDeleteResult,
   BridgeProjectItem,
   BridgeStatusResult,
   BridgeSyncResult,
@@ -150,6 +153,38 @@ export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
       })
       if (!res.success || !res.data) {
         throw new Error(res.message || '同步 Agent 失败')
+      }
+      return res.data
+    },
+
+    async getConnectionDetail(type, connectionId) {
+      const res = await client.get<AgentBridgeConnectionDetail>(
+        withConnectionQuery(`/api/agent-bridges/${type}/connection-detail`, connectionId),
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '加载连接配置失败')
+      }
+      return res.data
+    },
+
+    async renameConnection(type, connectionId, displayName) {
+      const res = await client.post<AgentBridgeConnectionDetail>(
+        `/api/agent-bridges/${type}/connection/rename`,
+        { connectionId, displayName },
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '保存名称失败')
+      }
+      return res.data
+    },
+
+    async deleteConnection(type, connectionId) {
+      const res = await client.post<BridgeConnectionDeleteResult>(
+        `/api/agent-bridges/${type}/connection/delete`,
+        { connectionId },
+      )
+      if (!res.success || !res.data) {
+        throw new Error(res.message || '删除机器人失败')
       }
       return res.data
     },
@@ -321,6 +356,29 @@ export function createMockBridgeSdk(options?: {
         ]) as ApiResponse<T>
       }
 
+      const connectionDetailMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/connection-detail/)
+      if (connectionDetailMatch) {
+        const type = connectionDetailMatch[1] as AgentBridgeType
+        const setup = ensureSetup(type)
+        const detail: AgentBridgeConnectionDetail = {
+          bridgeType: type,
+          connectionId: setup.connectionId,
+          displayName: getAgentDisplayName(type),
+          description: getAgentBridgeSubtitle(type),
+          avatar: `/static/icons/bot/bridge_${type === 'openclaw' ? 'claw' : type}.png`,
+          appId: setup.appId,
+          appSecret: setup.appSecret,
+          accountId: setup.accountId,
+          status: online.has(type) ? 'online' : 'offline',
+          deviceName: 'HQ-TS-0182',
+          lastSeenAt: Date.now(),
+          clientVersion: '1.2.29',
+          setupCommands: setup.setupCommands,
+          connectChannel: setup.connectChannel,
+        }
+        return ok(detail) as ApiResponse<T>
+      }
+
       return { code: 404, success: false, data: null, message: `Mock route not found: ${path}` }
     },
 
@@ -444,6 +502,43 @@ export function createMockBridgeSdk(options?: {
           updatedAt: Date.now(),
         }
         return ok(next) as ApiResponse<T>
+      }
+
+      const renameMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/connection\/rename$/)
+      if (renameMatch) {
+        const type = renameMatch[1] as AgentBridgeType
+        const setup = ensureSetup(type)
+        const payload = (body ?? {}) as { displayName?: string }
+        const detail: AgentBridgeConnectionDetail = {
+          bridgeType: type,
+          connectionId: setup.connectionId,
+          displayName: payload.displayName?.trim() || getAgentDisplayName(type),
+          description: getAgentBridgeSubtitle(type),
+          avatar: `/static/icons/bot/bridge_${type === 'openclaw' ? 'claw' : type}.png`,
+          appId: setup.appId,
+          appSecret: setup.appSecret,
+          accountId: setup.accountId,
+          status: online.has(type) ? 'online' : 'offline',
+          deviceName: 'HQ-TS-0182',
+          lastSeenAt: Date.now(),
+          clientVersion: '1.2.29',
+          setupCommands: setup.setupCommands,
+          connectChannel: setup.connectChannel,
+        }
+        return ok(detail) as ApiResponse<T>
+      }
+
+      const deleteMatch = path.match(/^\/api\/agent-bridges\/(\w+)\/connection\/delete$/)
+      if (deleteMatch) {
+        const type = deleteMatch[1] as AgentBridgeType
+        const setup = ensureSetup(type)
+        online.delete(type)
+        const result: BridgeConnectionDeleteResult = {
+          deleted: true,
+          commandSent: false,
+          connectionId: setup.connectionId,
+        }
+        return ok(result) as ApiResponse<T>
       }
 
       return { code: 404, success: false, data: null, message: `Mock route not found: ${path}` }
