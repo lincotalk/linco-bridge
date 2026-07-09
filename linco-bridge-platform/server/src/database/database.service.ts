@@ -308,29 +308,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return rows.map((row) => row.id)
   }
 
-  hideConnectionFromMessageList(connectionId: string): void {
-    const now = Date.now()
-    this.db
-      .prepare(
-        `UPDATE bridge_connections SET hidden_from_message_list = 1, update_time = ? WHERE id = ?`,
-      )
-      .run(now, connectionId)
-  }
-
-  clearConnectionMessageListHidden(connectionId: string): void {
-    const now = Date.now()
-    this.db
-      .prepare(
-        `UPDATE bridge_connections SET hidden_from_message_list = 0, update_time = ? WHERE id = ?`,
-      )
-      .run(now, connectionId)
-  }
-
-  isConnectionHiddenFromMessageList(connectionId: string): boolean {
-    const row = this.getConnectionById(connectionId)
-    return Number(row?.hidden_from_message_list ?? 0) === 1
-  }
-
   getSession(sessionId: string): ChatSessionRow | undefined {
     return this.db.prepare(`SELECT * FROM chat_sessions WHERE id = ?`).get(sessionId) as unknown as
       ChatSessionRow | undefined
@@ -468,10 +445,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   touchSession(sessionId: string, lastMessage: string): void {
-    const session = this.getSession(sessionId)
-    if (session?.bridge_connection_id) {
-      this.clearConnectionMessageListHidden(session.bridge_connection_id)
-    }
     const now = Date.now()
     this.db
       .prepare(`UPDATE chat_sessions SET last_message = ?, update_time = ? WHERE id = ?`)
@@ -497,6 +470,25 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     )
     for (const sessionId of unique) {
       stmt.run(now, sessionId)
+    }
+    return unique
+  }
+
+  deleteSessionsPermanently(sessionIds: string[]): string[] {
+    const unique = [...new Set(sessionIds.map((id) => id.trim()).filter(Boolean))]
+    if (unique.length === 0) return []
+
+    const deleteMessages = this.db.prepare(`DELETE FROM chat_messages WHERE session_id = ?`)
+    const deleteSession = this.db.prepare(`DELETE FROM chat_sessions WHERE id = ?`)
+    const unlinkConnection = this.db.prepare(
+      `UPDATE bridge_connections SET session_id = NULL, update_time = ? WHERE session_id = ?`,
+    )
+    const now = Date.now()
+
+    for (const sessionId of unique) {
+      deleteMessages.run(sessionId)
+      unlinkConnection.run(now, sessionId)
+      deleteSession.run(sessionId)
     }
     return unique
   }

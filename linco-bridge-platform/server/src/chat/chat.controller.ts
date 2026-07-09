@@ -24,10 +24,10 @@ export class ChatController {
     return ok(this.chatService.listSessions())
   }
 
-  @Post('sessions/hide')
-  hideSessions(@Body() body: { sessionIds?: string[]; session_ids?: string[] }) {
+  @Post('sessions/delete')
+  deleteSessions(@Body() body: { sessionIds?: string[]; session_ids?: string[] }) {
     const sessionIds = body.sessionIds ?? body.session_ids ?? []
-    return ok(this.chatService.hideSessionsFromList(sessionIds))
+    return ok(this.chatService.deleteSessionsFromList(sessionIds))
   }
 
   @Post('sessions/:sessionId/resume')

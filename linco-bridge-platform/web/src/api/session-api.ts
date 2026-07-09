@@ -9,12 +9,12 @@ export async function fetchSessions(): Promise<ChatSessionItem[]> {
   return res.data
 }
 
-export async function hideSessionsFromList(sessionIds: string[]): Promise<number> {
-  const res = await apiPost<{ hiddenCount: number }>('/api/sessions/hide', { sessionIds })
+export async function deleteSessionsFromList(sessionIds: string[]): Promise<number> {
+  const res = await apiPost<{ deletedCount: number }>('/api/sessions/delete', { sessionIds })
   if (!res.success || !res.data) {
     throw new Error(res.message || '删除会话失败')
   }
-  return res.data.hiddenCount
+  return res.data.deletedCount
 }
 
 export async function resumeSession(sessionId: string): Promise<ResumeSessionResult> {

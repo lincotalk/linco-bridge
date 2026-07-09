@@ -150,9 +150,6 @@ export class ChatService {
         const connection = row.bridge_connection_id
           ? this.database.getConnectionById(row.bridge_connection_id)
           : undefined
-        if (connection && this.database.isConnectionHiddenFromMessageList(connection.id)) {
-          return false
-        }
         return shouldShowSessionInList(row, connection)
       })
       .map((row) => {
@@ -188,7 +185,7 @@ export class ChatService {
     return groupSessionsForMessageList(items)
   }
 
-  hideSessionsFromList(sessionIds: string[]): { hiddenCount: number } {
+  deleteSessionsFromList(sessionIds: string[]): { deletedCount: number } {
     const expanded = new Set<string>()
 
     for (const rawId of sessionIds) {
@@ -202,15 +199,14 @@ export class ChatService {
 
       const connectionId = session.bridge_connection_id?.trim()
       if (connectionId) {
-        this.database.hideConnectionFromMessageList(connectionId)
         for (const siblingId of this.database.listSessionIdsByBridgeConnectionId(connectionId)) {
           expanded.add(siblingId)
         }
       }
     }
 
-    const hidden = this.database.hideSessionsFromHistory([...expanded])
-    return { hiddenCount: hidden.length }
+    const deleted = this.database.deleteSessionsPermanently([...expanded])
+    return { deletedCount: deleted.length }
   }
 
   async listMessages(sessionId: string, limit = DEFAULT_HISTORY_LIMIT): Promise<ChatMessageDto[]> {

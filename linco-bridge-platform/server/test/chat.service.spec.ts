@@ -19,7 +19,7 @@ describe('ChatService', () => {
     chatService = new ChatService(database, presence, bridgeService, relay)
   })
 
-  it('hides all sessions for a connection when deleting grouped message row', () => {
+  it('hard-deletes all sessions for a connection when deleting grouped message row', () => {
     const connection = database.getConnectionByType('codex')!
     const first = database.getSessionByConnectionId(connection.id)!
     database.touchSession(first.id, '第一条')
@@ -33,25 +33,33 @@ describe('ChatService', () => {
       lastMessage: 'Ready when you are.',
     })
     database.touchSession(second.id, '第二条预览')
+    database.insertMessage({
+      sessionId: second.id,
+      role: 'user',
+      content: 'hello',
+    })
 
     expect(chatService.listSessions()).toHaveLength(1)
 
-    const result = chatService.hideSessionsFromList([second.id])
-    expect(result.hiddenCount).toBeGreaterThanOrEqual(2)
+    const result = chatService.deleteSessionsFromList([second.id])
+    expect(result.deletedCount).toBeGreaterThanOrEqual(2)
     expect(chatService.listSessions()).toHaveLength(0)
-    expect(database.isConnectionHiddenFromMessageList(connection.id)).toBe(true)
+    expect(database.getSession(first.id)).toBeUndefined()
+    expect(database.getSession(second.id)).toBeUndefined()
+    expect(database.listMessages(second.id)).toHaveLength(0)
   })
 
-  it('hides sessions from message list', () => {
+  it('hard-deletes sessions from message list', () => {
     const connection = database.getConnectionByType('codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, 'hello from codex')
 
     expect(chatService.listSessions().some((item) => item.id === session.id)).toBe(true)
 
-    const result = chatService.hideSessionsFromList([session.id])
-    expect(result.hiddenCount).toBe(1)
+    const result = chatService.deleteSessionsFromList([session.id])
+    expect(result.deletedCount).toBe(1)
     expect(chatService.listSessions().some((item) => item.id === session.id)).toBe(false)
+    expect(database.getSession(session.id)).toBeUndefined()
   })
 
   it('hides unconnected bridge seed sessions from message list', () => {
