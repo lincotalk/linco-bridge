@@ -4,7 +4,7 @@
 
 This guide covers deploying the **official hosted demo**: users open your H5 or WeChat mini program and run `linco-connect` on their PC to bridge a local Agent.
 
-For a full local stack (clone repo, run server + web), see [`../../linco-bridge-platform/README.md`](../../linco-bridge-platform/README.md).
+For a full local stack (clone repo, run server + web), see [`../linco-bridge-platform/README.md`](../linco-bridge-platform/README.md).
 
 ## Two experience paths
 
@@ -83,7 +83,7 @@ Deploy `dist/build/h5` to static hosting.
 VITE_API_BASE_URL=https://demo.lincotalk.com npm run build:mp-weixin
 ```
 
-Configure `manifest.json` appid and WeChat console request/socket合法域名.
+Configure the `manifest.json` appid and the allowed request and WebSocket domains in the WeChat Mini Program console.
 
 ## 5. User flow
 

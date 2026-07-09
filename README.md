@@ -140,6 +140,16 @@ linco-connect start --daemon
 
 For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
 
+### Option 3: Official Hosted Demo
+
+If you already provide a hosted demo experience such as H5 or a WeChat Mini Program, users usually only need to:
+
+1. open the hosted demo URL or mini program;
+2. go to **Bridge**, copy the generated `setupCommands`, and run them locally;
+3. install and run `linco-connect` together with the target Agent CLI on their own PC.
+
+For deployment details, see [Hosted Demo Deployment](docs/deploy-demo.md).
+
 ## 🤖 Supported Agents
 
 | Agent | First-release status | Verified version in subproject docs |
@@ -183,6 +193,7 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 ## 📚 Documentation
 
 - [Quick Start](docs/quick-start.md)
+- [Hosted Demo Deployment](docs/deploy-demo.md)
 - [How It Works](docs/how-it-works.md)
 - [CLI Reference](docs/cli.md)
 - [Public Protocol](docs/protocol.md)
