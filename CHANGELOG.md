@@ -11,6 +11,7 @@ This file records notable user-visible changes in the open-source repository.
 ### Changed
 
 - Root README and platform documentation continue to be aligned between English and Chinese.
+- Governance and repository policy documents continue to be refined for public open-source maintenance.
 
 ### Known limitations
 
@@ -45,3 +46,10 @@ This file records notable user-visible changes in the open-source repository.
 - Link the GitHub comparison or release page.
 - List breaking changes and migration steps.
 - Ensure the English and Chinese release announcements describe the same scope.
+
+## Changelog policy
+
+- Record only user-visible or contributor-visible changes in this file.
+- Group changes by release rather than by pull request.
+- Include migration notes when commands, protocol payloads, or integration paths change.
+- Keep wording consistent across README, release notes, and changelog entries.
