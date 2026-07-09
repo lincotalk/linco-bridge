@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onLaunch } from '@dcloudio/uni-app'
+import { getOrCreateVisitorId } from '@/utils/visitor-id'
 
 onLaunch(() => {
-  // Demo platform: no auth bootstrap required in Phase 1.
+  getOrCreateVisitorId()
 })
 </script>
 

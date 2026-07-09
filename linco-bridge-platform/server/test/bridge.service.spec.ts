@@ -5,6 +5,8 @@ import { BridgePresenceService } from '../src/bridge/bridge-presence.service'
 import { BridgeRelayService } from '../src/bridge/bridge-relay.service'
 import { BridgeService } from '../src/bridge/bridge.service'
 import { DatabaseService } from '../src/database/database.service'
+import { TEST_SEED_OWNER_ID } from '../src/shared/visitor-id.util'
+import { createTestServices, resetTestVisitorContext } from './test-services'
 
 function onlineSocket(): WebSocket {
   return {
@@ -22,10 +24,11 @@ describe('BridgeService', () => {
   let service: BridgeService
 
   beforeEach(() => {
-    database = DatabaseService.createInMemory()
-    presence = new BridgePresenceService()
-    relay = new BridgeRelayService()
-    service = new BridgeService(database, presence, relay)
+    ;({ database, presence, relay, bridgeService: service } = createTestServices())
+  })
+
+  afterEach(() => {
+    resetTestVisitorContext()
   })
 
   it('returns setup for codex seed connection with auto-allocated secret', () => {
@@ -60,7 +63,7 @@ describe('BridgeService', () => {
 
   it('refreshSetup creates a new connection without affecting the existing one', () => {
     const setup = service.getSetup('codex')
-    const connection = database.getConnectionByType('codex')
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')
     expect(connection).toBeDefined()
     presence.attach(connection!.id, onlineSocket())
     database.bindConnectionContext(connection!.id, {
@@ -93,7 +96,7 @@ describe('BridgeService', () => {
 
     expect(service.getStatus('codex', first.connectionId).connected).toBe(true)
     expect(service.getStatus('codex', second.connectionId).connected).toBe(true)
-    expect(database.listConnectionsByType('codex')).toHaveLength(2)
+    expect(database.listConnectionsByType(TEST_SEED_OWNER_ID,'codex')).toHaveLength(2)
   })
 
   it('reports offline before connector attaches', () => {
@@ -103,13 +106,13 @@ describe('BridgeService', () => {
   })
 
   it('requires online connector before listing contexts', async () => {
-    const connection = database.getConnectionByType('hermes')
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'hermes')
     expect(connection).toBeDefined()
     await expect(service.listContexts('hermes', connection!.id)).rejects.toThrow(ConflictException)
   })
 
   it('syncAgent links seeded session when connector is online', () => {
-    const connection = database.getConnectionByType('codex')
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')
     expect(connection).toBeDefined()
     presence.attach(connection!.id, onlineSocket())
 
@@ -120,7 +123,7 @@ describe('BridgeService', () => {
   })
 
   it('lists connector sessions for codex when slash command succeeds', async () => {
-    const connection = database.getConnectionByType('codex')
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')
     expect(connection).toBeDefined()
     presence.attach(connection!.id, onlineSocket())
 
@@ -156,7 +159,7 @@ describe('BridgeService', () => {
   })
 
   it('lists openclaw agents from connector', async () => {
-    const connection = database.getConnectionByType('openclaw')
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'openclaw')
     expect(connection).toBeDefined()
     presence.attach(connection!.id, onlineSocket())
 
@@ -184,7 +187,7 @@ describe('BridgeService', () => {
   })
 
   it('lists hermes profiles from connector', async () => {
-    const connection = database.getConnectionByType('hermes')
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'hermes')
     expect(connection).toBeDefined()
     presence.attach(connection!.id, onlineSocket())
 
@@ -212,7 +215,7 @@ describe('BridgeService', () => {
   })
 
   it('lists connector projects for codex', async () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     presence.attach(connection!.id, onlineSocket())
 
     let capturedStreamId = ''
@@ -250,7 +253,7 @@ describe('BridgeService', () => {
   })
 
   it('lists project sessions scoped by project path', async () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     presence.attach(connection.id, onlineSocket())
 
     let capturedStreamId = ''
@@ -278,7 +281,7 @@ describe('BridgeService', () => {
   })
 
   it('applyWorkspaceSelection reuses platform session for first bind and creates new for another desktop session', async () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     presence.attach(connection.id, onlineSocket())
     const seededSession = database.getSessionByConnectionId(connection.id)!
 
@@ -344,7 +347,7 @@ describe('BridgeService', () => {
   })
 
   it('applyWorkspaceSelection creates platform session for new project session without desktop bind', async () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     presence.attach(connection.id, onlineSocket())
     const seededSession = database.getSessionByConnectionId(connection.id)!
 
@@ -381,7 +384,7 @@ describe('BridgeService', () => {
   })
 
   it('applyWorkspaceSelection relays project-only select to resolved platform session', async () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     presence.attach(connection.id, onlineSocket())
     const seededSession = database.getSessionByConnectionId(connection.id)!
 
@@ -410,7 +413,7 @@ describe('BridgeService', () => {
   })
 
   it('applyWorkspaceSelection reuses preferred platform session for same project-only bind', async () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     presence.attach(connection.id, onlineSocket())
 
     jest.spyOn(presence, 'sendJson').mockImplementation((_connectionId, payload) => {

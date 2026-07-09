@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
+import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import {
   DatabaseService,
   type BridgeConnectionRow,
@@ -37,6 +37,7 @@ import {
 } from './session-list-title.util'
 import { groupSessionsForMessageList } from './session-list-group.util'
 import { type AgentBridgeType, agentDisplayName, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
+import { ResourceAccessService } from '../shared/resource-access.service'
 import type { ConnectorFileInput, ConnectorSendInput } from '../bridge/bridge-relay.service'
 
 export interface ChatSessionDto {
@@ -140,11 +141,16 @@ export class ChatService {
     private readonly presence: BridgePresenceService,
     private readonly bridgeService: BridgeService,
     private readonly relay: BridgeRelayService,
+    private readonly resourceAccess: ResourceAccessService,
   ) {}
+
+  private ownerId(): string {
+    return this.resourceAccess.getOwnerId()
+  }
 
   listSessions(): ChatSessionDto[] {
     const items = this.database
-      .listSessions()
+      .listSessions(this.ownerId())
       .filter((row) => {
         const connection = row.bridge_connection_id
           ? this.database.getConnectionById(row.bridge_connection_id)
@@ -195,7 +201,7 @@ export class ChatService {
       if (!id) continue
 
       const session = this.database.getSession(id)
-      if (!session) continue
+      if (!session || session.owner_id !== this.ownerId()) continue
 
       expanded.add(id)
 
@@ -212,10 +218,7 @@ export class ChatService {
   }
 
   async listMessages(sessionId: string, limit = DEFAULT_HISTORY_LIMIT): Promise<ChatMessageDto[]> {
-    const session = this.database.getSession(sessionId)
-    if (!session) {
-      throw new NotFoundException('会话不存在')
-    }
+    const session = this.resourceAccess.requireSession(sessionId)
 
     if (shouldPersistSessionMessages(session)) {
       const stored = this.database
@@ -259,10 +262,7 @@ export class ChatService {
       throw new BadRequestException('消息内容不能为空')
     }
 
-    const session = this.database.getSession(sessionId)
-    if (!session) {
-      throw new NotFoundException('会话不存在')
-    }
+    const session = this.resourceAccess.requireSession(sessionId)
 
     const connection = session.bridge_connection_id
       ? this.database.getConnectionById(session.bridge_connection_id)
@@ -288,7 +288,7 @@ export class ChatService {
             bridgeType: connection.bridge_type,
             accountId: connection.account_id,
             boundContextId: connection.bound_context_id,
-            userId: this.database.demoUserId,
+            userId: this.ownerId(),
           },
         )
         const result = await completed
@@ -337,10 +337,7 @@ export class ChatService {
       throw new BadRequestException('消息内容不能为空')
     }
 
-    const session = this.database.getSession(sessionId)
-    if (!session) {
-      throw new NotFoundException('会话不存在')
-    }
+    const session = this.resourceAccess.requireSession(sessionId)
 
     const userAttachments = this.filesToAttachments(normalizedFiles)
     const userContent =
@@ -378,7 +375,7 @@ export class ChatService {
             bridgeType: connection.bridge_type,
             accountId: connection.account_id,
             boundContextId: connection.bound_context_id,
-            userId: this.database.demoUserId,
+            userId: this.ownerId(),
             files: normalizedFiles,
           },
           {
@@ -452,10 +449,7 @@ export class ChatService {
     const trimmedStreamId = streamId.trim()
     if (!trimmedStreamId) return null
 
-    const session = this.database.getSession(sessionId)
-    if (!session) {
-      throw new NotFoundException('会话不存在')
-    }
+    const session = this.resourceAccess.requireSession(sessionId)
 
     const { cancelled, partialText } = this.relay.cancelTurn(trimmedStreamId)
     if (!cancelled) return null
@@ -490,8 +484,22 @@ export class ChatService {
     return {
       apiBaseUrl: resolvePublicHttpOrigin(),
       wsBaseUrl: this.bridgeService.getWsUrl(),
-      demoUserId: this.database.demoUserId,
     }
+  }
+
+  resetDemoData(resetToken: string | undefined): {
+    deletedConnections: number
+    deletedSessions: number
+    deletedMessages: number
+  } {
+    const expected = process.env.DEMO_RESET_TOKEN?.trim()
+    if (!expected) {
+      throw new NotFoundException('reset disabled')
+    }
+    if (!resetToken?.trim() || resetToken.trim() !== expected) {
+      throw new UnauthorizedException('invalid reset token')
+    }
+    return this.database.resetDemoDatabase()
   }
 
   getLandingHeader(agentType: string, connectionId?: string): AgentLandingHeaderDto {
@@ -499,8 +507,8 @@ export class ChatService {
       throw new NotFoundException('不支持的 Agent 类型')
     }
     const connection = connectionId?.trim()
-      ? this.database.getConnectionById(connectionId.trim())
-      : this.database.getConnectionByType(agentType)
+      ? this.resourceAccess.requireConnection(connectionId.trim())
+      : this.resourceAccess.resolvePrimaryConnection(agentType)
     if (connectionId?.trim() && (!connection || connection.bridge_type !== agentType)) {
       throw new NotFoundException('连接不存在')
     }
@@ -530,13 +538,13 @@ export class ChatService {
     }
     const normalizedConnectionId = connectionId?.trim() ?? ''
     if (normalizedConnectionId) {
-      const connection = this.database.getConnectionById(normalizedConnectionId)
-      if (!connection || connection.bridge_type !== agentType) {
+      const connection = this.resourceAccess.requireConnection(normalizedConnectionId)
+      if (connection.bridge_type !== agentType) {
         throw new NotFoundException('连接不存在')
       }
     }
     const filtered = this.database
-      .listSessions()
+      .listSessions(this.ownerId())
       .filter((row) => row.agent_type === agentType)
       .filter(
         (row) =>
@@ -583,7 +591,7 @@ export class ChatService {
       .filter(Boolean)
       .filter((id) => {
         const row = this.database.getSession(id)
-        return row?.agent_type === agentType
+        return row?.owner_id === this.ownerId() && row.agent_type === agentType
       })
     const hidden = this.database.hideSessionsFromHistory(validIds)
     return { hiddenCount: hidden.length }
@@ -595,10 +603,7 @@ export class ChatService {
       throw new BadRequestException('sessionId 不能为空')
     }
 
-    const session = this.database.getSession(normalizedSessionId)
-    if (!session) {
-      throw new NotFoundException('会话不存在')
-    }
+    const session = this.resourceAccess.requireSession(normalizedSessionId)
 
     const connection = session.bridge_connection_id
       ? this.database.getConnectionById(session.bridge_connection_id)
@@ -648,8 +653,8 @@ export class ChatService {
 
     const normalizedConnectionId = input.connectionId?.trim() ?? ''
     const connection = normalizedConnectionId
-      ? this.database.getConnectionById(normalizedConnectionId)
-      : this.database.getConnectionByType(input.agentType)
+      ? this.resourceAccess.requireConnection(normalizedConnectionId)
+      : this.resourceAccess.resolvePrimaryConnection(input.agentType)
     if (
       normalizedConnectionId &&
       (!connection || connection.bridge_type !== input.agentType)
@@ -685,6 +690,7 @@ export class ChatService {
         : null
 
     const session = this.database.createSession({
+      ownerId: this.ownerId(),
       agentType: input.agentType,
       title,
       bridgeConnectionId: connection?.id ?? null,
@@ -719,10 +725,7 @@ export class ChatService {
   }
 
   async runBridgeCommand(sessionId: string, command: string): Promise<BridgeCommandResult> {
-    const session = this.database.getSession(sessionId)
-    if (!session) {
-      throw new NotFoundException('会话不存在')
-    }
+    const session = this.resourceAccess.requireSession(sessionId)
 
     const connection = session.bridge_connection_id
       ? this.database.getConnectionById(session.bridge_connection_id)
@@ -746,8 +749,8 @@ export class ChatService {
 
     const normalizedConnectionId = connectionId?.trim() ?? ''
     const connection = normalizedConnectionId
-      ? this.database.getConnectionById(normalizedConnectionId)
-      : this.database.getConnectionByType(agentType)
+      ? this.resourceAccess.requireConnection(normalizedConnectionId)
+      : this.resourceAccess.resolvePrimaryConnection(agentType)
     if (!connection || connection.bridge_type !== agentType) {
       throw new NotFoundException('连接不存在')
     }
@@ -775,7 +778,7 @@ export class ChatService {
       bridgeType: connection.bridge_type,
       accountId: connection.account_id,
       boundContextId: connection.bound_context_id,
-      userId: this.database.demoUserId,
+      userId: this.ownerId(),
     }
     const send = (payload: Record<string, unknown>) => this.presence.sendJson(connection.id, payload)
     const normalized = trimmed.toLowerCase()
@@ -871,7 +874,7 @@ export class ChatService {
         bridgeType: connection.bridge_type,
         accountId: connection.account_id,
         boundContextId: connection.bound_context_id,
-        userId: this.database.demoUserId,
+        userId: this.ownerId(),
       },
       command,
       'history',
