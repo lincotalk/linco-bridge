@@ -2,6 +2,7 @@ import {
   BRIDGE_CONNECT_CHANNEL,
   buildSetupCommands,
   defaultAccountId,
+  generateConnectionAccountId,
   DEFAULT_BRIDGE_WS_URL,
   getAgentDisplayName,
 } from '../commands'
@@ -328,15 +329,22 @@ export function createMockBridgeSdk(options?: {
       if (refreshMatch) {
         const type = refreshMatch[1] as AgentBridgeType
         const setup = ensureSetup(type)
-        const nextSecret = `${setup.appSecret}-refreshed`
+        const nextConnectionId = `conn-${type}-${Date.now()}`
+        const nextSecret = `${setup.appSecret}-refreshed-${Date.now()}`
+        const nextAccountId = generateConnectionAccountId(type)
+        const nextAppId = `demo-${type}-${Date.now()}-app`
         const next: AgentBridgeSetup = {
           ...setup,
+          appId: nextAppId,
           appSecret: nextSecret,
+          accountId: nextAccountId,
+          connectionId: nextConnectionId,
           setupCommands: buildSetupCommands(type, {
-            appId: setup.appId,
+            appId: nextAppId,
             appSecret: nextSecret,
-            accountId: setup.accountId,
+            accountId: nextAccountId,
             channel: setup.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
+            wsUrl: setup.wsUrl,
           }),
         }
         store.set(type, next)

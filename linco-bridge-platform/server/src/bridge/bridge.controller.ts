@@ -8,11 +8,15 @@ export class BridgeController {
   constructor(private readonly bridgeService: BridgeService) {}
 
   @Get(':type/setup')
-  getSetup(@Param('type') type: string) {
+  getSetup(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+  ) {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    return ok(this.bridgeService.getSetup(type))
+    return ok(this.bridgeService.getSetup(type, (connectionId ?? snakeConnectionId)?.trim()))
   }
 
   @Post(':type/setup/refresh')
@@ -28,8 +32,12 @@ export class BridgeController {
   }
 
   @Get(':type/status')
-  getStatus(@Param('type') type: string) {
-    return ok(this.bridgeService.getStatus(type))
+  getStatus(
+    @Param('type') type: string,
+    @Query('connectionId') connectionId?: string,
+    @Query('connection_id') snakeConnectionId?: string,
+  ) {
+    return ok(this.bridgeService.getStatus(type, (connectionId ?? snakeConnectionId)?.trim()))
   }
 
   @Get(':type/contexts')

@@ -24,6 +24,12 @@ export class ChatController {
     return ok(this.chatService.listSessions())
   }
 
+  @Post('sessions/hide')
+  hideSessions(@Body() body: { sessionIds?: string[]; session_ids?: string[] }) {
+    const sessionIds = body.sessionIds ?? body.session_ids ?? []
+    return ok(this.chatService.hideSessionsFromList(sessionIds))
+  }
+
   @Post('sessions/:sessionId/resume')
   async resumeSession(@Param('sessionId') sessionId: string) {
     return ok(await this.chatService.resumeSession(sessionId))

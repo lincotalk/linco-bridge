@@ -185,6 +185,15 @@ export class ChatService {
     return groupSessionsForMessageList(items)
   }
 
+  hideSessionsFromList(sessionIds: string[]): { hiddenCount: number } {
+    const validIds = sessionIds
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .filter((id) => Boolean(this.database.getSession(id)))
+    const hidden = this.database.hideSessionsFromHistory(validIds)
+    return { hiddenCount: hidden.length }
+  }
+
   async listMessages(sessionId: string, limit = DEFAULT_HISTORY_LIMIT): Promise<ChatMessageDto[]> {
     const session = this.database.getSession(sessionId)
     if (!session) {

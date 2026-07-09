@@ -11,6 +11,7 @@ function onlineSocket(): WebSocket {
     readyState: WsConst.OPEN,
     OPEN: WsConst.OPEN,
     send: jest.fn(),
+    close: jest.fn(),
   } as unknown as WebSocket
 }
 
@@ -55,6 +56,44 @@ describe('BridgeService', () => {
     const first = service.getSetup('claude')
     const second = service.getSetup('claude')
     expect(second.appSecret).toBe(first.appSecret)
+  })
+
+  it('refreshSetup creates a new connection without affecting the existing one', () => {
+    const setup = service.getSetup('codex')
+    const connection = database.getConnectionByType('codex')
+    expect(connection).toBeDefined()
+    presence.attach(connection!.id, onlineSocket())
+    database.bindConnectionContext(connection!.id, {
+      contextId: 'project-1',
+      contextName: 'demo',
+      sessionId: 'session-1',
+    })
+
+    const created = service.refreshSetup('codex', setup.connectionId)
+    expect(created.connectionId).not.toBe(setup.connectionId)
+    expect(created.appSecret).not.toBe(setup.appSecret)
+    expect(created.accountId).not.toBe(setup.accountId)
+    expect(created.accountId).toMatch(/^codex_[a-f0-9]{8}$/)
+    expect(created.setupCommands).toContain(`--account ${created.accountId}`)
+    expect(created.setupCommands).toContain(`--token "${created.appId}:${created.appSecret}"`)
+
+    const oldRow = database.getConnectionById(setup.connectionId)
+    expect(oldRow?.bound_context_id).toBe('project-1')
+    expect(oldRow?.app_secret).toBe(setup.appSecret)
+    expect(service.getStatus('codex', setup.connectionId).connected).toBe(true)
+    expect(service.getStatus('codex', created.connectionId).connected).toBe(false)
+  })
+
+  it('allows two codex connections online at the same time', () => {
+    const first = service.getSetup('codex')
+    const second = service.refreshSetup('codex', first.connectionId)
+
+    presence.attach(first.connectionId, onlineSocket())
+    presence.attach(second.connectionId, onlineSocket())
+
+    expect(service.getStatus('codex', first.connectionId).connected).toBe(true)
+    expect(service.getStatus('codex', second.connectionId).connected).toBe(true)
+    expect(database.listConnectionsByType('codex')).toHaveLength(2)
   })
 
   it('reports offline before connector attaches', () => {

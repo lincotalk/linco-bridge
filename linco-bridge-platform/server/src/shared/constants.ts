@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 export const DEMO_USER_ID = 'demo'
 
 export const AGENT_BRIDGE_TYPES = ['codex', 'claude', 'hermes', 'openclaw'] as const
@@ -10,6 +12,18 @@ export function isAgentBridgeType(value: string): value is AgentBridgeType {
 
 export function defaultAccountId(type: AgentBridgeType): string {
   return type === 'openclaw' ? 'openclaw_1' : `${type}_1`
+}
+
+/** Unique account slot for linco-connect multi-account on one device. */
+export function generateConnectionAccountId(type: AgentBridgeType): string {
+  const suffix = randomUUID().replace(/-/g, '').slice(0, 8)
+  return `${type}_${suffix}`
+}
+
+/** Unique app_id for an additional bridge connection row. */
+export function generateConnectionAppId(type: AgentBridgeType): string {
+  const suffix = randomUUID().replace(/-/g, '').slice(0, 8)
+  return `demo-${type}-${suffix}-app`
 }
 
 export function agentDisplayName(type: AgentBridgeType): string {

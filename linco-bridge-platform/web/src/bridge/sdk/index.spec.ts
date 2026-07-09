@@ -71,12 +71,15 @@ describe('createMockBridgeSdk', () => {
     expect(synced.agentName).toBe('Codex')
   })
 
-  it('refreshSetup rotates secret while preserving command shape', async () => {
+  it('refreshSetup rotates secret and account while preserving command shape', async () => {
     const sdk = createMockBridgeSdk()
     const before = await sdk.getSetup('claude')
     const after = await sdk.refreshSetup('claude', before.connectionId)
 
     expect(after.appSecret).not.toBe(before.appSecret)
+    expect(after.accountId).not.toBe(before.accountId)
     expect(after.setupCommands).toContain(after.appSecret)
+    expect(after.connectionId).not.toBe(before.connectionId)
+    expect(after.setupCommands).toContain(`--account ${after.accountId}`)
   })
 })

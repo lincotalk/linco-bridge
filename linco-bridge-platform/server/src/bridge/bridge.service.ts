@@ -78,12 +78,14 @@ export class BridgeService {
     this.database.updateConnectionDevice(connectionId, device)
   }
 
-  getSetup(type: string) {
+  getSetup(type: string, connectionId?: string) {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    let connection = this.database.getConnectionByType(type)
-    if (!connection) {
+    let connection = connectionId?.trim()
+      ? this.database.getConnectionById(connectionId.trim())
+      : this.database.getPrimaryConnectionByType(type)
+    if (!connection || connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
     // Align with production getOrCreateSetup: first load allocates a real secret
@@ -118,29 +120,28 @@ export class BridgeService {
     if (!connection || connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
-    const refreshed = this.database.refreshConnectionSecret(connectionId)
-    if (!refreshed) {
-      throw new NotFoundException('连接配置不存在')
-    }
+    const created = this.database.refreshConnectionCredentials(connectionId, type)
     return toBridgeSetupDto(
       {
-        bridgeType: refreshed.bridge_type,
-        connectionId: refreshed.id,
-        appId: refreshed.app_id,
-        appSecret: refreshed.app_secret,
-        accountId: refreshed.account_id,
-        boundContextId: refreshed.bound_context_id,
+        bridgeType: created.bridge_type,
+        connectionId: created.id,
+        appId: created.app_id,
+        appSecret: created.app_secret,
+        accountId: created.account_id,
+        boundContextId: created.bound_context_id,
       },
-      this.getWsUrl(refreshed.bridge_type),
+      this.getWsUrl(created.bridge_type),
     )
   }
 
-  getStatus(type: string) {
+  getStatus(type: string, connectionId?: string) {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = this.database.getConnectionByType(type)
-    if (!connection) {
+    const connection = connectionId?.trim()
+      ? this.database.getConnectionById(connectionId.trim())
+      : this.database.getPrimaryConnectionByType(type)
+    if (!connection || connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
     return {
@@ -900,9 +901,9 @@ export class BridgeService {
   }
 
   private resolveConnection(type: AgentBridgeType, connectionId?: string): BridgeConnectionRow {
-    const connection = connectionId
-      ? this.database.getConnectionById(connectionId)
-      : this.database.getConnectionByType(type)
+    const connection = connectionId?.trim()
+      ? this.database.getConnectionById(connectionId.trim())
+      : this.database.getPrimaryConnectionByType(type)
     if (!connection || connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }

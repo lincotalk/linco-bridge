@@ -9,6 +9,14 @@ export async function fetchSessions(): Promise<ChatSessionItem[]> {
   return res.data
 }
 
+export async function hideSessionsFromList(sessionIds: string[]): Promise<number> {
+  const res = await apiPost<{ hiddenCount: number }>('/api/sessions/hide', { sessionIds })
+  if (!res.success || !res.data) {
+    throw new Error(res.message || '删除会话失败')
+  }
+  return res.data.hiddenCount
+}
+
 export async function resumeSession(sessionId: string): Promise<ResumeSessionResult> {
   const res = await apiPost<ResumeSessionResult>(
     `/api/sessions/${encodeURIComponent(sessionId)}/resume`,
