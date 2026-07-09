@@ -92,13 +92,15 @@ npm run build:mp-weixin
 
 ## Environment Variables
 
+Production builds (`build:h5` / `build:mp-weixin`) automatically load [`prod.env`](prod.env). No inline `VITE_*` flags are required.
+
 | Variable | Default | Description |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | empty | REST base URL |
+| `VITE_API_BASE_URL` | see `prod.env` | REST base URL; leave empty when API is same-origin |
 | `VITE_USE_REMOTE_API` | `true` | Use in-memory mock when set to `false` |
 | `VITE_AGENT_CHAT_SDK` | empty | Force AgentChat SDK to mock when set to `mock` |
 
-Development proxy:
+Local dev does not load `prod.env`. Keep `VITE_API_BASE_URL` empty and use the dev proxy:
 
 ```text
 /api → http://127.0.0.1:3300

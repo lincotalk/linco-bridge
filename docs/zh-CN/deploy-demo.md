@@ -124,9 +124,7 @@ server {
 
 ## 3. 构建并发布 H5
 
-### 同域部署（推荐）
-
-H5 与 `/api` 同域名时，构建可不带 API 前缀，由 Nginx 反代：
+生产环境变量在 [`linco-bridge-platform/web/prod.env`](../linco-bridge-platform/web/prod.env)，`npm run build:h5` 会自动加载，无需命令行传 `VITE_*`。
 
 ```bash
 cd linco-bridge-platform/web
@@ -134,21 +132,15 @@ npm install
 npm run build:h5
 ```
 
-产物目录：`dist/build/h5` → 上传到 Nginx `root`。
+产物目录：`dist/build/h5` → **整目录**（含 `assets/`、`static/`）上传到 Nginx `root`。
 
-### 跨域部署
-
-若静态与 API 不同域：
-
-```bash
-VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:h5
-```
+若静态与 API 不同域，修改 `prod.env` 中的 `VITE_API_BASE_URL` 后重新构建。
 
 ## 4. 发布微信小程序
 
 ```bash
 cd linco-bridge-platform/web
-VITE_API_BASE_URL=https://bridge-demo.lincotalk.com npm run build:mp-weixin
+npm run build:mp-weixin
 ```
 
 1. 在 `web/src/manifest.json` 填写 `mp-weixin.appid`
@@ -214,7 +206,7 @@ Release 中至少包含：
 ### H5 能开、小程序不行
 
 - 检查小程序合法域名与备案
-- 确认 `VITE_API_BASE_URL` 与构建时一致
+- 确认 `prod.env` 中 `VITE_API_BASE_URL` 与线上一致，且 `assets/` 已完整上传
 
 ### 多人同时演示互相踢线
 
