@@ -150,6 +150,9 @@ export class ChatService {
         const connection = row.bridge_connection_id
           ? this.database.getConnectionById(row.bridge_connection_id)
           : undefined
+        if (connection && this.database.isConnectionHiddenFromMessageList(connection.id)) {
+          return false
+        }
         return shouldShowSessionInList(row, connection)
       })
       .map((row) => {
@@ -186,11 +189,27 @@ export class ChatService {
   }
 
   hideSessionsFromList(sessionIds: string[]): { hiddenCount: number } {
-    const validIds = sessionIds
-      .map((id) => id.trim())
-      .filter(Boolean)
-      .filter((id) => Boolean(this.database.getSession(id)))
-    const hidden = this.database.hideSessionsFromHistory(validIds)
+    const expanded = new Set<string>()
+
+    for (const rawId of sessionIds) {
+      const id = rawId.trim()
+      if (!id) continue
+
+      const session = this.database.getSession(id)
+      if (!session) continue
+
+      expanded.add(id)
+
+      const connectionId = session.bridge_connection_id?.trim()
+      if (connectionId) {
+        this.database.hideConnectionFromMessageList(connectionId)
+        for (const siblingId of this.database.listSessionIdsByBridgeConnectionId(connectionId)) {
+          expanded.add(siblingId)
+        }
+      }
+    }
+
+    const hidden = this.database.hideSessionsFromHistory([...expanded])
     return { hiddenCount: hidden.length }
   }
 

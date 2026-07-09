@@ -19,6 +19,29 @@ describe('ChatService', () => {
     chatService = new ChatService(database, presence, bridgeService, relay)
   })
 
+  it('hides all sessions for a connection when deleting grouped message row', () => {
+    const connection = database.getConnectionByType('codex')!
+    const first = database.getSessionByConnectionId(connection.id)!
+    database.touchSession(first.id, '第一条')
+    database.updateSessionTitle(first.id, '第一条')
+
+    const second = database.createSession({
+      agentType: 'codex',
+      title: '深圳最近会下雨吗',
+      bridgeConnectionId: connection.id,
+      bridgeProjectPath: 'D:\\project\\ddjf-aichat',
+      lastMessage: 'Ready when you are.',
+    })
+    database.touchSession(second.id, '第二条预览')
+
+    expect(chatService.listSessions()).toHaveLength(1)
+
+    const result = chatService.hideSessionsFromList([second.id])
+    expect(result.hiddenCount).toBeGreaterThanOrEqual(2)
+    expect(chatService.listSessions()).toHaveLength(0)
+    expect(database.isConnectionHiddenFromMessageList(connection.id)).toBe(true)
+  })
+
   it('hides sessions from message list', () => {
     const connection = database.getConnectionByType('codex')!
     const session = database.getSessionByConnectionId(connection.id)!
