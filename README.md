@@ -200,7 +200,7 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 
 ## 💬 Community
 
-For technical discussion, Linco Lab updates, and official Linco App download links, see [COMMUNITY.md](COMMUNITY.md). For Chinese community information, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
+For technical discussion, Linco Lab updates, and official community information, see [COMMUNITY.md](COMMUNITY.md). For Chinese community information, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
 
 ## 🤝 Contributing
 

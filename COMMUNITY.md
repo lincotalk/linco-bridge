@@ -38,7 +38,6 @@ WeChat Official Account QR code:
 For the full official product experience, see Linco App:
 
 - iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
-- Android: [https://apphost.ddjf.info/](https://apphost.ddjf.info/)
 
 ## 🤝 Community Support
 
