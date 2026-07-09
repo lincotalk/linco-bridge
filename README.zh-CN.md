@@ -200,7 +200,7 @@ linco-connect start --daemon
 
 ## 💬 社区与动态
 
-技术交流群、Linco Lab 内容渠道和 Linco App 下载入口见 [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md)。如需英文版社区页，可查看 [COMMUNITY.md](COMMUNITY.md)。
+技术交流群、Linco Lab 内容渠道和官方社区信息见 [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md)。如需英文版社区页，可查看 [COMMUNITY.md](COMMUNITY.md)。
 
 ## 🤝 参与贡献
 
