@@ -158,8 +158,8 @@ Session API  → /api/sessions/*
 | --- | --- | --- | --- | --- |
 | Codex | Yes, switchable inside chat | No | Yes | Yes |
 | Claude | Yes | No | Yes | Yes |
-| Hermes | No | Import-time only | No | No |
-| OpenClaw | No | Import-time only | No | No |
+| Hermes | No | Import-time only | No | Yes |
+| OpenClaw | No | Import-time only | No | Yes |
 
 ### Hermes and OpenClaw binding rules
 
@@ -179,11 +179,11 @@ Related files:
 - `components/BridgeSettingsPickerSheet.vue`
 - `utils/bridge-settings.ts`
 
-### Slash commands for Codex and Claude
+### Slash commands (all bridge agents)
 
-- The frontend first reads cached commands, then refreshes them through `/help`.
-- Command items are stored in memory and local cache for faster reuse.
-- Typing `/` in the input can show command suggestions and placeholders.
+- The landing page and chat page preload commands through `/help`.
+- The frontend first reads cached commands, then refreshes them from the connector.
+- Typing `/` in the input shows suggestions from the cached command list.
 
 Related files:
 

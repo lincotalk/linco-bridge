@@ -45,10 +45,10 @@ describe('supportsBridgeSettingsSelector', () => {
 })
 
 describe('supportsBridgeSlashCommands', () => {
-  it('enables slash command autocomplete for codex and claude only', () => {
+  it('enables slash command autocomplete for all bridge agents', () => {
     expect(supportsBridgeSlashCommands('codex')).toBe(true)
     expect(supportsBridgeSlashCommands('claude')).toBe(true)
-    expect(supportsBridgeSlashCommands('hermes')).toBe(false)
-    expect(supportsBridgeSlashCommands('openclaw')).toBe(false)
+    expect(supportsBridgeSlashCommands('hermes')).toBe(true)
+    expect(supportsBridgeSlashCommands('openclaw')).toBe(true)
   })
 })

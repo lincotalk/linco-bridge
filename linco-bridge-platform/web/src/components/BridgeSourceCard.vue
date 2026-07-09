@@ -11,7 +11,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <view class="source-card card" @tap="emit('select', item)">
+  <view class="source-card" @tap="emit('select', item)">
     <view class="source-card__icon-wrap">
       <image class="source-card__icon" :src="item.icon" mode="aspectFit" />
     </view>
@@ -29,6 +29,10 @@ const emit = defineEmits<{
   align-items: center;
   padding: 28rpx 24rpx;
   margin-bottom: 24rpx;
+  background: #ffffff;
+  border: 1rpx solid #ebedf0;
+  border-radius: 16rpx;
+  box-sizing: border-box;
 }
 
 .source-card__icon-wrap {

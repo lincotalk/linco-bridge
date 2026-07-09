@@ -154,12 +154,17 @@ Session API  → /api/sessions/*
 
 ## Agent 能力矩阵
 
-| Agent | 工作区选择 | 上下文绑定 | 模型与推理设置 |
-| --- | --- | --- | --- |
-| Codex | 支持 | 不需要 | 支持 |
-| Claude | 支持 | 不需要 | 支持 |
-| Hermes | 不支持 | 仅导入时绑定 | 不支持 |
-| OpenClaw | 不支持 | 仅导入时绑定 | 不支持 |
+| Agent | 工作区选择 | 上下文绑定 | 模型与推理设置 | Slash 命令补全 |
+| --- | --- | --- | --- | --- |
+| Codex | 支持 | 不需要 | 支持 | 支持（`/help` 缓存） |
+| Claude | 支持 | 不需要 | 支持 | 支持 |
+| Hermes | 不支持 | 仅导入时绑定 | 不支持 | 支持 |
+| OpenClaw | 不支持 | 仅导入时绑定 | 不支持 | 支持 |
+
+### Slash 命令（全部 Bridge Agent）
+
+- 落地页 / 会话页进入时：先读本地缓存，再调用 `POST /api/agent-chat/:type/bridge-command`（`/help`）刷新
+- 解析 `payload.items` 写入内存 + `localStorage`，输入 `/` 时从缓存数据联想补全
 
 ## 图标资源
 
