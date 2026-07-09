@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BridgeSourceCard from '@/components/BridgeSourceCard.vue'
+import DemoDataNotice from '@/components/DemoDataNotice.vue'
 import { BRIDGE_SOURCE_CARDS } from '@/bridge/constants'
 import type { BridgeSourceCard as BridgeSourceCardType } from '@/bridge/types'
 
@@ -10,6 +11,7 @@ function handleSelect(item: BridgeSourceCardType) {
 
 <template>
   <view class="page-container bridge-page">
+    <DemoDataNotice />
     <view class="bridge-page__list">
       <BridgeSourceCard
         v-for="item in BRIDGE_SOURCE_CARDS"
@@ -27,6 +29,6 @@ function handleSelect(item: BridgeSourceCardType) {
 }
 
 .bridge-page__list {
-  padding: calc(env(safe-area-inset-top) + 24rpx) 30rpx 24rpx;
+  padding: 16rpx 30rpx 24rpx;
 }
 </style>
