@@ -211,7 +211,27 @@ linco-connect start --daemon
 
 ## 💬 社区与动态
 
-技术交流群、Linco Lab 内容渠道和官方社区信息见 [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md)。如需英文版社区页，可查看 [COMMUNITY.md](COMMUNITY.md)。
+在仓库首页即可直接获取社区入口：
+
+### 技术交流群
+
+如需讨论接入问题、产品反馈、AI coding 实践和 Agent 工作流，可直接扫码加入微信群：
+
+<img src="docs/images/community-wechat-group.jpg" alt="Linco technical WeChat group" width="360" />
+
+### Linco Lab 内容渠道
+
+- 小红书：[Linco Lab](https://xhslink.com/m/7tdp7JOYViz)
+- 微信公众号：微信内搜索 `Linco Lab`
+
+<img src="docs/images/linco-lab-wechat-official-account.jpg" alt="Linco Lab WeChat Official Account QR code" width="220" />
+
+### Linco App 下载
+
+- iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
+- Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
+
+更完整的社区说明见 [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md)。如需英文版社区页，可查看 [COMMUNITY.md](COMMUNITY.md)。
 
 ## 🤝 参与贡献
 
