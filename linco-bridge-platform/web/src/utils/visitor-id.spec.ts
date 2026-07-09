@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   getOrCreateVisitorId,
   isValidVisitorId,
+  resetVisitorIdForTests,
   VISITOR_ID_STORAGE_KEY,
 } from '@/utils/visitor-id'
 
@@ -22,5 +23,17 @@ describe('visitor-id', () => {
     expect(isValidVisitorId(first)).toBe(true)
     expect(second).toBe(first)
     expect(storage.get(VISITOR_ID_STORAGE_KEY)).toBe(first)
+  })
+
+  it('reuses an in-memory id when localStorage is unavailable', () => {
+    resetVisitorIdForTests()
+    vi.stubGlobal('localStorage', undefined)
+    vi.stubGlobal('crypto', { randomUUID: () => '22222222-2222-4222-8222-222222222222' })
+
+    const first = getOrCreateVisitorId()
+    const second = getOrCreateVisitorId()
+
+    expect(first).toBe('22222222-2222-4222-8222-222222222222')
+    expect(second).toBe(first)
   })
 })

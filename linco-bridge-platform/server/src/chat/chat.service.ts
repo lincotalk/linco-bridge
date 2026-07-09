@@ -498,6 +498,8 @@ export class ChatService {
     return {
       apiBaseUrl: resolvePublicHttpOrigin(),
       wsBaseUrl: this.bridgeService.getWsUrl(),
+      dataRetentionNotice:
+        'Demo 数据保存在当前浏览器本地标识下，刷新页面仍会保留；清除缓存、换设备或使用无痕模式可能丢失。',
     }
   }
 

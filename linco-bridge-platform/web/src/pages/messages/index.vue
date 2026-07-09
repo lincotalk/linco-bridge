@@ -6,6 +6,8 @@ import { ref } from 'vue'
 
 import SessionSwipeListItem from '@/components/SessionSwipeListItem.vue'
 
+import DemoDataNotice from '@/components/DemoDataNotice.vue'
+
 import { switchRootTab } from '@/constants/tabbar'
 
 import { useSessionStore } from '@/stores'
@@ -193,6 +195,8 @@ function goBridge() {
 
   <view class="page-container messages-page">
 
+    <DemoDataNotice />
+
     <scroll-view
 
       class="messages-page__scroll"
@@ -265,6 +269,10 @@ function goBridge() {
 
 .messages-page {
 
+  display: flex;
+
+  flex-direction: column;
+
   height: 100vh;
 
   background: #ffffff;
@@ -275,7 +283,9 @@ function goBridge() {
 
 .messages-page__scroll {
 
-  height: 100%;
+  flex: 1;
+
+  min-height: 0;
 
 }
 
@@ -283,7 +293,7 @@ function goBridge() {
 
 .messages-page__list {
 
-  margin-top: calc(env(safe-area-inset-top) + 8rpx);
+  margin-top: 8rpx;
 
   background: #ffffff;
 
