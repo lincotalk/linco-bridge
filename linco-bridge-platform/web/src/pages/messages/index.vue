@@ -12,7 +12,7 @@ import { useSessionStore } from '@/stores'
 
 import type { ChatSessionItem } from '@/bridge/types'
 
-import { hideSessionsFromList } from '@/api/session-api'
+import { deleteSessionsFromList } from '@/api/session-api'
 
 import { showToast } from '@/utils/format'
 
@@ -130,7 +130,7 @@ function confirmDeleteSession(item: ChatSessionItem) {
 
     title: '删除会话',
 
-    content: '从消息列表移除，不会删除本机 Agent 记录。',
+    content: '将永久删除该连接下的会话与消息记录，无法恢复。本机 Agent 与连接器配置不受影响。',
 
     confirmText: '删除',
 
@@ -159,8 +159,8 @@ function confirmDeleteSession(item: ChatSessionItem) {
 async function deleteSession(item: ChatSessionItem) {
   deletingId.value = item.id
   try {
-    const hiddenCount = await hideSessionsFromList([item.id])
-    if (hiddenCount <= 0) {
+    const deletedCount = await deleteSessionsFromList([item.id])
+    if (deletedCount <= 0) {
       throw new Error('删除失败，请刷新后重试')
     }
     if (item.connectionId) {
