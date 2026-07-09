@@ -66,7 +66,7 @@ export function buildInitCommand(type: AgentBridgeType, params: BridgeCommandPar
     parts.push(`--ws-url ${wsOverride}`)
   }
   // linco-demo preset uses ws://127.0.0.1:3300/bridge/ws/{agent}; local init needs explicit opt-in.
-  if (channel === BRIDGE_CONNECT_CHANNEL || !wsOverride || wsOverride.startsWith('ws://')) {
+  if (!wsOverride || wsOverride.startsWith('ws://')) {
     parts.push('--allow-insecure-ws')
   }
   return parts.join(' ')

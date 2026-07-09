@@ -14,6 +14,7 @@ import { BridgePresenceService } from './bridge-presence.service'
 import { BridgeRelayService, type ConnectorSendInput } from './bridge-relay.service'
 import { toBridgeSetupDto } from './bridge-setup.dto'
 import { resolveConnectionDeviceName } from '../chat/session-list-title.util'
+import { resolvePublicWsBaseUrl } from '../shared/public-endpoint.util'
 import {
   buildBridgeSettingsApplyCommand,
   DEMO_BRIDGE_SETTINGS_OPTIONS,
@@ -65,9 +66,7 @@ export class BridgeService {
   ) {}
 
   getWsUrl(agentType?: string): string {
-    const host = process.env.PUBLIC_HOST ?? '127.0.0.1'
-    const port = process.env.PORT ?? '3300'
-    const base = `ws://${host}:${port}/bridge/ws`
+    const base = resolvePublicWsBaseUrl()
     return agentType?.trim() ? `${base}/${agentType.trim()}` : base
   }
 

@@ -67,9 +67,18 @@ describe('bridge.commands', () => {
       }),
 
     ).toContain(`--ws-url ${DEFAULT_BRIDGE_WS_URL}/codex`)
-
   })
 
+  it('omits allow-insecure-ws for wss override', () => {
+    const command = buildInitCommand('codex', {
+      appId: 'app-1',
+      appSecret: 'secret-1',
+      accountId: 'codex_1',
+      wsUrl: 'wss://demo.lincotalk.com/bridge/ws/codex',
+    })
+    expect(command).toContain('--ws-url wss://demo.lincotalk.com/bridge/ws/codex')
+    expect(command).not.toContain('--allow-insecure-ws')
+  })
 
 
   it('builds full setup command block', () => {

@@ -56,7 +56,12 @@ export function supportsBridgeSettingsSelector(type: AgentBridgeType): boolean {
   return type === 'codex' || type === 'claude'
 }
 
-/** Codex / Claude Code only — `/help` slash command cache + input autocomplete. */
+/** All bridge agents — `/help` slash command cache + input autocomplete. */
 export function supportsBridgeSlashCommands(type: AgentBridgeType): boolean {
-  return type === 'codex' || type === 'claude'
+  return (
+    type === 'codex' ||
+    type === 'claude' ||
+    type === 'hermes' ||
+    type === 'openclaw'
+  )
 }

@@ -27,7 +27,7 @@ export function buildInitCommand(type: AgentBridgeType, params: BridgeCommandPar
   if (wsOverride) {
     parts.push(`--ws-url ${wsOverride}`)
   }
-  if (channel === BRIDGE_CONNECT_CHANNEL || !wsOverride || wsOverride.startsWith('ws://')) {
+  if (!wsOverride || wsOverride.startsWith('ws://')) {
     parts.push('--allow-insecure-ws')
   }
   return parts.join(' ')

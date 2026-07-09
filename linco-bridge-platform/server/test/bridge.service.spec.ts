@@ -40,6 +40,17 @@ describe('BridgeService', () => {
     expect(setup.setupCommands).not.toContain('--ws-url')
   })
 
+  it('embeds public --ws-url when PUBLIC_HOST is not loopback', () => {
+    process.env.PUBLIC_HOST = 'demo.lincotalk.com'
+    const setup = service.getSetup('codex')
+    expect(setup.wsUrl).toBe('wss://demo.lincotalk.com/bridge/ws/codex')
+    expect(setup.setupCommands).toContain(
+      '--ws-url wss://demo.lincotalk.com/bridge/ws/codex',
+    )
+    expect(setup.setupCommands).not.toContain('--allow-insecure-ws')
+    delete process.env.PUBLIC_HOST
+  })
+
   it('reuses allocated secret on subsequent getSetup calls', () => {
     const first = service.getSetup('claude')
     const second = service.getSetup('claude')

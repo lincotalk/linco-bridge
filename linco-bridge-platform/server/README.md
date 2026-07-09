@@ -60,8 +60,12 @@ npm run start:prod
 | Variable | Default | Description |
 | --- | --- | --- |
 | `PORT` | `3300` | HTTP and WebSocket port |
-| `PUBLIC_HOST` | `127.0.0.1` | Hostname written into generated setup commands |
+| `PUBLIC_HOST` | `127.0.0.1` | Hostname in demo-config and setup commands |
+| `PUBLIC_HTTP_SCHEME` | `http` locally, else `https` | REST origin scheme |
+| `PUBLIC_WS_SCHEME` | `ws` locally, else `wss` | Connector WebSocket scheme |
 | `SQLITE_PATH` | `./data/linco-bridge.db` | SQLite file path |
+
+Hosted demo deployment: [`../../docs/deploy-demo.md`](../../docs/deploy-demo.md). Non-loopback `PUBLIC_HOST` embeds `--ws-url wss://...` in setup commands.
 
 ## API Shape
 

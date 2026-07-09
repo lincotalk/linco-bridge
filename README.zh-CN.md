@@ -140,6 +140,16 @@ linco-connect start --daemon
 
 完整流程见 [快速开始](docs/zh-CN/quick-start.md)、[平台 README](linco-bridge-platform/README.zh-CN.md)、[平台 Server README](linco-bridge-platform/server/README.zh-CN.md) 和 [Web / H5 README](linco-bridge-platform/web/README.zh-CN.md)。
 
+### 方式三：使用官方在线 Demo
+
+若你们已部署托管 Demo（H5 / 微信小程序），用户只需：
+
+1. 打开在线 Demo 地址或小程序
+2. **桥接** → 复制 `setupCommands` → 本机执行
+3. 本机安装并运行 `linco-connect` + 对应 Agent CLI
+
+部署说明见 [在线 Demo 部署指南](docs/zh-CN/deploy-demo.md)。
+
 ## 🤖 支持的 Agent
 
 | Agent | 首期状态 | 当前子项目文档中的验证版本 |
@@ -183,6 +193,7 @@ linco-connect start --daemon
 ## 📚 文档
 
 - [快速开始](docs/zh-CN/quick-start.md)
+- [在线 Demo 部署](docs/zh-CN/deploy-demo.md)
 - [工作原理](docs/zh-CN/how-it-works.md)
 - [CLI 命令参考](docs/zh-CN/cli.md)
 - [公开协议](docs/zh-CN/protocol.md)

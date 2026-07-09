@@ -7,6 +7,7 @@ services:
       - '3300:3300'
     environment:
       PORT: '3300'
+      # 在线 Demo：改为公网域名，并设 PUBLIC_HTTP_SCHEME / PUBLIC_WS_SCHEME
       PUBLIC_HOST: '127.0.0.1'
       SQLITE_PATH: /app/data/linco-bridge.db
     volumes:

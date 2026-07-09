@@ -9,6 +9,7 @@ import { BridgePresenceService } from '../bridge/bridge-presence.service'
 import { BridgeRelayService } from '../bridge/bridge-relay.service'
 import { BridgeService } from '../bridge/bridge.service'
 import { parseBridgeSessionSettings } from '../bridge/bridge-settings.util'
+import { resolvePublicHttpOrigin } from '../shared/public-endpoint.util'
 import {
   buildHistoryReloadCommand,
   formatSlashPayload,
@@ -457,10 +458,8 @@ export class ChatService {
   }
 
   getDemoConfig() {
-    const host = process.env.PUBLIC_HOST ?? '127.0.0.1'
-    const port = process.env.PORT ?? '3300'
     return {
-      apiBaseUrl: `http://${host}:${port}`,
+      apiBaseUrl: resolvePublicHttpOrigin(),
       wsBaseUrl: this.bridgeService.getWsUrl(),
       demoUserId: this.database.demoUserId,
     }

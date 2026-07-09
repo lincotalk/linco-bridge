@@ -9,7 +9,8 @@
     {
       "path": "pages/bridge/index",
       "style": {
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "#ffffff"
       }
     },
     {

@@ -60,8 +60,12 @@ npm run start:prod
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `PORT` | `3300` | HTTP 与 WebSocket 端口 |
-| `PUBLIC_HOST` | `127.0.0.1` | 写入 setup 命令的主机名 |
+| `PUBLIC_HOST` | `127.0.0.1` | 写入 demo-config 与 setup 命令的主机名 |
+| `PUBLIC_HTTP_SCHEME` | 本地 `http`，否则 `https` | REST 根地址 scheme |
+| `PUBLIC_WS_SCHEME` | 本地 `ws`，否则 `wss` | connector WebSocket scheme |
 | `SQLITE_PATH` | `./data/linco-bridge.db` | SQLite 文件路径 |
+
+在线 Demo 部署见 [`../../docs/zh-CN/deploy-demo.md`](../../docs/zh-CN/deploy-demo.md)。当 `PUBLIC_HOST` 为公网域名时，导入页 `setupCommands` 会自动包含 `--ws-url wss://...`。
 
 ## API 返回格式
 

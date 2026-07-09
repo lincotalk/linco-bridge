@@ -4,6 +4,15 @@
 
 Linco Bridge 自托管参考平台，用于联调本机 Agent CLI 与 H5 / 小程序前端，验证完整桥接链路。当前参考 Agent 包括 Codex、Claude Code、Hermes、OpenClaw。
 
+## 两种体验方式
+
+| 方式 | 说明 |
+| --- | --- |
+| **本地全栈 Demo** | Clone 本仓库，本地启动 `server` + `web`，适合开发者与二次开发 |
+| **在线 Demo** | 使用官方部署的 H5 / 小程序 + 本机 `linco-connect`，详见 [`../../docs/zh-CN/deploy-demo.md`](../../docs/zh-CN/deploy-demo.md) |
+
+在线 Demo 为公共演示环境：无登录、数据共享、每种 Agent 同时仅一个 connector 在线。
+
 ## 目录结构
 
 ```text

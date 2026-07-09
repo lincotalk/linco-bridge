@@ -5,6 +5,7 @@ import {
   type BridgeCommandParams,
 } from '../bridge/bridge.commands'
 import type { AgentBridgeType } from '../shared/constants'
+import { shouldEmbedWsUrlInSetupCommands } from '../shared/public-endpoint.util'
 
 export interface BridgeSetupDto {
   bridgeType: AgentBridgeType
@@ -38,6 +39,7 @@ export function toBridgeSetupDto(
     appSecret: input.appSecret,
     accountId: input.accountId,
     channel: BRIDGE_CONNECT_CHANNEL,
+    ...(shouldEmbedWsUrlInSetupCommands() ? { wsUrl } : {}),
   }
   const initCommand = buildInitCommand(input.bridgeType, params)
   const startCommand = 'linco-connect start --daemon'
