@@ -97,7 +97,10 @@ export const useSessionStore = defineStore('session', () => {
     messagesBySession.value = nextMessages
   }
 
-  async function loadMessages(sessionId: string, limit?: number) {
+  async function loadMessages(
+    sessionId: string,
+    options?: { limit?: number; reload?: boolean },
+  ) {
     loadingMessages.value = {
       ...loadingMessages.value,
       [sessionId]: true,
@@ -105,7 +108,7 @@ export const useSessionStore = defineStore('session', () => {
     try {
       messagesBySession.value = {
         ...messagesBySession.value,
-        [sessionId]: await fetchMessages(sessionId, limit),
+        [sessionId]: await fetchMessages(sessionId, options),
       }
     } finally {
       loadingMessages.value = {

@@ -1,4 +1,5 @@
 import { appendAgentTypeQuery } from '@/bridge/sdk/agent-chat'
+import { BRIDGE_HISTORY_SYNC_LIMIT } from '@/bridge/constants'
 import { useSessionStore } from '@/stores'
 import { isBoundWorkspacePick, hasWorkspaceSessionPick, type PickWorkspaceResult } from '@/utils/pick-workspace'
 
@@ -21,7 +22,7 @@ export async function openBoundBridgeChat(picked: PickWorkspaceResult): Promise<
     params.set('reloadHistory', '1')
   }
 
-  uni.navigateTo({
+  uni.redirectTo({
     url: `/pages/chat/index?${params.toString()}`,
   })
   return true
@@ -29,10 +30,10 @@ export async function openBoundBridgeChat(picked: PickWorkspaceResult): Promise<
 
 export async function reloadBoundChatSession(
   sessionId: string,
-  reloadHistory: () => Promise<void>,
+  reloadHistory: (limit?: number, reload?: boolean) => Promise<void>,
 ): Promise<void> {
   const sessionStore = useSessionStore()
   sessionStore.setMessages(sessionId, [])
   await sessionStore.loadSessions().catch(() => undefined)
-  await reloadHistory()
+  await reloadHistory(BRIDGE_HISTORY_SYNC_LIMIT, true)
 }

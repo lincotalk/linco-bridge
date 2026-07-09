@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref, watch } from 'vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
@@ -24,6 +24,8 @@ const chat = useChatSession()
 const { pickWorkspace } = useProjectPicker()
 const queryAgentType = ref<AgentBridgeType | null>(null)
 const refreshing = ref(false)
+const routeSessionId = ref('')
+const routeReloadHistory = ref(false)
 const {
   draft,
   sending,
@@ -94,15 +96,36 @@ const agentPanel = useAgentPanel({
 
 onLoad((query) => {
   const id = String(query?.sessionId ?? '')
-  const initialDraft = query?.draft ? decodeURIComponent(String(query.draft)) : undefined
-  const reloadHistory =
+  routeSessionId.value = id
+  routeReloadHistory.value =
     query?.reloadHistory === '1' ||
     query?.reloadHistory === 'true' ||
     query?.reloadHistory === true
+  const initialDraft = query?.draft ? decodeURIComponent(String(query.draft)) : undefined
   queryAgentType.value = parseAgentTypeFromQuery(String(query?.agentType ?? ''))
   if (id) {
-    void loadSession(id, { initialDraft, reloadHistory })
+    void loadSession(id, { initialDraft, reloadHistory: routeReloadHistory.value })
   }
+})
+
+function readRouteQuery(): { sessionId: string; reloadHistory: boolean } {
+  const pages = getCurrentPages()
+  const current = pages[pages.length - 1] as { options?: Record<string, string | boolean> } | undefined
+  const query = current?.options ?? {}
+  const sessionId = String(query.sessionId ?? '')
+  const reloadHistory =
+    query.reloadHistory === '1' ||
+    query.reloadHistory === 'true' ||
+    query.reloadHistory === true
+  return { sessionId, reloadHistory }
+}
+
+onShow(() => {
+  const { sessionId, reloadHistory } = readRouteQuery()
+  if (!sessionId || sessionId === routeSessionId.value) return
+  routeSessionId.value = sessionId
+  routeReloadHistory.value = reloadHistory
+  void loadSession(sessionId, { reloadHistory })
 })
 
 watch(
@@ -141,7 +164,7 @@ async function handleWorkspace() {
       return
     }
     await sessionStore.loadSessions().catch(() => undefined)
-    await chat.loadSession(chat.sessionId.value)
+    await chat.loadSession(chat.sessionId.value, { reloadHistory: Boolean(picked.agentSessionId?.trim()) })
     showToast(`已选择 ${picked.name}`)
   } catch (error) {
     showToast(error instanceof Error ? error.message : '切换工作区失败')

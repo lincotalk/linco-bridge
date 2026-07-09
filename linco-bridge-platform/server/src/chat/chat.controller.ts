@@ -44,12 +44,16 @@ export class ChatController {
   async listMessages(
     @Param('sessionId') sessionId: string,
     @Query('limit') limit?: string,
+    @Query('reload') reload?: string,
   ) {
     const parsedLimit = limit ? Number(limit) : undefined
+    const forceReload =
+      reload === '1' || reload === 'true' || reload === 'yes'
     return ok(
       await this.chatService.listMessages(
         sessionId,
         Number.isFinite(parsedLimit) && parsedLimit! > 0 ? parsedLimit : undefined,
+        { reload: forceReload },
       ),
     )
   }

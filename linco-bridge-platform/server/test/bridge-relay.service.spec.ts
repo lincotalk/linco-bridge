@@ -231,6 +231,35 @@ describe('BridgeRelayService', () => {
     })
   })
 
+  it('accepts history-reload command name for history pending', async () => {
+    const relay = new BridgeRelayService()
+    let capturedStreamId = ''
+    const { completed } = relay.forwardSlashCommand(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: '/history --chat chat-1 5',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      '/history --chat chat-1 5',
+    )
+
+    relay.handleConnectorFrame({
+      type: 'slash_command_result',
+      streamId: capturedStreamId,
+      command: 'history-reload',
+      data: { rounds: [] },
+    })
+
+    await expect(completed).resolves.toEqual({ rounds: [] })
+  })
+
   it('resolves forwardLocalCommand on empty turn_end', async () => {
     const relay = new BridgeRelayService()
     let capturedStreamId = ''

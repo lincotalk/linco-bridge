@@ -1,4 +1,5 @@
 import {
+  buildHistoryCommand,
   buildHistoryReloadCommand,
   buildSessionsCommand,
   formatSlashPayload,
@@ -26,6 +27,29 @@ describe('buildHistoryReloadCommand', () => {
     ).toBe(
       '/history-reload --project "D:\\project\\demo" --session session-abc 10',
     )
+  })
+})
+
+describe('buildHistoryCommand', () => {
+  it('builds codex chat history command', () => {
+    expect(
+      buildHistoryCommand({
+        limit: 5,
+        agentSessionId: '019f25c5-e900-70a2-88fc-7ef9eef4f5fc',
+        bridgeType: 'codex',
+      }),
+    ).toBe('/history --chat 019f25c5-e900-70a2-88fc-7ef9eef4f5fc 5')
+  })
+
+  it('builds scoped project history command', () => {
+    expect(
+      buildHistoryCommand({
+        limit: 5,
+        projectPath: 'D:\\project\\demo',
+        agentSessionId: 'session-abc',
+        bridgeType: 'codex',
+      }),
+    ).toBe('/history --project "D:\\project\\demo" --session session-abc 5')
   })
 })
 

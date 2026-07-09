@@ -12,6 +12,7 @@ import { parseBridgeSessionSettings } from '../bridge/bridge-settings.util'
 import { resolvePublicHttpOrigin } from '../shared/public-endpoint.util'
 import {
   buildHistoryReloadCommand,
+  buildHistoryCommand,
   formatSlashPayload,
   quoteBridgeCommandArg,
 } from '../bridge/bridge.commands.util'
@@ -120,6 +121,8 @@ const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
 }
 
 const DEFAULT_HISTORY_LIMIT = 50
+export const BRIDGE_HISTORY_SYNC_LIMIT = 5
+const BRIDGE_HISTORY_TIMEOUT_MS = 20_000
 
 export interface CreateSessionInput {
   agentType: AgentBridgeType
@@ -217,20 +220,31 @@ export class ChatService {
     return { deletedCount: deleted.length }
   }
 
-  async listMessages(sessionId: string, limit = DEFAULT_HISTORY_LIMIT): Promise<ChatMessageDto[]> {
+  async listMessages(
+    sessionId: string,
+    limit = DEFAULT_HISTORY_LIMIT,
+    options?: { reload?: boolean },
+  ): Promise<ChatMessageDto[]> {
     const session = this.resourceAccess.requireSession(sessionId)
+    const forceReload = options?.reload === true
+    const effectiveLimit =
+      forceReload && limit === DEFAULT_HISTORY_LIMIT ? BRIDGE_HISTORY_SYNC_LIMIT : limit
 
     if (shouldPersistSessionMessages(session)) {
-      const stored = this.database
-        .listMessages(sessionId, limit)
-        .map((row) => this.mapStoredMessage(row))
-      if (stored.length > 0) {
-        return stored
+      if (forceReload) {
+        this.database.clearSessionMessages(sessionId)
+      } else {
+        const stored = this.database
+          .listMessages(sessionId, effectiveLimit)
+          .map((row) => this.mapStoredMessage(row))
+        if (stored.length > 0) {
+          return stored
+        }
       }
 
-      await this.maybeImportBridgeHistory(session, limit)
+      await this.maybeImportBridgeHistory(session, effectiveLimit)
       return this.database
-        .listMessages(sessionId, limit)
+        .listMessages(sessionId, effectiveLimit)
         .map((row) => this.mapStoredMessage(row))
     }
 
@@ -248,7 +262,7 @@ export class ChatService {
     }
 
     try {
-      const payload = await this.fetchBridgeHistoryPayload(session, connection, limit)
+      const payload = await this.fetchBridgeHistoryPayload(session, connection, effectiveLimit)
       if (!payload) return []
       return roundsToMessages(sessionId, payload)
     } catch {
@@ -856,16 +870,24 @@ export class ChatService {
     session: ChatSessionRow,
     connection: BridgeConnectionRow,
     limit: number,
+    options?: { useHistoryReload?: boolean },
   ): Promise<HistoryReloadPayload | null> {
     const agentSessionId = session.bridge_agent_session_id?.trim() ?? ''
     if (!agentSessionId) return null
     if (!this.presence.isOnline(connection.id)) return null
 
-    const command = buildHistoryReloadCommand({
-      limit,
-      projectPath: session.bridge_project_path ?? connection.bridge_project_path ?? undefined,
-      agentSessionId,
-    })
+    const projectPath =
+      session.bridge_project_path?.trim() ??
+      connection.bridge_project_path?.trim() ??
+      ''
+    const command = options?.useHistoryReload
+      ? buildHistoryReloadCommand({ limit, projectPath, agentSessionId })
+      : buildHistoryCommand({
+          limit,
+          projectPath,
+          agentSessionId,
+          bridgeType: connection.bridge_type,
+        })
     const { completed } = this.relay.forwardSlashCommand(
       (payload) => this.presence.sendJson(connection.id, payload),
       {
@@ -878,6 +900,7 @@ export class ChatService {
       },
       command,
       'history',
+      BRIDGE_HISTORY_TIMEOUT_MS,
     )
     return await completed
   }
