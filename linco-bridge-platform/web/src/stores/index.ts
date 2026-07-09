@@ -83,6 +83,20 @@ export const useSessionStore = defineStore('session', () => {
     messagesBySession.value = nextMessages
   }
 
+  function removeSessionsByConnection(connectionId: string) {
+    const normalized = connectionId.trim()
+    if (!normalized) return
+    const removingIds = sessions.value
+      .filter((item) => item.connectionId === normalized)
+      .map((item) => item.id)
+    sessions.value = sessions.value.filter((item) => item.connectionId !== normalized)
+    const nextMessages = { ...messagesBySession.value }
+    for (const sessionId of removingIds) {
+      delete nextMessages[sessionId]
+    }
+    messagesBySession.value = nextMessages
+  }
+
   async function loadMessages(sessionId: string, limit?: number) {
     loadingMessages.value = {
       ...loadingMessages.value,
@@ -349,6 +363,7 @@ export const useSessionStore = defineStore('session', () => {
     getMessages,
     loadSessions,
     removeSession,
+    removeSessionsByConnection,
     loadMessages,
     sendMessage: sendMessageStream,
     sendMessageStream,

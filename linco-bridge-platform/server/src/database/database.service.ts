@@ -27,6 +27,7 @@ export interface BridgeConnectionRow {
   session_id: string | null
   device_id: string | null
   device_name: string | null
+  hidden_from_message_list?: number
   create_time: number
   update_time: number
 }
@@ -120,6 +121,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.ensureColumn('bridge_connections', 'bridge_agent_session_id', 'TEXT')
     this.ensureColumn('bridge_connections', 'device_id', 'TEXT')
     this.ensureColumn('bridge_connections', 'device_name', 'TEXT')
+    this.ensureColumn('bridge_connections', 'hidden_from_message_list', 'INTEGER NOT NULL DEFAULT 0')
     this.ensureColumn('chat_sessions', 'bridge_project_path', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_agent_session_id', 'TEXT')
     this.ensureColumn('chat_sessions', 'bridge_device_name', 'TEXT')
@@ -299,6 +301,36 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .all() as unknown as ChatSessionRow[]
   }
 
+  listSessionIdsByBridgeConnectionId(connectionId: string): string[] {
+    const rows = this.db
+      .prepare(`SELECT id FROM chat_sessions WHERE bridge_connection_id = ?`)
+      .all(connectionId) as Array<{ id: string }>
+    return rows.map((row) => row.id)
+  }
+
+  hideConnectionFromMessageList(connectionId: string): void {
+    const now = Date.now()
+    this.db
+      .prepare(
+        `UPDATE bridge_connections SET hidden_from_message_list = 1, update_time = ? WHERE id = ?`,
+      )
+      .run(now, connectionId)
+  }
+
+  clearConnectionMessageListHidden(connectionId: string): void {
+    const now = Date.now()
+    this.db
+      .prepare(
+        `UPDATE bridge_connections SET hidden_from_message_list = 0, update_time = ? WHERE id = ?`,
+      )
+      .run(now, connectionId)
+  }
+
+  isConnectionHiddenFromMessageList(connectionId: string): boolean {
+    const row = this.getConnectionById(connectionId)
+    return Number(row?.hidden_from_message_list ?? 0) === 1
+  }
+
   getSession(sessionId: string): ChatSessionRow | undefined {
     return this.db.prepare(`SELECT * FROM chat_sessions WHERE id = ?`).get(sessionId) as unknown as
       ChatSessionRow | undefined
@@ -436,6 +468,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   touchSession(sessionId: string, lastMessage: string): void {
+    const session = this.getSession(sessionId)
+    if (session?.bridge_connection_id) {
+      this.clearConnectionMessageListHidden(session.bridge_connection_id)
+    }
     const now = Date.now()
     this.db
       .prepare(`UPDATE chat_sessions SET last_message = ?, update_time = ? WHERE id = ?`)
