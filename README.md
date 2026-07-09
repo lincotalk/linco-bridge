@@ -200,15 +200,19 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 
 ## 💬 Community
 
-Join the community directly from the repository homepage:
+Linco Bridge is an open-source project, and we also maintain community channels for broader discussion around AI coding, frontier AI updates, Agent workflows, bridge integrations, and product-building practice.
 
 ### Technical Community
 
-Scan the WeChat group QR code for integration questions, product feedback, AI coding practice, and Agent workflow discussion.
+Join the WeChat technical group to discuss integration questions, product feedback, AI coding practice, and Agent workflow ideas.
 
 <img src="docs/images/community-wechat-group.jpg" alt="Linco technical WeChat group" width="360" />
 
+Note: WeChat group QR codes may expire. If the QR code is no longer valid, please check the latest community information in this repository or in official Linco channels.
+
 ### Linco Lab
+
+Follow **Linco Lab** for open-source updates, AI coding notes, bridge integration examples, Agent workflow content, and broader frontier AI observations.
 
 - Xiaohongshu: [Linco Lab](https://xhslink.com/m/7tdp7JOYViz)
 - WeChat Official Account: search `Linco Lab` in WeChat
@@ -216,6 +220,8 @@ Scan the WeChat group QR code for integration questions, product feedback, AI co
 <img src="docs/images/linco-lab-wechat-official-account.jpg" alt="Linco Lab WeChat Official Account QR code" width="220" />
 
 ### Linco App
+
+For the full official product experience, see Linco App:
 
 - iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
 - Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)

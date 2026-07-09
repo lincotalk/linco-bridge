@@ -211,15 +211,19 @@ linco-connect start --daemon
 
 ## 💬 社区与动态
 
-在仓库首页即可直接获取社区入口：
+Linco Bridge 是开源项目，我们也维护一些社区入口，用来承载更开放的交流内容，包括 AI coding、前沿 AI 资讯、Agent 工作流、桥接集成，以及产品实践相关讨论。
 
 ### 技术交流群
 
-如需讨论接入问题、产品反馈、AI coding 实践和 Agent 工作流，可直接扫码加入微信群：
+欢迎加入微信技术交流群，讨论接入问题、产品反馈、AI coding 实践和 Agent 工作流想法：
 
 <img src="docs/images/community-wechat-group.jpg" alt="Linco technical WeChat group" width="360" />
 
+说明：微信群二维码可能会过期。如果二维码失效，请以本仓库中的最新社区信息或 Linco 官方渠道公告为准。
+
 ### Linco Lab 内容渠道
+
+关注 **Linco Lab**，获取开源更新、AI coding 笔记、桥接集成案例、Agent 工作流内容，以及更广泛的前沿 AI 观察。
 
 - 小红书：[Linco Lab](https://xhslink.com/m/7tdp7JOYViz)
 - 微信公众号：微信内搜索 `Linco Lab`
@@ -227,6 +231,8 @@ linco-connect start --daemon
 <img src="docs/images/linco-lab-wechat-official-account.jpg" alt="Linco Lab WeChat Official Account QR code" width="220" />
 
 ### Linco App 下载
+
+如需体验完整的官方产品能力，可以下载 Linco App：
 
 - iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
 - Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
