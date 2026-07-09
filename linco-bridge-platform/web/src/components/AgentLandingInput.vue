@@ -143,10 +143,6 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
           </view>
         </view>
 
-        <view v-else class="landing-input__chip">
-          <text class="landing-input__chip-text">临时会话</text>
-        </view>
-
         <view class="landing-input__toolbar-spacer" />
 
         <view v-if="canSend && !starting" class="landing-input__actions">
@@ -214,24 +210,6 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
 .landing-input__icon {
   width: 40rpx;
   height: 40rpx;
-}
-
-.landing-input__chip {
-  display: flex;
-  align-items: center;
-  max-width: 304rpx;
-  height: 56rpx;
-  margin-left: 8rpx;
-  padding: 0 16rpx;
-  border: 1rpx solid #e4e6e8;
-  border-radius: 8rpx;
-  background: #f4f5f6;
-}
-
-.landing-input__chip-text {
-  font-size: 26rpx;
-  line-height: 1.2;
-  color: rgba(0, 0, 0, 0.87);
 }
 
 .landing-input__bridge-compact {
