@@ -1,4 +1,4 @@
-import { Body, Controller, Get, BadRequestException, NotFoundException, Param, Post, Query, Res } from '@nestjs/common'
+import { Body, Controller, Get, BadRequestException, Headers, NotFoundException, Param, Post, Query, Res } from '@nestjs/common'
 import type { Response } from 'express'
 import { ok } from '../shared/api-response'
 import { isAgentBridgeType } from '../shared/constants'
@@ -17,6 +17,11 @@ export class ChatController {
   @Get('demo-config')
   getDemoConfig() {
     return ok(this.chatService.getDemoConfig())
+  }
+
+  @Post('admin/reset-demo-db')
+  resetDemoDb(@Headers('x-demo-reset-token') resetToken?: string) {
+    return ok(this.chatService.resetDemoData(resetToken))
   }
 
   @Get('sessions')

@@ -5,17 +5,18 @@ import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import {
   AGENT_BRIDGE_TYPES,
-  DEMO_USER_ID,
   type AgentBridgeType,
   agentDisplayName,
   defaultAccountId,
   generateConnectionAccountId,
   generateConnectionAppId,
 } from '../shared/constants'
+import { TEST_SEED_OWNER_ID } from '../shared/visitor-id.util'
 import { normalizeSessionPreview } from '../chat/session-preview.util'
 
 export interface BridgeConnectionRow {
   id: string
+  owner_id: string
   bridge_type: AgentBridgeType
   app_id: string
   app_secret: string
@@ -37,6 +38,7 @@ export interface BridgeConnectionRow {
 
 export interface ChatSessionRow {
   id: string
+  owner_id: string
   agent_type: AgentBridgeType
   title: string
   bridge_connection_id: string | null
@@ -75,7 +77,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     mkdirSync(dirname(dbPath), { recursive: true })
     this.db = new DatabaseSync(dbPath)
     this.migrate()
-    this.seed()
     this.logger.log(`SQLite ready at ${dbPath}`)
   }
 
@@ -135,6 +136,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.ensureColumn('chat_sessions', 'is_temp_session', 'INTEGER NOT NULL DEFAULT 0')
     this.ensureColumn('chat_sessions', 'bridge_settings_json', 'TEXT')
     this.ensureColumn('chat_messages', 'attachments_json', 'TEXT')
+    this.ensureColumn('bridge_connections', 'owner_id', 'TEXT')
+    this.ensureColumn('chat_sessions', 'owner_id', 'TEXT')
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_bridge_connections_owner_type
+        ON bridge_connections(owner_id, bridge_type);
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_owner
+        ON chat_sessions(owner_id);
+    `)
   }
 
   private ensureColumn(table: string, column: string, definition: string): void {
@@ -143,10 +152,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 
-  private seed(): void {
+  seedForOwner(ownerId: string): void {
     const now = Date.now()
     for (const bridgeType of AGENT_BRIDGE_TYPES) {
-      const existing = this.getConnectionByType(bridgeType)
+      const existing = this.getConnectionByType(ownerId, bridgeType)
       if (existing) continue
 
       const id = randomUUID()
@@ -156,19 +165,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       this.db
         .prepare(
           `INSERT INTO bridge_connections
-          (id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, bridge_project_path, bridge_agent_session_id, session_id, create_time, update_time)
-          VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+          (id, owner_id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, bridge_project_path, bridge_agent_session_id, session_id, create_time, update_time)
+          VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
         )
-        .run(id, bridgeType, appId, appSecret, accountId, now, now)
+        .run(id, ownerId, bridgeType, appId, appSecret, accountId, now, now)
 
       const sessionId = randomUUID()
       this.db
         .prepare(
-          `INSERT INTO chat_sessions (id, agent_type, title, bridge_connection_id, last_message, update_time)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO chat_sessions (id, owner_id, agent_type, title, bridge_connection_id, last_message, update_time)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           sessionId,
+          ownerId,
           bridgeType,
           agentDisplayName(bridgeType),
           id,
@@ -178,25 +188,37 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  getConnectionByType(bridgeType: AgentBridgeType): BridgeConnectionRow | undefined {
-    return this.getPrimaryConnectionByType(bridgeType)
+  getConnectionByType(
+    ownerId: string,
+    bridgeType: AgentBridgeType,
+  ): BridgeConnectionRow | undefined {
+    return this.getPrimaryConnectionByType(ownerId, bridgeType)
   }
 
-  getPrimaryConnectionByType(bridgeType: AgentBridgeType): BridgeConnectionRow | undefined {
+  getPrimaryConnectionByType(
+    ownerId: string,
+    bridgeType: AgentBridgeType,
+  ): BridgeConnectionRow | undefined {
     return this.db
       .prepare(
-        `SELECT * FROM bridge_connections WHERE bridge_type = ? ORDER BY create_time ASC LIMIT 1`,
+        `SELECT * FROM bridge_connections
+         WHERE owner_id = ? AND bridge_type = ?
+         ORDER BY create_time ASC LIMIT 1`,
       )
-      .get(bridgeType) as unknown as BridgeConnectionRow | undefined
+      .get(ownerId, bridgeType) as unknown as BridgeConnectionRow | undefined
   }
 
-  listConnectionsByType(bridgeType: AgentBridgeType): BridgeConnectionRow[] {
+  listConnectionsByType(ownerId: string, bridgeType: AgentBridgeType): BridgeConnectionRow[] {
     return this.db
-      .prepare(`SELECT * FROM bridge_connections WHERE bridge_type = ? ORDER BY create_time ASC`)
-      .all(bridgeType) as unknown as BridgeConnectionRow[]
+      .prepare(
+        `SELECT * FROM bridge_connections
+         WHERE owner_id = ? AND bridge_type = ?
+         ORDER BY create_time ASC`,
+      )
+      .all(ownerId, bridgeType) as unknown as BridgeConnectionRow[]
   }
 
-  createBridgeConnection(bridgeType: AgentBridgeType): BridgeConnectionRow {
+  createBridgeConnection(ownerId: string, bridgeType: AgentBridgeType): BridgeConnectionRow {
     const now = Date.now()
     const id = randomUUID()
     const appId = generateConnectionAppId(bridgeType)
@@ -205,19 +227,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.db
       .prepare(
         `INSERT INTO bridge_connections
-        (id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, bridge_project_path, bridge_agent_session_id, session_id, create_time, update_time)
-        VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+        (id, owner_id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, bridge_project_path, bridge_agent_session_id, session_id, create_time, update_time)
+        VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
       )
-      .run(id, bridgeType, appId, appSecret, accountId, now, now)
+      .run(id, ownerId, bridgeType, appId, appSecret, accountId, now, now)
 
     const sessionId = randomUUID()
     this.db
       .prepare(
-        `INSERT INTO chat_sessions (id, agent_type, title, bridge_connection_id, last_message, update_time)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO chat_sessions (id, owner_id, agent_type, title, bridge_connection_id, last_message, update_time)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         sessionId,
+        ownerId,
         bridgeType,
         agentDisplayName(bridgeType),
         id,
@@ -263,9 +286,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   refreshConnectionCredentials(
     _connectionId: string,
+    ownerId: string,
     bridgeType: AgentBridgeType,
   ): BridgeConnectionRow {
-    return this.createBridgeConnection(bridgeType)
+    return this.createBridgeConnection(ownerId, bridgeType)
   }
 
   bindConnectionContext(
@@ -297,14 +321,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return this.getConnectionById(connectionId)
   }
 
-  listSessions(): ChatSessionRow[] {
+  listSessions(ownerId: string): ChatSessionRow[] {
     return this.db
       .prepare(
         `SELECT * FROM chat_sessions
-         WHERE COALESCE(hidden_from_history, 0) = 0
+         WHERE owner_id = ? AND COALESCE(hidden_from_history, 0) = 0
          ORDER BY update_time DESC`,
       )
-      .all() as unknown as ChatSessionRow[]
+      .all(ownerId) as unknown as ChatSessionRow[]
   }
 
   listSessionIdsByBridgeConnectionId(connectionId: string): string[] {
@@ -537,6 +561,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   createSession(input: {
+    ownerId: string
     agentType: AgentBridgeType
     title: string
     bridgeConnectionId?: string | null
@@ -553,11 +578,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.db
       .prepare(
         `INSERT INTO chat_sessions
-         (id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, bridge_settings_json, last_message, update_time, is_temp_session)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, owner_id, agent_type, title, bridge_connection_id, bridge_project_path, bridge_agent_session_id, bridge_settings_json, last_message, update_time, is_temp_session)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
+        input.ownerId,
         input.agentType,
         input.title,
         input.bridgeConnectionId ?? null,
@@ -570,6 +596,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       )
     return {
       id,
+      owner_id: input.ownerId,
       agent_type: input.agentType,
       title: input.title,
       bridge_connection_id: input.bridgeConnectionId ?? null,
@@ -668,11 +695,25 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const service = new DatabaseService()
     service.db = new DatabaseSync(':memory:')
     service.migrate()
-    service.seed()
+    service.seedForOwner(TEST_SEED_OWNER_ID)
     return service
   }
 
-  get demoUserId(): string {
-    return DEMO_USER_ID
+  resetDemoDatabase(): { deletedConnections: number; deletedSessions: number; deletedMessages: number } {
+    const count = (sql: string): number => {
+      const row = this.db.prepare(`SELECT COUNT(*) AS count FROM (${sql})`).get() as { count: number }
+      return row.count
+    }
+    const deletedMessages = count('SELECT id FROM chat_messages')
+    const deletedSessions = count('SELECT id FROM chat_sessions')
+    const deletedConnections = count('SELECT id FROM bridge_connections')
+
+    this.db.exec(`
+      DELETE FROM chat_messages;
+      DELETE FROM chat_sessions;
+      DELETE FROM bridge_connections;
+    `)
+
+    return { deletedConnections, deletedSessions, deletedMessages }
   }
 }

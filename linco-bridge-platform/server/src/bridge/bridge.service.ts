@@ -17,6 +17,7 @@ import type { BridgeConnectionDetailDto } from './bridge-connection-detail.dto'
 import { BRIDGE_CONNECT_CHANNEL } from './bridge.commands'
 import { resolveConnectionDeviceName } from '../chat/session-list-title.util'
 import { resolvePublicWsBaseUrl } from '../shared/public-endpoint.util'
+import { ResourceAccessService } from '../shared/resource-access.service'
 import {
   buildBridgeSettingsApplyCommand,
   DEMO_BRIDGE_SETTINGS_OPTIONS,
@@ -72,6 +73,7 @@ export class BridgeService {
     private readonly database: DatabaseService,
     private readonly presence: BridgePresenceService,
     private readonly relay: BridgeRelayService,
+    private readonly resourceAccess: ResourceAccessService,
   ) {}
 
   getWsUrl(agentType?: string): string {
@@ -105,13 +107,11 @@ export class BridgeService {
       throw new NotFoundException('不支持的 Agent 类型')
     }
     let connection = connectionId?.trim()
-      ? this.database.getConnectionById(connectionId.trim())
-      : this.database.getPrimaryConnectionByType(type)
-    if (!connection || connection.bridge_type !== type) {
+      ? this.resourceAccess.requireConnection(connectionId.trim())
+      : this.resourceAccess.getOrCreatePrimaryConnection(type)
+    if (connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
-    // Align with production getOrCreateSetup: first load allocates a real secret
-    // instead of returning the static demo placeholder from seed data.
     if (
       !connection.bound_context_id &&
       DatabaseService.isDemoPlaceholderSecret(connection.bridge_type, connection.app_secret)
@@ -138,11 +138,15 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = this.database.getConnectionById(connectionId)
-    if (!connection || connection.bridge_type !== type) {
+    const connection = this.resourceAccess.requireConnection(connectionId)
+    if (connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
-    const created = this.database.refreshConnectionCredentials(connectionId, type)
+    const created = this.database.refreshConnectionCredentials(
+      connectionId,
+      this.resourceAccess.getOwnerId(),
+      type,
+    )
     return toBridgeSetupDto(
       {
         bridgeType: created.bridge_type,
@@ -161,10 +165,13 @@ export class BridgeService {
       throw new NotFoundException('不支持的 Agent 类型')
     }
     const connection = connectionId?.trim()
-      ? this.database.getConnectionById(connectionId.trim())
-      : this.database.getPrimaryConnectionByType(type)
+      ? this.resourceAccess.requireConnection(connectionId.trim())
+      : this.resourceAccess.resolvePrimaryConnection(type)
     if (!connection || connection.bridge_type !== type) {
-      throw new NotFoundException('连接配置不存在')
+      return {
+        connected: false,
+        bridgeType: type,
+      }
     }
     return {
       connected: this.presence.isOnline(connection.id),
@@ -228,8 +235,8 @@ export class BridgeService {
     if (!normalizedName) {
       throw new NotFoundException('名称不能为空')
     }
-    const connection = this.database.getConnectionById(normalizedId)
-    if (!connection || connection.bridge_type !== type) {
+    const connection = this.resourceAccess.requireConnection(normalizedId)
+    if (connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
     this.database.updateConnectionDisplayName(normalizedId, normalizedName)
@@ -248,8 +255,8 @@ export class BridgeService {
     if (!normalizedId) {
       throw new NotFoundException('connectionId 不能为空')
     }
-    const connection = this.database.getConnectionById(normalizedId)
-    if (!connection || connection.bridge_type !== type) {
+    const connection = this.resourceAccess.requireConnection(normalizedId)
+    if (connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
 
@@ -267,7 +274,7 @@ export class BridgeService {
         agentId: connection.bound_context_id ?? 'main',
         channel: BRIDGE_CONNECT_CHANNEL,
         chatType: 'direct',
-        userId: this.database.demoUserId,
+        userId: this.resourceAccess.getOwnerId(),
         messageId: `remove_account_${connection.id}_${Date.now()}`,
         streamId: `linco-remove-account-${connection.id}-${Date.now()}`,
         sessionKey: sessionId,
@@ -289,12 +296,7 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = connectionId
-      ? this.database.getConnectionById(connectionId)
-      : this.database.getConnectionByType(type)
-    if (!connection || connection.bridge_type !== type) {
-      throw new NotFoundException('连接配置不存在')
-    }
+    const connection = this.resolveOwnedConnection(type, connectionId)
     if (!this.presence.isOnline(connection.id)) {
       throw new ConflictException('本机 Agent 尚未连接')
     }
@@ -564,12 +566,7 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = connectionId
-      ? this.database.getConnectionById(connectionId)
-      : this.database.getConnectionByType(type)
-    if (!connection || connection.bridge_type !== type) {
-      throw new NotFoundException('连接配置不存在')
-    }
+    const connection = this.resolveOwnedConnection(type, connectionId)
     if (!this.presence.isOnline(connection.id)) {
       throw new ConflictException('本机 Agent 尚未连接')
     }
@@ -636,6 +633,7 @@ export class BridgeService {
         ? connection.session_id
         : this.database.getSessionByConnectionId(connection.id)?.id ??
           this.database.createSession({
+            ownerId: connection.owner_id,
             agentType: type,
             title: selected.label,
             bridgeConnectionId: connection.id,
@@ -739,12 +737,7 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    const connection = connectionId
-      ? this.database.getConnectionById(connectionId)
-      : this.database.getConnectionByType(type)
-    if (!connection || connection.bridge_type !== type) {
-      throw new NotFoundException('连接配置不存在')
-    }
+    const connection = this.resolveOwnedConnection(type, connectionId)
     if (!this.presence.isOnline(connection.id)) {
       throw new ConflictException('本机 Agent 尚未连接')
     }
@@ -1031,8 +1024,21 @@ export class BridgeService {
 
   private lookupConnection(type: AgentBridgeType, connectionId?: string): BridgeConnectionRow {
     const connection = connectionId?.trim()
-      ? this.database.getConnectionById(connectionId.trim())
-      : this.database.getPrimaryConnectionByType(type)
+      ? this.resourceAccess.requireConnection(connectionId.trim())
+      : this.resourceAccess.resolvePrimaryConnection(type)
+    if (!connection || connection.bridge_type !== type) {
+      throw new NotFoundException('连接配置不存在')
+    }
+    return connection
+  }
+
+  private resolveOwnedConnection(
+    type: AgentBridgeType,
+    connectionId?: string,
+  ): BridgeConnectionRow {
+    const connection = connectionId?.trim()
+      ? this.resourceAccess.requireConnection(connectionId.trim())
+      : this.resourceAccess.resolvePrimaryConnection(type)
     if (!connection || connection.bridge_type !== type) {
       throw new NotFoundException('连接配置不存在')
     }
@@ -1074,6 +1080,7 @@ export class BridgeService {
     if (existing) return existing.id
 
     const session = this.database.createSession({
+      ownerId: connection.owner_id,
       agentType,
       title: input.sessionTitle.trim() || agentDisplayName(agentType),
       bridgeConnectionId: connection.id,
@@ -1126,6 +1133,7 @@ export class BridgeService {
     }
 
     const session = this.database.createSession({
+      ownerId: connection.owner_id,
       agentType,
       title: input.sessionTitle.trim() || agentDisplayName(agentType),
       bridgeConnectionId: connection.id,
@@ -1149,6 +1157,7 @@ export class BridgeService {
     if (existing) return existing
 
     const session = this.database.createSession({
+      ownerId: connection.owner_id,
       agentType,
       title: agentDisplayName(agentType),
       bridgeConnectionId: connection.id,
@@ -1177,7 +1186,7 @@ export class BridgeService {
       bridgeType: connection.bridge_type,
       accountId: connection.account_id,
       boundContextId: connection.bound_context_id,
-      userId: this.database.demoUserId,
+      userId: this.resourceAccess.getOwnerId(),
     }
   }
 }
