@@ -47,6 +47,12 @@ export function defaultAccountId(type: AgentBridgeType): string {
   return type === 'openclaw' ? 'openclaw_1' : `${type}_1`
 }
 
+/** Unique account slot for linco-connect multi-account on one device. */
+export function generateConnectionAccountId(type: AgentBridgeType): string {
+  const suffix = Math.random().toString(16).slice(2, 10)
+  return `${type}_${suffix}`
+}
+
 /**
  * Single init command — must stay aligned with Flutter:
  * - import_local_agent_page.dart LocalAgentBridgeSpec.initCommand

@@ -58,6 +58,7 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
         appSecret: setup.value.appSecret,
         accountId: setup.value.accountId,
         channel: setup.value.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
+        wsUrl: setup.value.wsUrl,
       })
     }
     return setup.value?.setupCommands?.trim() ?? ''
@@ -92,7 +93,7 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
       contexts.value = []
       selectedContextId.value = null
       hasCopied.value = false
-      showToast('配置已刷新', 'success')
+      showToast('已新增连接配置', 'success')
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : '刷新连接配置失败'
@@ -100,6 +101,32 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
     } finally {
       refreshing.value = false
     }
+  }
+
+  function requestRefreshSetup() {
+    if (loading.value) {
+      void loadSetup()
+      return
+    }
+    if (refreshing.value) {
+      return
+    }
+    if (!connectionId.value) {
+      showToast('当前没有可刷新的连接配置')
+      return
+    }
+    uni.showModal({
+      title: '新增连接',
+      content:
+        '将新增一条连接（新的 --account 与 token），已有连接不受影响。请复制新命令并在电脑端执行 linco-connect init，本机会新增一条账号配置。',
+      confirmText: '刷新',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          void refreshSetup()
+        }
+      },
+    })
   }
 
   async function loadContexts() {
@@ -275,6 +302,7 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
     commandText,
     loadSetup,
     refreshSetup,
+    requestRefreshSetup,
     checkConnection,
     bindSelectedContext,
     enterAgentLanding,

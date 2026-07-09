@@ -9,6 +9,8 @@ import {
   type AgentBridgeType,
   agentDisplayName,
   defaultAccountId,
+  generateConnectionAccountId,
+  generateConnectionAppId,
 } from '../shared/constants'
 import { normalizeSessionPreview } from '../chat/session-preview.util'
 
@@ -169,9 +171,57 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   getConnectionByType(bridgeType: AgentBridgeType): BridgeConnectionRow | undefined {
+    return this.getPrimaryConnectionByType(bridgeType)
+  }
+
+  getPrimaryConnectionByType(bridgeType: AgentBridgeType): BridgeConnectionRow | undefined {
     return this.db
-      .prepare(`SELECT * FROM bridge_connections WHERE bridge_type = ?`)
+      .prepare(
+        `SELECT * FROM bridge_connections WHERE bridge_type = ? ORDER BY create_time ASC LIMIT 1`,
+      )
       .get(bridgeType) as unknown as BridgeConnectionRow | undefined
+  }
+
+  listConnectionsByType(bridgeType: AgentBridgeType): BridgeConnectionRow[] {
+    return this.db
+      .prepare(`SELECT * FROM bridge_connections WHERE bridge_type = ? ORDER BY create_time ASC`)
+      .all(bridgeType) as unknown as BridgeConnectionRow[]
+  }
+
+  createBridgeConnection(bridgeType: AgentBridgeType): BridgeConnectionRow {
+    const now = Date.now()
+    const id = randomUUID()
+    const appId = generateConnectionAppId(bridgeType)
+    const appSecret = DatabaseService.generateConnectionSecret()
+    const accountId = generateConnectionAccountId(bridgeType)
+    this.db
+      .prepare(
+        `INSERT INTO bridge_connections
+        (id, bridge_type, app_id, app_secret, account_id, bound_context_id, bound_context_name, bridge_project_path, bridge_agent_session_id, session_id, create_time, update_time)
+        VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+      )
+      .run(id, bridgeType, appId, appSecret, accountId, now, now)
+
+    const sessionId = randomUUID()
+    this.db
+      .prepare(
+        `INSERT INTO chat_sessions (id, agent_type, title, bridge_connection_id, last_message, update_time)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        sessionId,
+        bridgeType,
+        agentDisplayName(bridgeType),
+        id,
+        bridgeType === 'codex' ? 'Ready when you are.' : 'Waiting for bridge connection.',
+        now,
+      )
+
+    const created = this.getConnectionById(id)
+    if (!created) {
+      throw new Error(`Failed to create bridge connection for ${bridgeType}`)
+    }
+    return created
   }
 
   getConnectionById(connectionId: string): BridgeConnectionRow | undefined {
@@ -201,6 +251,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .prepare(`UPDATE bridge_connections SET app_secret = ?, update_time = ? WHERE id = ?`)
       .run(nextSecret, now, connectionId)
     return this.getConnectionById(connectionId)
+  }
+
+  refreshConnectionCredentials(
+    _connectionId: string,
+    bridgeType: AgentBridgeType,
+  ): BridgeConnectionRow {
+    return this.createBridgeConnection(bridgeType)
   }
 
   bindConnectionContext(

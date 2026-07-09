@@ -19,6 +19,18 @@ describe('ChatService', () => {
     chatService = new ChatService(database, presence, bridgeService, relay)
   })
 
+  it('hides sessions from message list', () => {
+    const connection = database.getConnectionByType('codex')!
+    const session = database.getSessionByConnectionId(connection.id)!
+    database.touchSession(session.id, 'hello from codex')
+
+    expect(chatService.listSessions().some((item) => item.id === session.id)).toBe(true)
+
+    const result = chatService.hideSessionsFromList([session.id])
+    expect(result.hiddenCount).toBe(1)
+    expect(chatService.listSessions().some((item) => item.id === session.id)).toBe(false)
+  })
+
   it('hides unconnected bridge seed sessions from message list', () => {
     const sessions = chatService.listSessions()
     expect(sessions).toEqual([])

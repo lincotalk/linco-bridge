@@ -23,6 +23,8 @@ defineProps<{
   contextSubtitle?: string
   contextNote?: string
   bindButtonText?: string
+  refreshNote?: string
+  refreshButtonText?: string
   contextEmptyText?: string
 }>()
 
@@ -57,7 +59,7 @@ const emit = defineEmits<{
               :class="{ 'connect-page__refresh--disabled': refreshing }"
               @tap="emit('refresh')"
             >
-              {{ refreshing ? '刷新中…' : '刷新配置' }}
+              {{ refreshing ? '新增中…' : refreshButtonText ?? '新增连接' }}
             </view>
           </view>
           <text class="connect-page__tip-desc">
@@ -66,6 +68,7 @@ const emit = defineEmits<{
                 `完成本机配置并连接成功后，${agentName} 会自动出现在 Agent 列表。`
             }}
           </text>
+          <text v-if="refreshNote" class="connect-page__refresh-note">{{ refreshNote }}</text>
         </view>
 
         <CommandBlock :commands="commandText" @copied="emit('copied')" />
@@ -203,6 +206,14 @@ const emit = defineEmits<{
   margin-top: 12rpx;
   font-size: 26rpx;
   color: #8c8c8c;
+  line-height: 1.5;
+}
+
+.connect-page__refresh-note {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #bfbfbf;
   line-height: 1.5;
 }
 

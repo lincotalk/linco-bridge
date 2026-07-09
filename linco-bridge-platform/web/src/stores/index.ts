@@ -76,6 +76,13 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  function removeSession(sessionId: string) {
+    sessions.value = sessions.value.filter((item) => item.id !== sessionId)
+    const nextMessages = { ...messagesBySession.value }
+    delete nextMessages[sessionId]
+    messagesBySession.value = nextMessages
+  }
+
   async function loadMessages(sessionId: string, limit?: number) {
     loadingMessages.value = {
       ...loadingMessages.value,
@@ -341,6 +348,7 @@ export const useSessionStore = defineStore('session', () => {
     getSession,
     getMessages,
     loadSessions,
+    removeSession,
     loadMessages,
     sendMessage: sendMessageStream,
     sendMessageStream,

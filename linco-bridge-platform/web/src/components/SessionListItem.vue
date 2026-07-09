@@ -7,6 +7,10 @@ const props = defineProps<{
   item: ChatSessionItem
 }>()
 
+const emit = defineEmits<{
+  tap: []
+}>()
+
 const bridgeAvatarMap: Record<ChatSessionItem['agentType'], string> = {
   codex: '/static/icons/bot/bridge_codex.png',
   claude: '/static/icons/bot/bridge_claude.png',
@@ -23,7 +27,7 @@ function avatarFor(item: ChatSessionItem): string {
 
 <template>
   <view class="session-item">
-    <view class="session-item__body">
+    <view class="session-item__body" @tap="emit('tap')">
       <view class="session-item__avatar-wrap">
         <image class="session-item__avatar" :src="avatarFor(item)" mode="aspectFill" />
         <view class="session-item__ai-badge">

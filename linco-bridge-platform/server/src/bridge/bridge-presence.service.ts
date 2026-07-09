@@ -28,6 +28,16 @@ export class BridgePresenceService {
     }
   }
 
+  disconnect(connectionId: string, reason = 'Disconnected'): void {
+    const socket = this.clients.get(connectionId)
+    if (!socket) return
+    this.clients.delete(connectionId)
+    this.devices.delete(connectionId)
+    if (socket.readyState === socket.OPEN) {
+      socket.close(1008, reason)
+    }
+  }
+
   isOnline(connectionId: string): boolean {
     const socket = this.clients.get(connectionId)
     return Boolean(socket && socket.readyState === socket.OPEN)
