@@ -396,6 +396,148 @@ describe('BridgeRelayService', () => {
     await expect(completed).resolves.toEqual({ text: '你是开发者' })
   })
 
+  it('emits agent_trace snapshots for agent_action frames', async () => {
+    const relay = new BridgeRelayService()
+    const traces: Array<{ actions: Array<{ id: string }> }> = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: 'hello',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onAgentTrace: (trace) => {
+          traces.push(trace)
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'agent_action',
+      streamId: capturedStreamId,
+      event: 'started',
+      action: {
+        id: 'tool-read',
+        type: 'read',
+        status: 'running',
+        label: '读取 README.md',
+        detail: '/workspace/README.md',
+      },
+    })
+
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: 'done',
+    })
+
+    await expect(completed).resolves.toEqual({ text: 'done' })
+    expect(traces.at(-1)?.actions.map((item) => item.id)).toEqual(['tool-read'])
+  })
+
+  it('streams displayable outbound_message before turn_end for connector turns', async () => {
+    const relay = new BridgeRelayService()
+    const chunks: Array<{ fullText: string }> = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: 'run tool',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onChunk: (chunk) => {
+          chunks.push({ fullText: chunk.fullText })
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'outbound_message',
+      streamId: capturedStreamId,
+      text: '已批准工具使用',
+    })
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: '## 结果',
+      fullText: '## 结果',
+    })
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      fullText: '已批准工具使用\n\n## 结果',
+    })
+
+    await expect(completed).resolves.toEqual({ text: '已批准工具使用\n\n## 结果' })
+    expect(chunks.map((item) => item.fullText)).toEqual([
+      '已批准工具使用',
+      '已批准工具使用\n\n## 结果',
+    ])
+  })
+
+  it('clears reasoning on thinking_clear', async () => {
+    const relay = new BridgeRelayService()
+    const reasoningStates: string[] = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: 'hello',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onReasoning: ({ fullText }) => {
+          reasoningStates.push(fullText)
+        },
+        onReasoningClear: () => {
+          reasoningStates.push('__cleared__')
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'thinking',
+      streamId: capturedStreamId,
+      delta: 'plan',
+      fullText: 'plan',
+    })
+    relay.handleConnectorFrame({
+      type: 'thinking_clear',
+      streamId: capturedStreamId,
+    })
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: 'done',
+    })
+
+    await expect(completed).resolves.toEqual({ text: 'done' })
+    expect(reasoningStates).toEqual(['plan', '__cleared__'])
+  })
+
   it('captures outbound_message file for connector turns', async () => {
     const relay = new BridgeRelayService()
     const attachments: Array<{ name?: string; mimeType?: string; base64?: string }> = []
@@ -427,6 +569,12 @@ describe('BridgeRelayService', () => {
       mediaName: 'kitten.png',
       mediaType: 'image/png',
       mediaBase64: 'abc123',
+    })
+
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: '图片已生成',
     })
 
     await expect(completed).resolves.toEqual({

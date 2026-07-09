@@ -1,14 +1,28 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import type { AgentTrace } from '@/bridge/types'
+import AgentTraceActionCard from '@/components/AgentTraceActionCard.vue'
 import MessageMarkdown from '@/components/MessageMarkdown.vue'
+import { isEmptyAgentTrace, traceSummaryStatus } from '@/utils/agent-trace-view'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   content: string
+  trace?: AgentTrace
+  streaming?: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
 }>()
+
+const hasTrace = computed(() => !isEmptyAgentTrace(props.trace))
+const summary = computed(() =>
+  props.trace ? traceSummaryStatus(props.trace, props.streaming) : '思考过程',
+)
+const showLegacyReasoning = computed(
+  () => Boolean(props.content.trim()) && !props.trace?.actions.some((item) => item.type === 'thinking'),
+)
 </script>
 
 <template>
@@ -21,7 +35,10 @@ const emit = defineEmits<{
 
       <view class="thinking-sheet__header">
         <view class="thinking-sheet__header-side" />
-        <text class="thinking-sheet__title">思考过程</text>
+        <view class="thinking-sheet__title-wrap">
+          <text class="thinking-sheet__title">思考过程</text>
+          <text v-if="hasTrace" class="thinking-sheet__subtitle">{{ summary }}</text>
+        </view>
         <view class="thinking-sheet__close-btn" @tap="emit('close')">
           <text class="thinking-sheet__close-icon">×</text>
         </view>
@@ -30,10 +47,19 @@ const emit = defineEmits<{
       <view class="thinking-sheet__divider" />
 
       <scroll-view class="thinking-sheet__body" scroll-y :show-scrollbar="false">
-        <view v-if="content.trim()" class="thinking-sheet__content">
+        <view v-if="hasTrace" class="thinking-sheet__trace">
+          <AgentTraceActionCard
+            v-for="action in trace!.actions"
+            :key="action.id"
+            :action="action"
+          />
+        </view>
+
+        <view v-if="showLegacyReasoning" class="thinking-sheet__content">
           <MessageMarkdown :content="content" variant="assistant" />
         </view>
-        <view v-else class="thinking-sheet__empty-wrap">
+
+        <view v-if="!hasTrace && !content.trim()" class="thinking-sheet__empty-wrap">
           <text class="thinking-sheet__empty">暂无思考内容</text>
         </view>
       </scroll-view>
@@ -108,13 +134,25 @@ const emit = defineEmits<{
   color: rgba(0, 0, 0, 0.45);
 }
 
-.thinking-sheet__title {
+.thinking-sheet__title-wrap {
   flex: 1;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.thinking-sheet__title {
   font-size: 32rpx;
   font-weight: 600;
   line-height: 1.4;
   color: #4d4c48;
+}
+
+.thinking-sheet__subtitle {
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .thinking-sheet__divider {
@@ -125,9 +163,10 @@ const emit = defineEmits<{
 .thinking-sheet__body {
   flex: 1;
   min-height: 0;
-  max-height: calc(78vh - 160rpx);
+  max-height: calc(78vh - 180rpx);
 }
 
+.thinking-sheet__trace,
 .thinking-sheet__content {
   box-sizing: border-box;
   width: 100%;
@@ -145,23 +184,5 @@ const emit = defineEmits<{
 .thinking-sheet__empty {
   font-size: 28rpx;
   color: rgba(0, 0, 0, 0.45);
-}
-
-.thinking-sheet__content :deep(.message-markdown__plain),
-.thinking-sheet__content :deep(.message-markdown__text) {
-  font-size: 28rpx;
-  line-height: 1.75;
-  color: rgba(0, 0, 0, 0.78);
-}
-
-.thinking-sheet__content :deep(.message-markdown__paragraph) {
-  margin-bottom: 20rpx;
-}
-
-.thinking-sheet__content :deep(.message-markdown__inline-code) {
-  padding: 4rpx 10rpx;
-  border-radius: 8rpx;
-  background: rgba(0, 0, 0, 0.06);
-  font-size: 24rpx;
 }
 </style>

@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatMessageAttachment, ChatSessionItem, ResumeSessionResult } from '@/bridge/types'
+import type { ChatMessage, ChatMessageAttachment, ChatSessionItem, AgentTrace, ResumeSessionResult } from '@/bridge/types'
 import { apiGet, apiPost, getApiBaseUrl } from './http-client'
 
 export async function fetchSessions(): Promise<ChatSessionItem[]> {
@@ -82,6 +82,8 @@ export interface StreamMessageHandlers {
   onChunk?: (payload: StreamChunkPayload) => void
   onReasoning?: (payload: StreamReasoningPayload) => void
   onReasoningEnd?: () => void
+  onReasoningClear?: () => void
+  onAgentTrace?: (trace: AgentTrace) => void
   onAttachment?: (attachment: ChatMessageAttachment) => void
   onDone?: (message: ChatMessage) => void
   onError?: (message: string) => void
@@ -175,6 +177,14 @@ export async function streamSessionMessage(
         case 'reasoning_end':
           handlers.onReasoningEnd?.()
           break
+        case 'reasoning_clear':
+          handlers.onReasoningClear?.()
+          break
+        case 'agent_trace': {
+          const trace = payload.trace as AgentTrace | undefined
+          if (trace) handlers.onAgentTrace?.(trace)
+          break
+        }
         case 'attachment': {
           const attachment = payload.attachment as ChatMessageAttachment | undefined
           if (attachment) handlers.onAttachment?.(attachment)

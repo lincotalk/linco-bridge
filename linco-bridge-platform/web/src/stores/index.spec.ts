@@ -60,6 +60,96 @@ describe('useSessionStore', () => {
     expect(assistantMessages[0]?.streaming).toBe(false)
   })
 
+  it('stores agent trace snapshots during stream', async () => {
+    const { streamSessionMessage } = await import('@/api/session-api')
+    vi.mocked(streamSessionMessage).mockImplementationOnce(
+      async (_sessionId, _content, handlers) => {
+        handlers.onAgentTrace?.({
+          task: { status: 'task_running', started_at: 1000 },
+          actions: [
+            {
+              id: 'tool-1',
+              type: 'tool',
+              status: 'running',
+              label: '读取文件',
+            },
+          ],
+        })
+        const reply = {
+          id: 'm-assistant',
+          sessionId: 'session-1',
+          role: 'assistant' as const,
+          content: 'done',
+          createdAt: 2,
+        }
+        handlers.onDone?.(reply)
+        return reply
+      },
+    )
+
+    const store = useSessionStore()
+    await store.sendMessageStream('session-1', 'hi')
+
+    const assistant = store.getMessages('session-1').find((item) => item.role === 'assistant')
+    expect(assistant?.agentTrace?.actions).toHaveLength(1)
+    expect(assistant?.agentTrace?.actions[0]?.label).toBe('读取文件')
+  })
+
+  it('clears reasoning on reasoning_clear stream event', async () => {
+    const { streamSessionMessage } = await import('@/api/session-api')
+    vi.mocked(streamSessionMessage).mockImplementationOnce(
+      async (_sessionId, _content, handlers) => {
+        handlers.onReasoning?.({ fullText: 'plan step' })
+        handlers.onReasoningClear?.()
+        const reply = {
+          id: 'm-assistant',
+          sessionId: 'session-1',
+          role: 'assistant' as const,
+          content: 'done',
+          createdAt: 2,
+        }
+        handlers.onDone?.(reply)
+        return reply
+      },
+    )
+
+    const store = useSessionStore()
+    await store.sendMessageStream('session-1', 'hi')
+
+    const assistant = store.getMessages('session-1').find((item) => item.role === 'assistant')
+    expect(assistant?.reasoning).toBeUndefined()
+    expect(assistant?.content).toBe('done')
+  })
+
+  it('accumulates reasoning before assistant body during stream', async () => {
+    const { streamSessionMessage } = await import('@/api/session-api')
+    vi.mocked(streamSessionMessage).mockImplementationOnce(
+      async (_sessionId, _content, handlers) => {
+        handlers.onReasoning?.({ fullText: 'plan step' })
+        handlers.onReasoningEnd?.()
+        handlers.onChunk?.({ fullText: 'hello' })
+        const reply = {
+          id: 'm-assistant',
+          sessionId: 'session-1',
+          role: 'assistant' as const,
+          content: 'hello',
+          createdAt: 2,
+        }
+        handlers.onDone?.(reply)
+        return reply
+      },
+    )
+
+    const store = useSessionStore()
+    await store.sendMessageStream('session-1', 'hi')
+
+    const assistant = store.getMessages('session-1').find((item) => item.role === 'assistant')
+    expect(assistant?.reasoning?.content).toBe('plan step')
+    expect(assistant?.reasoning?.endedAt).toBeTypeOf('number')
+    expect(assistant?.content).toBe('hello')
+    expect(assistant?.streaming).toBe(false)
+  })
+
   it('shows optimistic user message before stream user event', async () => {
     const { streamSessionMessage } = await import('@/api/session-api')
     vi.mocked(streamSessionMessage).mockImplementationOnce(
