@@ -200,7 +200,27 @@ For rules on custom channels, command changes, protocol compatibility, and PRs f
 
 ## 💬 Community
 
-For technical discussion, Linco Lab updates, and official community information, see [COMMUNITY.md](COMMUNITY.md). For Chinese community information, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
+Join the community directly from the repository homepage:
+
+### Technical Community
+
+Scan the WeChat group QR code for integration questions, product feedback, AI coding practice, and Agent workflow discussion.
+
+<img src="docs/images/community-wechat-group.jpg" alt="Linco technical WeChat group" width="360" />
+
+### Linco Lab
+
+- Xiaohongshu: [Linco Lab](https://xhslink.com/m/7tdp7JOYViz)
+- WeChat Official Account: search `Linco Lab` in WeChat
+
+<img src="docs/images/linco-lab-wechat-official-account.jpg" alt="Linco Lab WeChat Official Account QR code" width="220" />
+
+### Linco App
+
+- iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
+- Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
+
+For detailed community notes and the Chinese version, see [COMMUNITY.md](COMMUNITY.md) and [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
 
 ## 🤝 Contributing
 
