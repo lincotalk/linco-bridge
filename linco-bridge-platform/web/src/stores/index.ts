@@ -10,7 +10,7 @@ import {
 } from '@/api/session-api'
 import type { BridgeSdk } from '@/bridge/sdk/types'
 import type { AgentBridgeSetup, AgentBridgeType, BridgeStatusResult } from '@/bridge/types'
-import type { ChatMessage, ChatMessageAttachment, ChatSessionItem } from '@/bridge/types'
+import type { AgentTrace, ChatMessage, ChatMessageAttachment, ChatSessionItem } from '@/bridge/types'
 
 const STREAMING_ASSISTANT_ID_PREFIX = 'stream-assistant-'
 
@@ -163,6 +163,7 @@ export const useSessionStore = defineStore('session', () => {
                 endedAt: existing.reasoning.endedAt ?? Date.now(),
               }
             : undefined,
+          agentTrace: message.agentTrace ?? existing?.agentTrace,
         },
       ],
     }
@@ -174,13 +175,26 @@ export const useSessionStore = defineStore('session', () => {
     patch: {
       content?: string
       attachments?: ChatMessageAttachment[]
-      reasoning?: ChatMessage['reasoning']
+      reasoning?: ChatMessage['reasoning'] | null
       reasoningStreaming?: boolean
+      agentTrace?: AgentTrace | null
     },
   ) {
     const current = messagesBySession.value[sessionId] ?? []
     const index = current.findIndex((item) => item.id === assistantId)
     const existing = index >= 0 ? current[index] : undefined
+    const nextReasoning =
+      patch.reasoning === null
+        ? undefined
+        : patch.reasoning !== undefined
+          ? patch.reasoning
+          : existing?.reasoning
+    const nextAgentTrace =
+      patch.agentTrace === null
+        ? undefined
+        : patch.agentTrace !== undefined
+          ? patch.agentTrace
+          : existing?.agentTrace
     const nextMessage: ChatMessage = {
       id: assistantId,
       sessionId,
@@ -189,8 +203,9 @@ export const useSessionStore = defineStore('session', () => {
       createdAt: existing?.createdAt ?? Date.now(),
       streaming: true,
       attachments: patch.attachments ?? existing?.attachments,
-      reasoning: patch.reasoning ?? existing?.reasoning,
+      reasoning: nextReasoning,
       reasoningStreaming: patch.reasoningStreaming ?? existing?.reasoningStreaming,
+      agentTrace: nextAgentTrace,
     }
     const next =
       index >= 0
@@ -270,6 +285,19 @@ export const useSessionStore = defineStore('session', () => {
             },
             reasoningStreaming: false,
           })
+        },
+        onReasoningClear: () => {
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, {
+            reasoning: null,
+            reasoningStreaming: false,
+          })
+        },
+        onAgentTrace: (trace) => {
+          if (!assistantStarted) {
+            assistantStarted = true
+            patchStreamingAssistant(sessionId, assistantPlaceholderId, { content: '' })
+          }
+          patchStreamingAssistant(sessionId, assistantPlaceholderId, { agentTrace: trace })
         },
         onChunk: ({ fullText, phase, ephemeral, replacePrevious }) => {
           const isEphemeral = ephemeral === true || phase === 'progress'

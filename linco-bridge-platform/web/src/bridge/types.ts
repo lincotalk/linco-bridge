@@ -139,6 +139,34 @@ export interface ChatMessageReasoning {
   endedAt?: number
 }
 
+export interface AgentTraceTask {
+  status: string
+  started_at?: number
+  completed_at?: number
+  total_duration?: number
+}
+
+export interface AgentTraceAction {
+  id: string
+  type: string
+  status: string
+  label: string
+  tool_name?: string
+  detail?: string
+  detail_kind?: string
+  detail_object?: unknown
+  duration?: number
+  started_at?: number
+  completed_at?: number
+  error_message?: string
+  children?: AgentTraceAction[]
+}
+
+export interface AgentTrace {
+  task?: AgentTraceTask
+  actions: AgentTraceAction[]
+}
+
 export interface ChatMessage {
   id: string
   sessionId: string
@@ -148,6 +176,7 @@ export interface ChatMessage {
   streaming?: boolean
   reasoning?: ChatMessageReasoning
   reasoningStreaming?: boolean
+  agentTrace?: AgentTrace
   attachments?: ChatMessageAttachment[]
 }
 

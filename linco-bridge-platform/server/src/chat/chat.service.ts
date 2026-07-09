@@ -389,7 +389,10 @@ export class ChatService {
               emit('reasoning', { delta, fullText })
             },
             onReasoningClear: () => {
-              emit('reasoning_end', {})
+              emit('reasoning_clear', {})
+            },
+            onAgentTrace: (trace) => {
+              emit('agent_trace', { trace })
             },
             onAttachment: (file) => {
               const attachment = this.connectorFileToStreamAttachment(file)

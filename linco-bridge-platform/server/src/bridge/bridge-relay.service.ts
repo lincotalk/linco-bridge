@@ -2,9 +2,15 @@ import { Injectable } from '@nestjs/common'
 
 import { randomUUID } from 'node:crypto'
 
+import { AgentTraceReducer } from './agent-trace.reducer'
+import type { AgentTrace } from './agent-trace.types'
 import { parseHistoryReloadPayload, type HistoryReloadPayload } from './history.util'
 import { isBridgeSessionStatusMessage } from './bridge-status-message.util'
 import { BRIDGE_CONNECT_CHANNEL } from './bridge.commands'
+import {
+  appendStreamingContent,
+  separateAfterOutbound,
+} from '../chat/stream-content.util'
 
 export type SlashCommandPayload = Record<string, unknown>
 
@@ -25,6 +31,7 @@ export interface ForwardTurnOptions {
   onChunk?: (chunk: StreamChunkPayload) => void
   onReasoning?: (payload: StreamReasoningPayload) => void
   onReasoningClear?: () => void
+  onAgentTrace?: (trace: AgentTrace) => void
   onAttachment?: (file: ConnectorFileInput) => void
 }
 
@@ -65,9 +72,12 @@ interface PendingTurn {
   onChunk?: (chunk: StreamChunkPayload) => void
   onReasoning?: (payload: StreamReasoningPayload) => void
   onReasoningClear?: () => void
+  onAgentTrace?: (trace: AgentTrace) => void
   onAttachment?: (file: ConnectorFileInput) => void
+  agentTraceReducer: AgentTraceReducer
   cancelled: boolean
   allowEmptyTurnEnd: boolean
+  pendingOutboundBoundary: boolean
   outboundFile?: ConnectorFileInput
 }
 
@@ -138,10 +148,19 @@ export class BridgeRelayService {
           : delta || text
       }
 
+      const traceDetail = pending.agentTraceReducer.handleThinking(frame)
+      this.emitAgentTrace(pending)
+
       if (pending.accumulatedReasoning.trim()) {
         pending.onReasoning?.({
           delta: delta || text,
           fullText: pending.accumulatedReasoning,
+        })
+      } else if (traceDetail.trim()) {
+        pending.accumulatedReasoning = traceDetail
+        pending.onReasoning?.({
+          delta: traceDetail,
+          fullText: traceDetail,
         })
       }
       return
@@ -149,26 +168,69 @@ export class BridgeRelayService {
 
     if (frame.type === 'thinking_clear') {
       pending.accumulatedReasoning = ''
+      pending.agentTraceReducer.handleThinkingClear()
+      this.emitAgentTrace(pending)
       pending.onReasoningClear?.()
       return
     }
 
+    if (frame.type === 'agent_task') {
+      pending.agentTraceReducer.handleAgentTask(frame)
+      this.emitAgentTrace(pending)
+      return
+    }
+
+    if (frame.type === 'agent_action') {
+      pending.agentTraceReducer.handleAgentAction(frame)
+      this.emitAgentTrace(pending)
+      return
+    }
+
+    if (frame.type === 'tool_call') {
+      pending.agentTraceReducer.handleToolCall(frame)
+      this.emitAgentTrace(pending)
+      return
+    }
+
+    if (frame.type === 'tool_result') {
+      pending.agentTraceReducer.handleToolResult(frame)
+      this.emitAgentTrace(pending)
+      return
+    }
+
     if (frame.type === 'stream_chunk') {
-      const delta = typeof frame.delta === 'string' ? frame.delta : ''
-      const fullText = typeof frame.fullText === 'string' ? frame.fullText : ''
+      let delta = typeof frame.delta === 'string' ? frame.delta : ''
+      let fullText = typeof frame.fullText === 'string' ? frame.fullText : ''
       const phase = typeof frame.phase === 'string' ? frame.phase : ''
       const ephemeral = frame.ephemeral === true || phase === 'progress'
       const replacePrevious = frame.replacePrevious === true
+
+      if (pending.pendingOutboundBoundary && (delta || fullText.trim())) {
+        pending.pendingOutboundBoundary = false
+        const incoming = fullText.trim() || delta
+        const base = ephemeral ? pending.accumulatedProgressText : pending.accumulatedText
+        const separated = separateAfterOutbound(base, incoming)
+        if (fullText.trim()) {
+          fullText = separated
+          delta = ''
+        } else {
+          delta = separated
+        }
+      }
+
       if (ephemeral) {
         if (fullText.trim()) {
           pending.accumulatedProgressText = fullText
         } else if (delta) {
-          pending.accumulatedProgressText += delta
+          pending.accumulatedProgressText = appendStreamingContent(
+            pending.accumulatedProgressText,
+            delta,
+          )
         }
       } else if (fullText.trim()) {
-        pending.accumulatedText = fullText
+        pending.accumulatedText = appendStreamingContent(pending.accumulatedText, fullText)
       } else if (delta) {
-        pending.accumulatedText += delta
+        pending.accumulatedText = appendStreamingContent(pending.accumulatedText, delta)
       }
       pending.onChunk?.({
         delta,
@@ -177,6 +239,29 @@ export class BridgeRelayService {
         ephemeral,
         replacePrevious,
       })
+      return
+    }
+
+    if (frame.type === 'outbound_message' && !pending.allowEmptyTurnEnd) {
+      this.captureOutboundFile(streamId, frame, pending)
+
+      const text =
+        typeof frame.text === 'string'
+          ? frame.text.trim()
+          : typeof frame.fullText === 'string'
+            ? frame.fullText.trim()
+            : ''
+      if (text && isBridgeSessionStatusMessage(text)) {
+        return
+      }
+      if (text) {
+        pending.accumulatedText = appendStreamingContent(pending.accumulatedText, text)
+        pending.pendingOutboundBoundary = true
+        pending.onChunk?.({
+          delta: text,
+          fullText: pending.accumulatedText,
+        })
+      }
       return
     }
 
@@ -213,6 +298,10 @@ export class BridgeRelayService {
       const systemPart = pending.systemTexts.join('\n\n').trim()
       pending.resolve([systemPart, trimmed].filter(Boolean).join('\n\n'))
     }
+  }
+
+  private emitAgentTrace(pending: PendingTurn): void {
+    pending.onAgentTrace?.(pending.agentTraceReducer.snapshot())
   }
 
   private captureOutboundFile(
@@ -253,6 +342,7 @@ export class BridgeRelayService {
       onChunk: options?.onChunk,
       onReasoning: options?.onReasoning,
       onReasoningClear: options?.onReasoningClear,
+      onAgentTrace: options?.onAgentTrace,
       onAttachment: options?.onAttachment,
       allowEmptyTurnEnd: false,
       timeoutMs: 120_000,
@@ -354,6 +444,7 @@ export class BridgeRelayService {
       onChunk?: (chunk: StreamChunkPayload) => void
       onReasoning?: (payload: StreamReasoningPayload) => void
       onReasoningClear?: () => void
+      onAgentTrace?: (trace: AgentTrace) => void
       onAttachment?: (file: ConnectorFileInput) => void
       allowEmptyTurnEnd: boolean
       timeoutMs: number
@@ -390,9 +481,12 @@ export class BridgeRelayService {
         onChunk: options.onChunk,
         onReasoning: options.onReasoning,
         onReasoningClear: options.onReasoningClear,
+        onAgentTrace: options.onAgentTrace,
         onAttachment: options.onAttachment,
+        agentTraceReducer: new AgentTraceReducer(),
         cancelled: false,
         allowEmptyTurnEnd: options.allowEmptyTurnEnd,
+        pendingOutboundBoundary: false,
       })
     })
 
