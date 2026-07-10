@@ -170,13 +170,13 @@ linco-connect start --daemon
 
 ### 方式三：使用官方在线 Demo
 
-若你们已部署托管 Demo（H5 / 微信小程序），用户只需：
+如果希望通过官方托管 Demo 快速体验 Linco Bridge，通常只需：
 
 1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) 或小程序；
 2. **桥接** → 复制 `setupCommands` → 本机执行
 3. 本机安装并运行 `linco-connect` + 对应 Agent CLI
 
-当前在线 Demo 更适合作为轻量公开体验环境，不提供正式账号体系。用户状态通常通过匿名访客 ID 与浏览器本地缓存做隔离；如果清理浏览器缓存、更换设备或使用无痕模式，本地 Demo 历史记录和状态可能丢失。
+在线 Demo 主要用于轻量公开体验，不提供正式账号体系。Demo 状态通常通过匿名访客 ID 与浏览器本地缓存做隔离；如果清理浏览器缓存、更换设备或使用无痕模式，本地 Demo 历史记录和状态可能丢失。
 
 请不要在在线 Demo 中输入敏感信息、长期保存数据或正式业务数据。
 
