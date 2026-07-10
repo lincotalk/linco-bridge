@@ -4,7 +4,7 @@ import {
   getAgentAvatar,
   parseAgentTypeFromSessionId,
 } from '@/bridge/sdk/agent-chat'
-import type { AgentBridgeType, ChatSessionItem } from '@/bridge/types'
+import type { AgentBridgeType, AgentLandingHeader, ChatSessionItem } from '@/bridge/types'
 
 export interface ChatHeaderView {
   title: string
@@ -64,6 +64,15 @@ export function buildChatSubtitle(
   boundContextName?: string,
 ): string {
   return buildBridgeHeaderSubtitle(agentType, online, deviceName, boundContextName)
+}
+
+export function buildLandingSubtitle(header: AgentLandingHeader): string {
+  return buildBridgeHeaderSubtitle(
+    header.agentType,
+    header.status === 'online',
+    header.deviceId,
+    header.boundContextName,
+  )
 }
 
 export function resolveChatHeader(

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 import AgentHistoryRow from '@/components/AgentHistoryRow.vue'
-import { buildLandingSubtitle } from '@/bridge/sdk/agent-chat'
+import { buildLandingSubtitle } from '@/utils/chat-header'
 import { agentSidePanelState, closeAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBotConfig } from '@/utils/open-agent-landing'
 
