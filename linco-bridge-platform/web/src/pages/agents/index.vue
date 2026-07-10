@@ -9,6 +9,9 @@ import { switchRootTab } from '@/constants/tabbar'
 import type { ConnectedAgentItem } from '@/utils/connected-accounts'
 import { showToast } from '@/utils/format'
 import { openConnectedAgent } from '@/utils/open-connected-agent'
+import { getCustomNavPagePaddingStyle } from '@/utils/page-safe-area'
+
+const pageSafeStyle = getCustomNavPagePaddingStyle()
 
 const loading = ref(false)
 const refreshing = ref(false)
@@ -61,7 +64,7 @@ function goBridge() {
 </script>
 
 <template>
-  <view class="page-container agents-page">
+  <view class="page-container agents-page" :style="pageSafeStyle">
     <DemoDataNotice />
 
     <scroll-view

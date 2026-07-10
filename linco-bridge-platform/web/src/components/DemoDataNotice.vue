@@ -53,7 +53,7 @@ function dismiss() {
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
-  margin: calc(env(safe-area-inset-top) + 16rpx) 24rpx 0;
+  margin: 16rpx 24rpx 0;
   padding: 20rpx 24rpx;
   border-radius: 16rpx;
   background: #f6ffed;
