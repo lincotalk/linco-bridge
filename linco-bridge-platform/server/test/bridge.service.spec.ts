@@ -491,4 +491,24 @@ describe('BridgeService', () => {
     expect(payload.text).toContain('/remove-account')
     expect(payload.text).toContain('--agent codex')
   })
+
+  it('resolves plugin accountIds into bridge account items', () => {
+    const codex = service.getSetup('codex')
+    const claude = service.getSetup('claude')
+    presence.attach(codex.connectionId, onlineSocket())
+
+    const fallback = service.buildAccountsFallback(true)
+    expect(fallback).toEqual({
+      channel: 'linco',
+      accountIds: [codex.accountId],
+    })
+
+    const items = service.resolveAccountItems([codex.accountId, claude.accountId], {
+      onlineOnly: true,
+    })
+    expect(items).toHaveLength(1)
+    expect(items[0]?.accountId).toBe(codex.accountId)
+    expect(items[0]?.agentType).toBe('codex')
+    expect(items[0]?.connectionId).toBe(codex.connectionId)
+  })
 })
