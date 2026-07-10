@@ -741,6 +741,28 @@ export class ChatService {
     return { sessionId: session.id }
   }
 
+  async runGlobalBridgeCommand(command: string): Promise<BridgeCommandResult> {
+    const trimmed = command.trim()
+    if (!trimmed) {
+      throw new BadRequestException('command required')
+    }
+
+    if (trimmed.toLowerCase() === 'accounts') {
+      const accounts = await this.bridgeService.loadAccounts({ onlineOnly: true })
+      return {
+        command: 'accounts',
+        text: accounts.items.length > 0 ? `${accounts.items.length} 个在线助手` : '暂无在线助手',
+        payload: {
+          channel: accounts.channel,
+          accountIds: accounts.accountIds,
+          items: accounts.items,
+        },
+      }
+    }
+
+    throw new BadRequestException('不允许的 bridge 命令')
+  }
+
   async runBridgeCommand(sessionId: string, command: string): Promise<BridgeCommandResult> {
     const session = this.resourceAccess.requireSession(sessionId)
 

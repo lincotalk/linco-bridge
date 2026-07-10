@@ -29,6 +29,15 @@ export class ChatController {
     return ok(this.chatService.listSessions())
   }
 
+  @Post('bridge-command')
+  async runGlobalBridgeCommand(@Body() body: { command?: string }) {
+    const command = body.command?.trim() ?? ''
+    if (!command) {
+      throw new BadRequestException('command required')
+    }
+    return ok(await this.chatService.runGlobalBridgeCommand(command))
+  }
+
   @Post('sessions/delete')
   deleteSessions(@Body() body: { sessionIds?: string[]; session_ids?: string[] }) {
     const sessionIds = body.sessionIds ?? body.session_ids ?? []
