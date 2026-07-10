@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { createAppAgentChatSdk } from '@/api/agent-chat-api'
 import { useBridgeStore } from '@/stores'
-import { buildLandingSubtitle } from '@/bridge/sdk/agent-chat'
+import { buildLandingSubtitle } from '@/utils/chat-header'
 import type { AgentChatSdk } from '@/bridge/sdk/agent-chat-types'
 import type {
   AgentBridgeType,

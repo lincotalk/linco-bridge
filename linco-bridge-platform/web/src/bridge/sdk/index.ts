@@ -552,8 +552,8 @@ export function createMockBridgeSdk(options?: {
 
 export { getAgentDisplayName }
 export {
-  buildLandingSubtitle,
   getAgentAvatar,
   parseAgentTypeFromSessionId,
 } from './agent-chat'
+export { buildLandingSubtitle } from '@/utils/chat-header'
 export type { AgentChatSdk } from './agent-chat-types'

@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { createMockAgentChatSdk } from '@/bridge/sdk/agent-chat.mock'
 import {
   appendAgentTypeQuery,
-  buildLandingSubtitle,
   parseAgentTypeFromQuery,
   parseAgentTypeFromSessionId,
   resolveSessionAgentType,
 } from '@/bridge/sdk/agent-chat'
+import { buildLandingSubtitle } from '@/utils/chat-header'
 
 describe('createMockAgentChatSdk', () => {
   it('returns empty history without fake project rows', async () => {
