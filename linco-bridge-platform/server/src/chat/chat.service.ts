@@ -8,6 +8,7 @@ import {
 import { BridgePresenceService } from '../bridge/bridge-presence.service'
 import { BridgeRelayService } from '../bridge/bridge-relay.service'
 import { BridgeService } from '../bridge/bridge.service'
+import { assertAllowedBridgeCommand } from '../bridge/bridge-command-policy'
 import { parseBridgeSessionSettings } from '../bridge/bridge-settings.util'
 import { resolvePublicHttpOrigin } from '../shared/public-endpoint.util'
 import {
@@ -499,7 +500,7 @@ export class ChatService {
       apiBaseUrl: resolvePublicHttpOrigin(),
       wsBaseUrl: this.bridgeService.getWsUrl(),
       dataRetentionNotice:
-        'Demo 数据保存在当前浏览器本地标识下，刷新页面仍会保留；清除缓存、换设备或使用无痕模式可能丢失。',
+        'Demo 数据绑定当前浏览器会话 Cookie，刷新页面仍会保留；清除 Cookie/缓存、换设备或使用无痕模式可能丢失。',
     }
   }
 
@@ -784,9 +785,7 @@ export class ChatService {
     command: string,
   ): Promise<BridgeCommandResult> {
     const trimmed = command.trim()
-    if (!trimmed.startsWith('/')) {
-      throw new BadRequestException('仅支持 slash 命令')
-    }
+    assertAllowedBridgeCommand(trimmed)
 
     const input: ConnectorSendInput = {
       sessionId: sessionKey,

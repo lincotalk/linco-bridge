@@ -43,6 +43,7 @@ export class AppModule implements NestModule {
       .exclude(
         { path: 'demo-config', method: RequestMethod.GET },
         { path: 'admin/reset-demo-db', method: RequestMethod.POST },
+        { path: 'visitor/bootstrap', method: RequestMethod.POST },
       )
 
       .forRoutes({ path: '*', method: RequestMethod.ALL })

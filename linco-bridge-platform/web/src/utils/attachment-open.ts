@@ -160,10 +160,12 @@ function previewBase64InNewTab(base64: string, mimeType: string) {
 
 function shouldPreviewInline(mimeType: string, filename: string): boolean {
   const normalized = mimeType.trim().toLowerCase()
+  if (normalized.includes('html')) return false
   if (normalized.startsWith('text/')) return true
   if (normalized.includes('json') || normalized.includes('xml')) return true
   const lowerName = filename.trim().toLowerCase()
-  return /\.(txt|md|markdown|json|xml|csv|log|yaml|yml|html|htm)$/.test(lowerName)
+  if (/\.(html|htm)$/.test(lowerName)) return false
+  return /\.(txt|md|markdown|json|xml|csv|log|yaml|yml)$/.test(lowerName)
 }
 
 function getUserDataPath(): string {

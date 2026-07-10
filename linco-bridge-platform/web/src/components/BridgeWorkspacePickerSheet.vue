@@ -63,18 +63,6 @@ function resetState() {
   showAllChats.value = false
 }
 
-function selectCommandFor(project: BridgeProjectItem): string {
-  const command = project.selectCommand?.trim()
-  if (command) return command
-  return `/project --select "${project.path}"`
-}
-
-function bindCommandFor(project: BridgeProjectItem, session: BridgeWorkspaceSession): string {
-  const command = session.bindCommand?.trim()
-  if (command) return command
-  return `/bind --project "${project.path}" ${session.id}`
-}
-
 async function loadProjects(refresh = false) {
   if (!connectionId.value) return
   if (refresh) {
@@ -179,12 +167,10 @@ async function runSelecting<T>(key: string, task: () => Promise<T | null>) {
 async function applySelection(input: {
   project: BridgeProjectItem
   session?: BridgeWorkspaceSession
-  selectProjectCommand?: string
 }) {
   if (!connectionId.value) return null
   const projectPath = input.project.path.trim()
   const projectName = input.project.name.trim() || projectPath
-  const bindCommand = input.session ? bindCommandFor(input.project, input.session) : undefined
 
   return bridgeStore.sdk.applyWorkspaceSelection(agentType.value, {
     connectionId: connectionId.value,
@@ -193,8 +179,6 @@ async function applySelection(input: {
     projectName,
     agentSessionId: input.session?.id,
     sessionTitle: input.session?.title,
-    bindCommand,
-    selectProjectCommand: input.selectProjectCommand,
   })
 }
 
@@ -219,7 +203,6 @@ async function handleCreateProjectSession(project: BridgeProjectItem) {
     try {
       const result = await applySelection({
         project,
-        selectProjectCommand: selectCommandFor(project),
       })
       if (!result) return null
       resolveBridgeWorkspacePicker(result)
@@ -236,8 +219,6 @@ async function handleSelectChat(session: BridgeWorkspaceSession) {
   const key = `chat:${session.id}`
   await runSelecting(key, async () => {
     try {
-      const bindCommand =
-        session.bindCommand?.trim() || `/bind --chat ${session.id}`
       const result = await bridgeStore.sdk.applyWorkspaceSelection(agentType.value, {
         connectionId: connectionId.value,
         platformSessionId: platformSessionId.value,
@@ -245,7 +226,6 @@ async function handleSelectChat(session: BridgeWorkspaceSession) {
         projectName: '对话',
         agentSessionId: session.id,
         sessionTitle: session.title,
-        bindCommand,
       })
       resolveBridgeWorkspacePicker(result)
       return result

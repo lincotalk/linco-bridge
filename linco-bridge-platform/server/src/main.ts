@@ -2,11 +2,15 @@ import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { BRIDGE_WS_GATEWAY_PATH, BridgeWsAdapter } from './bridge/bridge-ws.adapter'
+import { resolveCorsOrigin } from './shared/cors.util'
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule)
   app.setGlobalPrefix('api')
-  app.enableCors({ origin: true })
+  app.enableCors({
+    origin: resolveCorsOrigin(),
+    credentials: true,
+  })
   app.useWebSocketAdapter(new BridgeWsAdapter(app))
 
   const port = Number(process.env.PORT ?? 3300)

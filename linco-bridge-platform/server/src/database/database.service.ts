@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import {
   AGENT_BRIDGE_TYPES,
   type AgentBridgeType,
@@ -272,7 +272,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   static generateConnectionSecret(): string {
-    return `${randomUUID().replace(/-/g, '').slice(0, 16)}`
+    return randomBytes(32).toString('hex')
   }
 
   refreshConnectionSecret(connectionId: string): BridgeConnectionRow | undefined {

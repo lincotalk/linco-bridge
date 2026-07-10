@@ -23,7 +23,7 @@ export interface BridgeHttpClient {
 }
 
 export interface BridgeSdk {
-  getSetup(type: AgentBridgeType): Promise<AgentBridgeSetup>
+  getSetup(type: AgentBridgeType, connectionId?: string): Promise<AgentBridgeSetup>
   refreshSetup(type: AgentBridgeType, connectionId: string): Promise<AgentBridgeSetup>
   checkStatus(type: AgentBridgeType, connectionId?: string): Promise<BridgeStatusResult>
   listContexts(type: AgentBridgeType, connectionId?: string): Promise<AgentBridgeBindableContext[]>

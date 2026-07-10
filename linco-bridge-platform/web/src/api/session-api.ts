@@ -1,5 +1,5 @@
 import type { ChatMessage, ChatMessageAttachment, ChatSessionItem, AgentTrace, ResumeSessionResult } from '@/bridge/types'
-import { apiGet, apiPost, buildVisitorHeaders, getApiBaseUrl } from './http-client'
+import { apiGet, apiPost, getApiBaseUrl } from './http-client'
 
 export async function fetchSessions(): Promise<ChatSessionItem[]> {
   const res = await apiGet<ChatSessionItem[]>('/api/sessions')
@@ -125,10 +125,11 @@ export async function streamSessionMessage(
 ): Promise<ChatMessage> {
   const response = await fetch(`${getApiBaseUrl()}/api/sessions/${sessionId}/messages/stream`, {
     method: 'POST',
-    headers: buildVisitorHeaders({
+    credentials: 'include',
+    headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
-    }),
+    },
     body: JSON.stringify({ content, files }),
     signal,
   })

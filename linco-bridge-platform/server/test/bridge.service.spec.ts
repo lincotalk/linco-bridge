@@ -36,7 +36,7 @@ describe('BridgeService', () => {
     expect(setup.bridgeType).toBe('codex')
     expect(setup.appId).toBe('demo-codex-app')
     expect(setup.appSecret).not.toBe('demo-codex-secret')
-    expect(setup.appSecret).toHaveLength(16)
+    expect(setup.appSecret).toHaveLength(64)
     expect(setup.setupCommands).toContain('linco-connect init')
     expect(setup.setupCommands).toContain(`--token "demo-codex-app:${setup.appSecret}"`)
     expect(setup.setupCommands).toContain('--channel linco-demo')
@@ -450,7 +450,9 @@ describe('BridgeService', () => {
     expect(detail.connectionId).toBe(setup.connectionId)
     expect(detail.appId).toBe(setup.appId)
     expect(detail.description).toBe('Codex 桥接')
-    expect(detail.setupCommands).toContain('linco-connect init')
+    expect(detail.secretMasked).toBe(true)
+    expect(detail.appSecret).toBe('')
+    expect(detail.setupCommands).toBe('')
   })
 
   it('renames connection display name', () => {

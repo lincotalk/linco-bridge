@@ -1,12 +1,12 @@
-<script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app'
-import { getOrCreateVisitorId } from '@/utils/visitor-id'
-
-onLaunch(() => {
-  getOrCreateVisitorId()
-})
-</script>
-
-<style lang="scss">
-@use './styles/global';
-</style>
+<script setup lang="ts">
+import { onLaunch } from '@dcloudio/uni-app'
+import { bootstrapVisitorSession } from '@/api/visitor-api'
+
+onLaunch(() => {
+  void bootstrapVisitorSession().catch(() => undefined)
+})
+</script>
+
+<style lang="scss">
+@use './styles/global';
+</style>

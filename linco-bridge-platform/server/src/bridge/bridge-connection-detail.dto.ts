@@ -8,6 +8,7 @@ export interface BridgeConnectionDetailDto {
   avatar: string
   appId: string
   appSecret: string
+  secretMasked?: boolean
   accountId: string
   status: 'online' | 'offline'
   deviceName?: string
