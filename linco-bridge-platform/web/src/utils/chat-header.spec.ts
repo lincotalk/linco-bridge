@@ -40,10 +40,10 @@ describe('buildBridgeHeaderSubtitle', () => {
 })
 
 describe('resolveChatHeader', () => {
-  it('uses mock history title for hist-* session ids', () => {
+  it('uses agent display name when session has no title', () => {
     const header = resolveChatHeader('hist-codex-admin')
 
-    expect(header.title).toBe('AIChat-Admin')
+    expect(header.title).toBe('Codex')
     expect(header.agentType).toBe('codex')
     expect(header.subtitle).toBe('离线')
   })

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService, type BridgeConnectionRow } from '../database/database.service'
 import { type AgentBridgeType, agentDisplayName, agentBridgeSubtitle, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
 import {
@@ -22,7 +22,6 @@ import { resolvePublicWsBaseUrl } from '../shared/public-endpoint.util'
 import { ResourceAccessService } from '../shared/resource-access.service'
 import {
   buildBridgeSettingsApplyCommand,
-  DEMO_BRIDGE_SETTINGS_OPTIONS,
   parseBridgeSettingsOptionsPayload,
   type BridgeSessionSettingsDto,
   type BridgeSettingsOptionsDto,
@@ -50,13 +49,6 @@ export interface BridgeProjectDto {
   sessionsCommand: string
 }
 
-const DEFAULT_CONTEXTS: Record<AgentBridgeType, BindableContextDto[]> = {
-  codex: [{ id: 'project-1', label: 'demo-project', description: 'Codex workspace' }],
-  claude: [{ id: 'project-1', label: 'demo-project', description: 'Claude project' }],
-  hermes: [{ id: 'profile-default', label: 'default', description: 'Hermes profile' }],
-  openclaw: [{ id: 'agent-main', label: 'main', description: 'OpenClaw agent' }],
-}
-
 const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
   codex: '/static/icons/bot/bridge_codex.png',
   claude: '/static/icons/bot/bridge_claude.png',
@@ -69,8 +61,6 @@ const CONNECTOR_SELECTOR_TYPES = new Set<AgentBridgeType>(['openclaw', 'hermes']
 
 @Injectable()
 export class BridgeService {
-  private readonly logger = new Logger(BridgeService.name)
-
   constructor(
     private readonly database: DatabaseService,
     private readonly presence: BridgePresenceService,
@@ -305,25 +295,14 @@ export class BridgeService {
     }
 
     if (!CONNECTOR_CONTEXT_TYPES.has(type) && !CONNECTOR_SELECTOR_TYPES.has(type)) {
-      return DEFAULT_CONTEXTS[type]
+      throw new ConflictException('当前 Agent 不支持绑定上下文')
     }
 
-    try {
-      if (CONNECTOR_SELECTOR_TYPES.has(type)) {
-        const contexts = await this.fetchSelectorContextsFromConnector(connection, type)
-        if (contexts.length > 0) return contexts
-        return DEFAULT_CONTEXTS[type]
-      }
-
-      const contexts = await this.fetchContextsFromConnector(connection)
-      if (contexts.length > 0) return contexts
-      return DEFAULT_CONTEXTS[type]
-    } catch (err) {
-      this.logger.warn(
-        `listContexts fallback to demo contexts type=${type}: ${(err as Error).message}`,
-      )
-      return DEFAULT_CONTEXTS[type]
+    if (CONNECTOR_SELECTOR_TYPES.has(type)) {
+      return this.fetchSelectorContextsFromConnector(connection, type)
     }
+
+    return this.fetchContextsFromConnector(connection)
   }
 
   async listProjects(type: string, connectionId?: string): Promise<BridgeProjectDto[]> {
@@ -627,10 +606,7 @@ export class BridgeService {
         selected.bindCommand,
       ).completed
     } else {
-      selected = DEFAULT_CONTEXTS[type].find((item) => item.id === contextId)
-      if (!selected) {
-        throw new NotFoundException('上下文不存在')
-      }
+      throw new ConflictException('当前 Agent 不支持绑定上下文')
     }
 
     const sessionId =
@@ -679,15 +655,8 @@ export class BridgeService {
       ? this.ensureSettingsSessionId(connection, type, sessionId.trim())
       : this.ensureConnectorSessionId(connection, type)
 
-    try {
-      const payload = await this.fetchSettingsOptionsFromConnector(connection, platformSessionId)
-      return parseBridgeSettingsOptionsPayload(payload)
-    } catch (err) {
-      this.logger.warn(
-        `loadSettingsOptions fallback to demo options type=${type}: ${(err as Error).message}`,
-      )
-      return DEMO_BRIDGE_SETTINGS_OPTIONS
-    }
+    const payload = await this.fetchSettingsOptionsFromConnector(connection, platformSessionId)
+    return parseBridgeSettingsOptionsPayload(payload)
   }
 
   async updateBridgeSettings(

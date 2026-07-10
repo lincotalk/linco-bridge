@@ -1,7 +1,6 @@
 import { getAgentDisplayName } from '@/bridge/commands'
 import { requiresContextBinding } from '@/bridge/constants'
 import {
-  findMockHistoryItem,
   getAgentAvatar,
   parseAgentTypeFromSessionId,
 } from '@/bridge/sdk/agent-chat'
@@ -74,7 +73,6 @@ export function resolveChatHeader(
   deviceName?: string,
   boundContextName?: string,
 ): ChatHeaderView {
-  const mockHistory = findMockHistoryItem(sessionId)
   const agentType: AgentBridgeType =
     session?.agentType ?? parseAgentTypeFromSessionId(sessionId) ?? 'codex'
 
@@ -83,7 +81,6 @@ export function resolveChatHeader(
   const rawTitle =
     session?.conversationTitle?.trim() ||
     session?.title?.trim() ||
-    mockHistory?.title ||
     getAgentDisplayName(agentType)
   const title = resolvedDeviceName
     ? stripDeviceSuffixFromTitle(rawTitle, resolvedDeviceName)

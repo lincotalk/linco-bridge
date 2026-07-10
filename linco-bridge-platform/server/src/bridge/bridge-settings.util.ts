@@ -202,22 +202,3 @@ export function buildBridgeSettingsToolbarLabel(
   return '默认'
 }
 
-export const DEMO_BRIDGE_SETTINGS_OPTIONS: BridgeSettingsOptionsDto = {
-  reasoning: {
-    currentId: 'medium',
-    defaultId: 'medium',
-    model: 'gpt-5.4',
-    options: [
-      { id: 'low', label: 'Low' },
-      { id: 'medium', label: 'Medium' },
-      { id: 'high', label: 'High' },
-      { id: 'xhigh', label: 'Extra High' },
-    ],
-  },
-  model: {
-    items: [
-      { id: 'gpt-5.4', label: 'GPT-5.4' },
-      { id: 'gpt-5.5', label: 'GPT-5.5' },
-    ],
-  },
-}
