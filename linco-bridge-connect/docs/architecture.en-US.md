@@ -58,7 +58,7 @@ From an open-source perspective, the Linco Bridge connector is not limited to th
 
 `src/core/agentPrompt.js` maintains the Agent-visible Linco Bridge connector identity and common delivery rules. The prompt should tell the Agent that it is connected to Linco IM through the Linco Bridge connector and that normal text replies are automatically sent to the user.
 
-Claude injects the prompt through `--append-system-prompt`. Hermes injects it through Gateway `instructions`. Codex and OpenClaw keep the existing protocol field shape and append the bridge prompt in the input layer.
+Claude injects the prompt through `--append-system-prompt`. Hermes injects it through Gateway `instructions`. Codex app-server injects it through `developerInstructions` on `thread/start` and `thread/resume`, merged with the user's effective Codex developer instructions; it falls back to input-layer injection if config loading or the protocol call fails. OpenClaw keeps the existing protocol field shape and appends the bridge prompt in the input layer.
 
 The Agent-visible file delivery prompt should only require Markdown absolute path links, such as `[filename.ext](absolute-local-path)`. The internal file-fetch command should not be exposed in the Agent prompt.
 

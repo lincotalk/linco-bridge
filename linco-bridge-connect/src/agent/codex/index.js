@@ -47,6 +47,11 @@ const {
   buildCodexInput,
   stringifyInput,
 } = require('./input');
+const {
+  buildCodexBridgeInstructions,
+  extractCodexDeveloperInstructions,
+  mergeCodexDeveloperInstructions,
+} = require('./instructions');
 
 const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
 const CODEX_COMPACTION_STALE_MS = 90_000;
@@ -100,8 +105,6 @@ function runAppServerTurn(input, ws, session, config) {
   session._log = config.logger;
   startAssistantReplyLog(session, config, { agentType: 'codex' });
 
-  const inputWithFileReferenceHint = buildCodexDeliveryInput(input, session);
-
   const agentConfig = config.agents?.codex || {};
   const log = config.logger;
   log?.info('codex turn start', { mode: 'app-server', bin: agentConfig.bin, agentSessionId: session.agentSessionId });
@@ -123,7 +126,10 @@ function runAppServerTurn(input, ws, session, config) {
         method: 'turn/start',
         params: {
           threadId,
-          input: buildCodexInput(inputWithFileReferenceHint, session.workspace),
+          input: buildCodexInput(buildCodexDeliveryInput(input, session, {
+            config,
+            includeBridgeContextHint: session.codexDeveloperInstructionsMode !== 'developer',
+          }), session.workspace),
           cwd: session.workspace,
           ...modelOverride,
           ...reasoningOverride,
@@ -756,6 +762,11 @@ function ensureAppServer(session, config) {
     session.agentProcess = child;
     session.codexRpcId = 0;
     session.codexPendingRequests = new Map();
+    session.codexInheritedDeveloperInstructions = '';
+    session.codexDeveloperInstructionsApplied = false;
+    session.codexDeveloperInstructionsMode = null;
+    session.codexDeveloperInstructionsPromise = null;
+    session.codexDeveloperInstructionsResolved = false;
     session.stdoutBuffer = '';
     session.stderrBuffer = '';
     session.turnCompletedTimerId = null;
@@ -878,35 +889,56 @@ function buildCodexAppServerEnv() {
   return env;
 }
 
-function ensureThread(session) {
+async function ensureThread(session) {
   const agentConfig = session._lastConfig?.agents?.codex || {};
+  const resolvedDeveloperInstructions = await resolveCodexDeveloperInstructions(session);
+  const developerInstructions = session.codexDeveloperInstructionsMode === 'developer'
+    && session.codexDeveloperInstructionsApplied !== true
+    ? resolvedDeveloperInstructions
+    : '';
 
   if (session.agentSessionId) {
     // Resume existing thread after app-server restart
-    const rpcId = nextRpcId(session);
-    return rpcRequest(session, rpcId, 'thread/resume', {
-      threadId: session.agentSessionId,
-      cwd: session.workspace,
-      approvalPolicy: codexApprovalPolicy(session),
-      ...buildCodexThreadSandbox(session),
-    }).then(result => {
+    return resumeCodexThread(session, developerInstructions).then(result => {
       recordCodexThreadReasoning(session, result);
+      if (developerInstructions && session.codexDeveloperInstructionsMode === 'developer') {
+        session.codexDeveloperInstructionsApplied = true;
+      }
       emitCodexAgentSession(session, session.agentSessionId);
       return session.agentSessionId;
     }).catch(err => {
       // If resume fails, start a new thread
       session._log?.warn('codex thread resume failed, starting new', { message: err.message });
-      return startNewThread(session, agentConfig);
+      return startNewThread(
+        session,
+        agentConfig,
+        session.codexDeveloperInstructionsMode === 'developer' ? developerInstructions : '',
+      );
     });
   }
 
-  return startNewThread(session, agentConfig);
+  return startNewThread(session, agentConfig, developerInstructions);
 }
 
-function startNewThread(session, agentConfig) {
+function resumeCodexThread(session, developerInstructions = '') {
   const rpcId = nextRpcId(session);
-  return rpcRequest(session, rpcId, 'thread/start', buildCodexThreadStartParams(session, agentConfig)).then(result => {
+  return rpcRequest(session, rpcId, 'thread/resume', buildCodexThreadResumeParams(
+    session,
+    developerInstructions,
+  )).catch(err => {
+    if (!developerInstructions) throw err;
+    switchCodexDeveloperInstructionsToInputFallback(session, err);
+    const fallbackRpcId = nextRpcId(session);
+    return rpcRequest(session, fallbackRpcId, 'thread/resume', buildCodexThreadResumeParams(session));
+  });
+}
+
+function startNewThread(session, agentConfig, developerInstructions = '') {
+  return requestStartCodexThread(session, agentConfig, developerInstructions).then(result => {
     recordCodexThreadReasoning(session, result);
+    if (developerInstructions && session.codexDeveloperInstructionsMode === 'developer') {
+      session.codexDeveloperInstructionsApplied = true;
+    }
     const threadId = result?.thread?.id || result?.id || result?.threadId;
     if (threadId) {
       persistAgentSessionId(session, threadId);
@@ -928,14 +960,92 @@ function startNewThread(session, agentConfig) {
   });
 }
 
-function buildCodexThreadStartParams(session, agentConfig = {}) {
+function requestStartCodexThread(session, agentConfig, developerInstructions = '') {
+  const rpcId = nextRpcId(session);
+  return rpcRequest(session, rpcId, 'thread/start', buildCodexThreadStartParams(
+    session,
+    agentConfig,
+    developerInstructions,
+  )).catch(err => {
+    if (!developerInstructions) throw err;
+    switchCodexDeveloperInstructionsToInputFallback(session, err);
+    const fallbackRpcId = nextRpcId(session);
+    return rpcRequest(session, fallbackRpcId, 'thread/start', buildCodexThreadStartParams(
+      session,
+      agentConfig,
+    ));
+  });
+}
+
+function switchCodexDeveloperInstructionsToInputFallback(session, err) {
+  session._log?.warn('codex developer instructions rejected, using input fallback', {
+    message: err.message,
+  });
+  session.codexDeveloperInstructionsMode = 'input';
+  session.codexDeveloperInstructionsApplied = false;
+}
+
+function buildCodexThreadStartParams(session, agentConfig = {}, developerInstructions = '') {
   return {
     cwd: session.workspace,
     model: agentConfig.model || null,
     effort: codexDefaultReasoningEffort(agentConfig),
     approvalPolicy: codexApprovalPolicy(session),
+    ...(developerInstructions ? { developerInstructions } : {}),
     ...buildCodexThreadSandbox(session),
   };
+}
+
+function buildCodexThreadResumeParams(session, developerInstructions = '') {
+  return {
+    threadId: session.agentSessionId,
+    cwd: session.workspace,
+    approvalPolicy: codexApprovalPolicy(session),
+    ...(developerInstructions ? { developerInstructions } : {}),
+    ...buildCodexThreadSandbox(session),
+  };
+}
+
+function resolveCodexDeveloperInstructions(session) {
+  if (session.codexDeveloperInstructionsResolved) {
+    return Promise.resolve(buildResolvedCodexDeveloperInstructions(session));
+  }
+  if (session.codexDeveloperInstructionsPromise) {
+    return session.codexDeveloperInstructionsPromise;
+  }
+
+  session.codexDeveloperInstructionsPromise = (async () => {
+    try {
+      const rpcId = nextRpcId(session);
+      const result = await rpcRequest(session, rpcId, 'config/read', {
+        cwd: session.workspace,
+        includeLayers: false,
+      });
+      session.codexInheritedDeveloperInstructions = extractCodexDeveloperInstructions(result);
+      session.codexDeveloperInstructionsMode = 'developer';
+      return buildResolvedCodexDeveloperInstructions(session);
+    } catch (err) {
+      session._log?.warn('codex developer instructions unavailable, using input fallback', {
+        message: err.message,
+      });
+      session.codexInheritedDeveloperInstructions = '';
+      session.codexDeveloperInstructionsMode = 'input';
+      return '';
+    } finally {
+      session.codexDeveloperInstructionsResolved = true;
+      session.codexDeveloperInstructionsPromise = null;
+    }
+  })();
+
+  return session.codexDeveloperInstructionsPromise;
+}
+
+function buildResolvedCodexDeveloperInstructions(session) {
+  const bridge = buildCodexBridgeInstructions(session, session._lastConfig || {});
+  return mergeCodexDeveloperInstructions(
+    session.codexInheritedDeveloperInstructions,
+    bridge,
+  );
 }
 
 function codexApprovalPolicy(session) {
@@ -2112,7 +2222,10 @@ function runExecTurn(input, ws, session, config) {
     drainQueue(ws, session, config);
   });
 
-  child.stdin.end(`${stringifyInput(input)}\n`);
+  child.stdin.end(`${stringifyInput(buildCodexDeliveryInput(input, session, {
+    config,
+    includeBridgeContextHint: true,
+  }))}\n`);
 }
 
 function buildExecArgs(session, agentConfig) {
@@ -2335,6 +2448,7 @@ module.exports = {
   warmup,
   _internal: {
     buildCodexThreadStartParams,
+    buildCodexThreadResumeParams,
     buildExecArgs,
     codexDefaultReasoningEffort,
     codexTurnModelOverride,

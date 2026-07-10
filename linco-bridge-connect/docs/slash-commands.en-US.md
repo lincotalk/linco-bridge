@@ -15,6 +15,7 @@ Commands not listed here are passed through to the current Agent by default. Som
 | `/reload` | Refreshes current Agent memory and tries to prestart the process. |
 | `/update` / `/upgrade` | Views, upgrades, or downgrades the linco-connect CLI. |
 | `/remove-account` / `/delete-account` | Removes the current or specified Agent account configuration. |
+| `/accounts --channel <channel>` | Lists configured account IDs for the specified channel. |
 | `/base` | Shows Linco runtime, session runtime, and attachment directories. |
 | `/get <path>` | Reads an allowed non-hidden file and returns it to remote IM. |
 | `/approve` | Shows the current approval mode. |
@@ -83,7 +84,7 @@ Frontend command lists should be filtered by `agentType`:
 | Hermes | `/profile`. |
 | OpenClaw | `/agent`. |
 
-Common commands such as `/help`, `/status`, `/stop`, `/reload`, `/base`, `/get`, `/approve`, `/model`, `/reasoning`, `/settings`, `/usage`, `/compact`, and `/remove-account` can be shown when supported by the current mode.
+Common commands such as `/help`, `/status`, `/stop`, `/reload`, `/base`, `/get`, `/approve`, `/model`, `/reasoning`, `/settings`, `/usage`, `/compact`, `/accounts`, and `/remove-account` can be shown when supported by the current mode.
 
 ## Structured Results
 
@@ -92,6 +93,7 @@ The following commands return `slash_command_result`; remote IM should render th
 | Command | Data shape |
 | --- | --- |
 | `/help` | `data.items[].command`, `data.items[].description`. |
+| `/accounts` | `data.channel`, `data.accountIds`. |
 | `/project` | `data.items[].path`, `data.items[].selectCommand`. |
 | `/sessions` | `data.items[].id`, `data.items[].bindCommand`. |
 | `/chats` | `data.items[].id`, `data.items[].historyCommand`, `data.items[].bindCommand`. |

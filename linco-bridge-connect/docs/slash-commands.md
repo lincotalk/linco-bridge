@@ -15,6 +15,7 @@
 | `/reload` | 刷新当前 Agent 记忆，下次消息重新加载本地历史，并尝试预启动进程。 |
 | `/update` / `/upgrade` | 查看、升级或降级 linco-connect CLI。 |
 | `/remove-account` / `/delete-account` | 删除当前或指定 Agent 下的账号配置。 |
+| `/accounts --channel <channel>` | 列出指定 channel 下已配置的账号 ID。 |
 | `/base` | 显示 Linco 运行目录、会话运行目录和附件目录。 |
 | `/get <路径>` | 读取允许目录内的非隐藏文件并返回给远端 IM。 |
 | `/approve` | 显示当前审批模式。 |
@@ -90,6 +91,7 @@ Codex 额外支持：
 | command | data 概要 |
 | --- | --- |
 | `help` | `items[].command`、`items[].description`、`notes[]`。 |
+| `accounts` | `channel`、`accountIds[]`。 |
 | `project` | 项目候选和可点击 action。 |
 | `sessions` | `items[].bindCommand`。 |
 | `chats` | `items[].historyCommand`、`items[].bindCommand`。 |
