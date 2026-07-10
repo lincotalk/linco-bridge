@@ -112,6 +112,7 @@ for (const name of bridgeIcons) {
 }
 
 await buildTabBarIcons('messages', 'users.png')
+await buildTabBarIcons('agents', 'market.png')
 await buildTabBarIcons('bridge', 'home.png')
 
 const chatIcons = [

@@ -19,6 +19,9 @@ import { deleteSessionsFromList } from '@/api/session-api'
 import { showToast } from '@/utils/format'
 
 import { openAgentLanding } from '@/utils/open-agent-landing'
+import { getCustomNavPagePaddingStyle } from '@/utils/page-safe-area'
+
+const pageSafeStyle = getCustomNavPagePaddingStyle()
 
 
 
@@ -193,7 +196,7 @@ function goBridge() {
 
 <template>
 
-  <view class="page-container messages-page">
+  <view class="page-container messages-page" :style="pageSafeStyle">
 
     <DemoDataNotice />
 

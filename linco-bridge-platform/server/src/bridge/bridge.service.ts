@@ -49,6 +49,26 @@ export interface BridgeProjectDto {
   sessionsCommand: string
 }
 
+export interface BridgeAccountItemDto {
+  connectionId: string
+  agentType: AgentBridgeType
+  accountId: string
+  title: string
+  description: string
+  avatar: string
+  status: 'online' | 'offline'
+  deviceName?: string
+  boundContextName?: string
+  sessionId?: string
+  updatedAt: number
+}
+
+export interface BridgeAccountsPayloadDto {
+  channel: string
+  accountIds: string[]
+  items: BridgeAccountItemDto[]
+}
+
 const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
   codex: '/static/icons/bot/bridge_codex.png',
   claude: '/static/icons/bot/bridge_claude.png',
@@ -213,6 +233,110 @@ export class BridgeService {
       clientVersion: connection.client_version?.trim() || undefined,
       setupCommands: '',
       connectChannel: setup.connectChannel,
+    }
+  }
+
+  listAccounts(options?: { onlineOnly?: boolean }): BridgeAccountItemDto[] {
+    const fallback = this.buildAccountsFallback(options?.onlineOnly !== false)
+    return this.resolveAccountItems(fallback.accountIds, { onlineOnly: options?.onlineOnly !== false })
+  }
+
+  buildAccountsFallback(onlineOnly = true): { channel: string; accountIds: string[] } {
+    const ownerId = this.resourceAccess.getOwnerId()
+    const accountIds = this.database
+      .listConnectionsByOwner(ownerId)
+      .filter((connection) => !onlineOnly || this.presence.isOnline(connection.id))
+      .map((connection) => connection.account_id)
+    return {
+      channel: 'linco',
+      accountIds,
+    }
+  }
+
+  resolveAccountItems(
+    accountIds: string[],
+    options?: { onlineOnly?: boolean },
+  ): BridgeAccountItemDto[] {
+    const onlineOnly = options?.onlineOnly !== false
+    const ownerId = this.resourceAccess.getOwnerId()
+    const items: BridgeAccountItemDto[] = []
+
+    for (const rawAccountId of accountIds) {
+      const accountId = rawAccountId.trim()
+      if (!accountId) continue
+
+      const connection = this.database.getConnectionByAccountId(ownerId, accountId)
+      if (!connection) continue
+
+      const online = this.presence.isOnline(connection.id)
+      if (onlineOnly && !online) continue
+
+      const session =
+        this.database.getSessionByConnectionId(connection.id) ??
+        (connection.session_id ? this.database.getSession(connection.session_id) : undefined)
+      const deviceName =
+        resolveConnectionDeviceName(connection.id, this.presence, connection) || undefined
+
+      items.push({
+        connectionId: connection.id,
+        agentType: connection.bridge_type,
+        accountId: connection.account_id,
+        title: resolveConnectionDisplayName(connection),
+        description: agentBridgeSubtitle(connection.bridge_type),
+        avatar: BRIDGE_AVATAR[connection.bridge_type],
+        status: online ? 'online' : 'offline',
+        deviceName,
+        boundContextName: connection.bound_context_name?.trim() || undefined,
+        sessionId: session?.id,
+        updatedAt: session?.update_time ?? connection.update_time,
+      })
+    }
+
+    items.sort((left, right) => right.updatedAt - left.updatedAt)
+    return items
+  }
+
+  async fetchAccountsFromConnector(): Promise<{ channel: string; accountIds: string[] }> {
+    const ownerId = this.resourceAccess.getOwnerId()
+    const connection = this.database
+      .listConnectionsByOwner(ownerId)
+      .find((row) => this.presence.isOnline(row.id))
+    if (!connection) {
+      throw new ConflictException('本机 Agent 未连接')
+    }
+
+    const sessionKey = connection.session_id ?? `landing-${connection.bridge_type}`
+    const { completed } = this.relay.forwardSlashCommand(
+      (payload) => this.presence.sendJson(connection.id, payload),
+      this.connectorInput(connection, sessionKey),
+      'accounts',
+      'accounts',
+    )
+    const data = await completed
+    const channel = typeof data.channel === 'string' && data.channel.trim() ? data.channel.trim() : 'linco'
+    const accountIds = Array.isArray(data.accountIds)
+      ? data.accountIds
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => value.trim())
+          .filter(Boolean)
+      : []
+
+    return { channel, accountIds }
+  }
+
+  async loadAccounts(options?: { onlineOnly?: boolean }): Promise<BridgeAccountsPayloadDto> {
+    const onlineOnly = options?.onlineOnly !== false
+    let pluginData: { channel: string; accountIds: string[] }
+    try {
+      pluginData = await this.fetchAccountsFromConnector()
+    } catch {
+      pluginData = this.buildAccountsFallback(onlineOnly)
+    }
+
+    return {
+      channel: pluginData.channel,
+      accountIds: pluginData.accountIds,
+      items: this.resolveAccountItems(pluginData.accountIds, { onlineOnly }),
     }
   }
 
