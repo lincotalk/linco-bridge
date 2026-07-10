@@ -5,6 +5,7 @@ const CLAUDE_MODEL_OPTIONS = [
   { name: 'opus', desc: 'Claude Opus (most capable)' },
   { name: 'opus[1m]', desc: 'Claude Opus (1M context)' },
   { name: 'haiku', desc: 'Claude Haiku (fastest)' },
+  { name: 'fable', desc: 'Claude Fable (latest)' },
 ];
 
 const CLAUDE_EFFORT_OPTIONS = [
