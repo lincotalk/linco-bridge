@@ -248,7 +248,7 @@ export class BridgeService {
       .filter((connection) => !onlineOnly || this.presence.isOnline(connection.id))
       .map((connection) => connection.account_id)
     return {
-      channel: 'linco',
+      channel: BRIDGE_CONNECT_CHANNEL,
       accountIds,
     }
   }
@@ -309,11 +309,11 @@ export class BridgeService {
     const { completed } = this.relay.forwardSlashCommand(
       (payload) => this.presence.sendJson(connection.id, payload),
       this.connectorInput(connection, sessionKey),
-      'accounts',
+      `/accounts --channel ${BRIDGE_CONNECT_CHANNEL}`,
       'accounts',
     )
     const data = await completed
-    const channel = typeof data.channel === 'string' && data.channel.trim() ? data.channel.trim() : 'linco'
+    const channel = typeof data.channel === 'string' && data.channel.trim() ? data.channel.trim() : BRIDGE_CONNECT_CHANNEL
     const accountIds = Array.isArray(data.accountIds)
       ? data.accountIds
           .filter((value): value is string => typeof value === 'string')

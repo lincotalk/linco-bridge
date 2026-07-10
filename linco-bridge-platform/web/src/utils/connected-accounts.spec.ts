@@ -8,7 +8,7 @@ describe('parseAccountsCommandResult', () => {
       command: 'accounts',
       text: '2 个在线助手',
       payload: {
-        channel: 'linco',
+        channel: 'linco-demo',
         accountIds: ['codex_1', 'claude_1'],
         items: [
           {
@@ -26,7 +26,7 @@ describe('parseAccountsCommandResult', () => {
       },
     })
 
-    expect(result.channel).toBe('linco')
+    expect(result.channel).toBe('linco-demo')
     expect(result.accountIds).toEqual(['codex_1', 'claude_1'])
     expect(result.items).toHaveLength(1)
     expect(result.items[0]?.sessionId).toBe('session-codex')
@@ -38,7 +38,7 @@ describe('parseAccountsCommandResult', () => {
       text: '暂无在线助手',
     })
 
-    expect(result.channel).toBe('linco')
+    expect(result.channel).toBe('linco-demo')
     expect(result.accountIds).toEqual([])
     expect(result.items).toEqual([])
   })

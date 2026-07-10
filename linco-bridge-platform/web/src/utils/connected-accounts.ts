@@ -53,7 +53,7 @@ function parseConnectedAgentItem(raw: unknown): ConnectedAgentItem | null {
 
 export function parseAccountsCommandResult(result: BridgeCommandResult): AccountsCommandPayload {
   const payload = result.payload ?? {}
-  const channel = String(payload.channel ?? 'linco').trim() || 'linco'
+  const channel = String(payload.channel ?? 'linco-demo').trim() || 'linco-demo'
   const accountIds = Array.isArray(payload.accountIds)
     ? payload.accountIds
         .filter((value): value is string => typeof value === 'string')
