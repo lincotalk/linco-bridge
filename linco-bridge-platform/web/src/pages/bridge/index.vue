@@ -3,6 +3,9 @@ import BridgeSourceCard from '@/components/BridgeSourceCard.vue'
 import DemoDataNotice from '@/components/DemoDataNotice.vue'
 import { BRIDGE_SOURCE_CARDS } from '@/bridge/constants'
 import type { BridgeSourceCard as BridgeSourceCardType } from '@/bridge/types'
+import { getCustomNavPagePaddingStyle } from '@/utils/page-safe-area'
+
+const pageSafeStyle = getCustomNavPagePaddingStyle()
 
 function handleSelect(item: BridgeSourceCardType) {
   uni.navigateTo({ url: item.route })
@@ -10,7 +13,7 @@ function handleSelect(item: BridgeSourceCardType) {
 </script>
 
 <template>
-  <view class="page-container bridge-page">
+  <view class="page-container bridge-page" :style="pageSafeStyle">
     <DemoDataNotice />
     <view class="bridge-page__list">
       <BridgeSourceCard
