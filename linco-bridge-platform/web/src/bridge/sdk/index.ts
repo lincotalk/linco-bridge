@@ -553,8 +553,6 @@ export function createMockBridgeSdk(options?: {
 export { getAgentDisplayName }
 export {
   buildLandingSubtitle,
-  createMockAgentChatSdk,
-  findMockHistoryItem,
   getAgentAvatar,
   parseAgentTypeFromSessionId,
 } from './agent-chat'

@@ -1,4 +1,4 @@
-import { createMockAgentChatSdk } from '@/bridge/sdk/agent-chat'
+import { createMockAgentChatSdk } from '@/bridge/sdk/agent-chat.mock'
 import type { AgentChatSdk } from '@/bridge/sdk/agent-chat-types'
 import type {
   AgentBridgeType,
@@ -7,10 +7,10 @@ import type {
   StartConversationInput,
   StartConversationResult,
 } from '@/bridge/types'
+import { assertMockSdkAllowed, isRemoteApiEnabled } from '@/utils/mock-sdk-guard'
 import { pickBridgeWorkspace } from '@/utils/pick-workspace'
 import { apiGet, apiPost } from './http-client'
 
-const useRemoteApi = import.meta.env.VITE_USE_REMOTE_API !== 'false'
 const forceMockAgentChat = import.meta.env.VITE_AGENT_CHAT_SDK === 'mock'
 
 function withConnectionId(path: string, connectionId?: string): string {
@@ -113,7 +113,8 @@ export function createRestAgentChatSdk(): AgentChatSdk {
 
 /** Agent landing uses REST when remote API is enabled (same gate as BridgeSdk). */
 export function createAppAgentChatSdk(): AgentChatSdk {
-  if (!useRemoteApi || forceMockAgentChat) {
+  if (!isRemoteApiEnabled() || forceMockAgentChat) {
+    assertMockSdkAllowed('AgentChatSdk')
     return createMockAgentChatSdk()
   }
   return createRestAgentChatSdk()
