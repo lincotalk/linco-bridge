@@ -499,7 +499,7 @@ describe('BridgeService', () => {
 
     const fallback = service.buildAccountsFallback(true)
     expect(fallback).toEqual({
-      channel: 'linco',
+      channel: 'linco-demo',
       accountIds: [codex.accountId],
     })
 
@@ -510,5 +510,33 @@ describe('BridgeService', () => {
     expect(items[0]?.accountId).toBe(codex.accountId)
     expect(items[0]?.agentType).toBe('codex')
     expect(items[0]?.connectionId).toBe(codex.connectionId)
+  })
+
+  it('requests accounts from the linco-demo connector channel', async () => {
+    const setup = service.getSetup('codex')
+    const socket = onlineSocket()
+    presence.attach(setup.connectionId, socket)
+
+    const pending = service.fetchAccountsFromConnector()
+    await Promise.resolve()
+
+    expect(socket.send).toHaveBeenCalled()
+    const payload = JSON.parse(String((socket.send as jest.Mock).mock.calls[0][0])) as {
+      streamId: string
+      text: string
+    }
+    expect(payload.text).toBe('/accounts --channel linco-demo')
+
+    relay.handleConnectorFrame({
+      type: 'slash_command_result',
+      streamId: payload.streamId,
+      command: 'accounts',
+      data: { channel: 'linco-demo', accountIds: [setup.accountId] },
+    })
+
+    await expect(pending).resolves.toEqual({
+      channel: 'linco-demo',
+      accountIds: [setup.accountId],
+    })
   })
 })
