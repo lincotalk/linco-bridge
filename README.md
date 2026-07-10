@@ -81,15 +81,15 @@ Linco App, Reference Web, custom H5/mini program/app/IM client
 
 | Path | Best for | Notes |
 | --- | --- | --- |
-| Official Linco channel (`linco`) | Users who want the official product flow | Uses the default channel and official credentials. No platform deployment is required. |
-| Open reference platform (`linco-demo`) | Teams that want quick self-hosting, bridge validation, or implementation study | Start the `linco-bridge-platform` server + web app, then connect the local Agent with the connector. |
-| Custom channel adapter | Product or engineering teams building a better interaction experience | Reuse the connector and Agent adapter layer, then add your own H5, mini program, app, web, or IM channel. |
+| Official product path (Linco App) | Users who want the official Linco experience with the lowest setup cost | Use Linco App together with the connector. The underlying official channel key is `linco`, but end users usually do not need to care about that term. |
+| Open reference platform path (`linco-demo`) | Teams that want local validation, self-hosting evaluation, or implementation study | You can either run `linco-bridge-platform/server + web` locally, or use the official hosted demo entry. Both belong to the open reference-platform path. |
+| Custom extension path | Product or engineering teams building their own interaction surface | Reuse the connector and Agent adapter layer, then add your own H5, mini program, app, web, or IM channel adapter. |
 
 ## ⚡ Quick Start
 
-### Option 1: Official Channel
+### Option 1: Official Product Path (Linco App)
 
-The official channel is typically used together with Linco App:
+The official product path is typically used together with Linco App:
 
 - iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
 - Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
@@ -100,7 +100,7 @@ Install the local connector:
 npm install -g linco-connect
 ```
 
-Initialize it with credentials issued for the official channel:
+Initialize it with credentials issued for the official product path:
 
 ```bash
 linco-connect init \
@@ -114,9 +114,9 @@ Start the connector:
 linco-connect start --daemon
 ```
 
-Then open a compatible client, confirm the device is online, enter a session, and send a test message.
+Then open Linco App or another compatible official client, confirm the device is online, enter a session, and send a test message.
 
-### Option 2: Open Reference Platform
+### Option 2: Open Reference Platform (Local Deployment)
 
 Start the reference backend first:
 
@@ -169,6 +169,8 @@ linco-connect start --daemon
 For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), the [platform server README](linco-bridge-platform/server/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
 
 ### Option 3: Official Hosted Demo
+
+This is the hosted entry of the open reference-platform path. It is suitable for users who want to try the bridge flow quickly without deploying `server + web` locally.
 
 If you want to try Linco Bridge through the official hosted demo experience, you usually only need to:
 
