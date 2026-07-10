@@ -63,13 +63,14 @@ export function useBotConfig() {
     }
   }
 
-  async function copySetupCommand() {
-    const text = commandText.value
-    if (!text) {
-      showToast('暂无可复制的配置命令')
-      return
-    }
+  async function copySetupCommand(agentType: AgentBridgeType, connectionId?: string) {
     try {
+      const setup = await bridgeStore.loadSetup(agentType, connectionId)
+      const text = setup.setupCommands?.trim()
+      if (!text) {
+        showToast('暂无可复制的配置命令')
+        return
+      }
       await copyToClipboard(text)
       showToast('已复制配置命令', 'success')
     } catch {

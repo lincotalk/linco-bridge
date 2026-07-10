@@ -89,6 +89,29 @@ export function buildSessionsCommand(projectPath?: string | null, limit = 10): s
   return `/sessions ${limit}`
 }
 
+export function buildSelectProjectCommand(projectPath: string): string {
+  const normalized = projectPath.trim()
+  if (!normalized) {
+    throw new Error('projectPath required')
+  }
+  return `/project --select ${quoteBridgeCommandArg(normalized)}`
+}
+
+export function buildBindCommand(input: {
+  projectPath?: string | null
+  agentSessionId: string
+}): string {
+  const agentSessionId = input.agentSessionId.trim()
+  if (!agentSessionId) {
+    throw new Error('agentSessionId required')
+  }
+  const projectPath = input.projectPath?.trim() ?? ''
+  if (projectPath) {
+    return `/bind --project ${quoteBridgeCommandArg(projectPath)} ${quoteBridgeCommandArg(agentSessionId)}`
+  }
+  return `/bind --chat ${quoteBridgeCommandArg(agentSessionId)}`
+}
+
 export function formatSlashPayload(payload: Record<string, unknown>): string {
   const items = payload.items
   if (Array.isArray(items) && items.length > 0) {

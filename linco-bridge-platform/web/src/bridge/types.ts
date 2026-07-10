@@ -215,6 +215,7 @@ export interface AgentBridgeConnectionDetail {
   avatar: string
   appId: string
   appSecret: string
+  secretMasked?: boolean
   accountId: string
   status: BridgeConnectionStatus
   deviceName?: string

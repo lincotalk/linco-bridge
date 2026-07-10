@@ -29,7 +29,11 @@ const {
 } = useBotConfig()
 
 const secretLabel = computed(() => {
-  if (!detail.value?.appSecret) return '加载中'
+  if (!detail.value) return '加载中'
+  if (detail.value.secretMasked) {
+    return showSecret.value ? '请复制配置命令查看完整密钥' : '••••••••••••••••'
+  }
+  if (!detail.value.appSecret) return '加载中'
   return showSecret.value ? detail.value.appSecret : '••••••••••••••••'
 })
 
@@ -158,7 +162,7 @@ function handleRefresh() {
         </view>
 
         <view class="bot-config-page__actions">
-          <view class="bot-config-page__primary-btn" @tap="copySetupCommand">
+          <view class="bot-config-page__primary-btn" @tap="copySetupCommand(agentType, connectionId)">
             <text class="bot-config-page__primary-btn-text">一键复制配置命令</text>
           </view>
           <view

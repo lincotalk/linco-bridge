@@ -3,6 +3,8 @@ import { DatabaseService, type BridgeConnectionRow } from '../database/database.
 import { type AgentBridgeType, agentDisplayName, agentBridgeSubtitle, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
 import {
   buildSessionsCommand,
+  buildBindCommand,
+  buildSelectProjectCommand,
   parseAgentPickerPayload,
   parseProfilePickerPayload,
   parseProjectsPayload,
@@ -212,13 +214,14 @@ export class BridgeService {
       description: agentBridgeSubtitle(connection.bridge_type),
       avatar: BRIDGE_AVATAR[connection.bridge_type],
       appId: connection.app_id,
-      appSecret: connection.app_secret,
+      appSecret: '',
+      secretMasked: true,
       accountId: connection.account_id,
       status: online ? 'online' : 'offline',
       deviceName,
       lastSeenAt: online ? Date.now() : connection.last_seen_at ?? undefined,
       clientVersion: connection.client_version?.trim() || undefined,
-      setupCommands: setup.setupCommands,
+      setupCommands: '',
       connectChannel: setup.connectChannel,
     }
   }
@@ -382,23 +385,25 @@ export class BridgeService {
     const projectName = (raw.projectName ?? raw.project_name)?.trim() ?? ''
     const agentSessionId = (raw.agentSessionId ?? raw.agent_session_id)?.trim() ?? ''
     const sessionTitle = (raw.sessionTitle ?? raw.session_title)?.trim() ?? ''
-    const bindCommand = (raw.bindCommand ?? raw.bind_command)?.trim() ?? ''
-    const selectProjectCommand = (raw.selectProjectCommand ?? raw.select_project_command)?.trim() ?? ''
     const platformSessionIdInput = (raw.platformSessionId ?? raw.platform_session_id)?.trim() ?? ''
+
+    const selectProjectCommand = projectPath ? buildSelectProjectCommand(projectPath) : ''
+    const bindCommand = agentSessionId
+      ? buildBindCommand({ projectPath: projectPath || null, agentSessionId })
+      : ''
 
     const connectorSessionId = this.ensureConnectorSessionId(connection, type)
 
-    let sessionId =
-      platformSessionIdInput && this.database.getSession(platformSessionIdInput)
-        ? platformSessionIdInput
-        : connectorSessionId
+    let sessionId = connectorSessionId
+    if (platformSessionIdInput) {
+      sessionId = this.resourceAccess.requireSession(platformSessionIdInput).id
+    }
 
     // + 新建项目会话：先解析/创建平台 session，再向同一 session relay select（对齐 Flutter conversationId）
     if (selectProjectCommand && !bindCommand && projectPath) {
-      const preferredId =
-        platformSessionIdInput && this.database.getSession(platformSessionIdInput)
-          ? platformSessionIdInput
-          : ''
+      const preferredId = platformSessionIdInput
+        ? this.resourceAccess.requireSession(platformSessionIdInput).id
+        : ''
       sessionId = this.resolvePlatformSessionForProjectOnly(connection, type, {
         preferredSessionId: preferredId,
         projectPath,

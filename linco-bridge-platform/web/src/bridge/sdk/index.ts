@@ -39,8 +39,10 @@ function withConnectionQuery(path: string, connectionId?: string): string {
 /** Phase 1 REST implementation — routes match linco-bridge-platform server. */
 export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
   return {
-    async getSetup(type) {
-      const res = await client.get<AgentBridgeSetup>(`/api/agent-bridges/${type}/setup`)
+    async getSetup(type, connectionId) {
+      const res = await client.get<AgentBridgeSetup>(
+        withConnectionQuery(`/api/agent-bridges/${type}/setup`, connectionId),
+      )
       if (!res.success || !res.data) {
         throw new Error(res.message || '获取连接配置失败')
       }

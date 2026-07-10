@@ -31,8 +31,8 @@ export const useBridgeStore = defineStore('bridge', () => {
     sdk.value = next
   }
 
-  async function loadSetup(type: AgentBridgeType) {
-    const setup = await sdk.value.getSetup(type)
+  async function loadSetup(type: AgentBridgeType, connectionId?: string) {
+    const setup = await sdk.value.getSetup(type, connectionId)
     setupByType.value = { ...setupByType.value, [type]: setup }
     return setup
   }
