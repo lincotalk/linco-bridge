@@ -10,7 +10,7 @@ function loadCodexInternals() {
   const mod = new Module(filename, module);
   mod.filename = filename;
   mod.paths = Module._nodeModulePaths(path.dirname(filename));
-  mod._compile(`${source}\nmodule.exports._test = { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, stringifyInput, summarizeCodexItemForLog, resolveCodexSpawnTarget, buildCodexThreadSandbox, buildCodexThreadStartParams, buildExecArgs, buildCodexAppServerEnv };\n`, filename);
+  mod._compile(`${source}\nmodule.exports._test = { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, stringifyInput, summarizeCodexItemForLog, resolveCodexSpawnTarget, buildCodexThreadSandbox, buildCodexThreadStartParams, buildCodexThreadResumeParams, buildExecArgs, buildCodexAppServerEnv };\n`, filename);
   return mod.exports._test;
 }
 
@@ -67,7 +67,7 @@ function withCapturedTimers(fn) {
   }
 }
 
-const { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, stringifyInput, summarizeCodexItemForLog, resolveCodexSpawnTarget, buildCodexThreadSandbox, buildCodexThreadStartParams, buildExecArgs, buildCodexAppServerEnv } = loadCodexInternals();
+const { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, stringifyInput, summarizeCodexItemForLog, resolveCodexSpawnTarget, buildCodexThreadSandbox, buildCodexThreadStartParams, buildCodexThreadResumeParams, buildExecArgs, buildCodexAppServerEnv } = loadCodexInternals();
 
 {
   const input = [
@@ -116,6 +116,11 @@ const { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, string
   assert.doesNotMatch(codeInput, /built-in image generation tool/);
   assert.doesNotMatch(codeInput, /The user is asking to send or deliver a file\/image/);
   assert.match(codeInput, /You are running inside Linco Connect/);
+
+  const appServerCodeInput = buildCodexDeliveryInput('implement an image generator', session, {
+    includeBridgeContextHint: false,
+  });
+  assert.doesNotMatch(appServerCodeInput, /You are running inside Linco Connect/);
 
   const fileInput = buildCodexDeliveryInput('生成一个 report.md 文件发给我', session);
   assert.match(fileInput, /The user is asking to send or deliver a file\/image/);
@@ -169,6 +174,14 @@ const { handleAppServerMessage, buildCodexInput, buildCodexDeliveryInput, string
   assert.strictEqual(sandbox.config.sandbox_mode, 'danger-full-access');
   const params = buildCodexThreadStartParams(session, {});
   assert.strictEqual(params.approvalPolicy, 'never');
+
+  const developerParams = buildCodexThreadStartParams(session, {}, 'Bridge developer instructions.');
+  assert.strictEqual(developerParams.developerInstructions, 'Bridge developer instructions.');
+
+  session.agentSessionId = 'thread-1';
+  const resumeParams = buildCodexThreadResumeParams(session, 'Bridge developer instructions.');
+  assert.strictEqual(resumeParams.threadId, 'thread-1');
+  assert.strictEqual(resumeParams.developerInstructions, 'Bridge developer instructions.');
 }
 
 {

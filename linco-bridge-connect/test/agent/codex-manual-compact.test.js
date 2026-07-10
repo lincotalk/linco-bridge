@@ -104,14 +104,23 @@ function flushImmediate() {
 
       assert.strictEqual(compactCodexContext(ws, session, config, { trigger: 'manual' }), true);
       await flushImmediate();
-      assert.strictEqual(writes[0].method, 'thread/resume');
-      assert.strictEqual(writes[0].params.threadId, 'thread-1');
+      assert.strictEqual(writes[0].method, 'config/read');
 
-      handleAppServerMessage({ id: writes[0].id, result: {} }, session);
+      handleAppServerMessage({
+        id: writes[0].id,
+        result: { developerInstructions: 'Existing user developer instructions.' },
+      }, session);
       await flushImmediate();
-      assert.strictEqual(writes[1].method, 'thread/compact/start');
-      assert.deepStrictEqual(writes[1].params, { threadId: 'thread-1' });
+      assert.strictEqual(writes[1].method, 'thread/resume');
+      assert.strictEqual(writes[1].params.threadId, 'thread-1');
+      assert.match(writes[1].params.developerInstructions, /Existing user developer instructions/);
+      assert.match(writes[1].params.developerInstructions, /You are running inside Linco Connect/);
+
       handleAppServerMessage({ id: writes[1].id, result: {} }, session);
+      await flushImmediate();
+      assert.strictEqual(writes[2].method, 'thread/compact/start');
+      assert.deepStrictEqual(writes[2].params, { threadId: 'thread-1' });
+      handleAppServerMessage({ id: writes[2].id, result: {} }, session);
 
       handleAppServerMessage({
         method: 'item/started',

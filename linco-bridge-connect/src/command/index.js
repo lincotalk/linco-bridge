@@ -1,5 +1,6 @@
 const { sendError, sendSystem } = require('../core/protocol');
 const { handleRemoveAccount, parseRemoveAccountArgs } = require('./account');
+const { handleAccounts, parseAccountsArgs } = require('./accounts');
 const {
   buildAgentPickerPayload,
   buildProfilePickerPayload,
@@ -163,6 +164,10 @@ function handleSlashCommand(text, ws, session, config) {
       handleRemoveAccount(rawArg, ws, session, config);
       return completeLocalCommand(ws, session);
 
+    case '/accounts':
+      handleAccounts(rawArg, ws, session, config);
+      return completeLocalCommand(ws, session);
+
     case '/refresh':
       sendError(ws, '本地命令 /refresh 已移除，请使用 /reload。');
       return completeLocalCommand(ws, session);
@@ -306,6 +311,7 @@ module.exports = {
     parseModelArgs,
     parseReasoningArgs,
     parseRemoveAccountArgs,
+    parseAccountsArgs,
     parseOpenClawAgentListOutput,
     parseProfileArgs,
     listOpenClawAgentsFromGateway,

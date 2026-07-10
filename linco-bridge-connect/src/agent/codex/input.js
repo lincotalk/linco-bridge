@@ -3,14 +3,15 @@ const {
   buildImageGenerationDeliveryHint,
   _internal: fileReferenceInternals,
 } = require('../../core/fileReferences');
-const { appendBridgeContextHint } = require('../../core/agentPrompt');
+const { appendCodexFallbackInstructions } = require('./instructions');
 
-function buildCodexDeliveryInput(input, session) {
+function buildCodexDeliveryInput(input, session, options = {}) {
   const text = stringifyInput(input);
   const inputWithDeliveryHint = fileReferenceInternals.isImageGenerationRequest(text)
     ? buildImageGenerationDeliveryHint(input, session)
     : buildFileReferenceHint(input, session);
-  return appendBridgeContextHint(inputWithDeliveryHint);
+  if (options.includeBridgeContextHint === false) return inputWithDeliveryHint;
+  return appendCodexFallbackInstructions(inputWithDeliveryHint, session, options.config);
 }
 
 function buildCodexInput(input, workspace) {

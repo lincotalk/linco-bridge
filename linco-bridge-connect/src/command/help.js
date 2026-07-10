@@ -12,6 +12,7 @@ function buildHelpPayload(session) {
     helpItem('/model', '显示/切换当前 Agent 模型'),
     helpItem('/usage', '显示 Token 用量统计'),
     helpItem('/compact', '触发当前 Agent 原生上下文整理（若支持）'),
+    helpItem('/accounts --channel <channel>', '列出指定 channel 下已配置的账号 ID'),
     helpItem('/remove-account', '删除当前或指定 Agent 下的账号配置'),
   ];
 
