@@ -218,6 +218,26 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .all(ownerId, bridgeType) as unknown as BridgeConnectionRow[]
   }
 
+  listConnectionsByOwner(ownerId: string): BridgeConnectionRow[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM bridge_connections
+         WHERE owner_id = ?
+         ORDER BY update_time DESC, create_time ASC`,
+      )
+      .all(ownerId) as unknown as BridgeConnectionRow[]
+  }
+
+  getConnectionByAccountId(ownerId: string, accountId: string): BridgeConnectionRow | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM bridge_connections
+         WHERE owner_id = ? AND account_id = ?
+         ORDER BY create_time ASC LIMIT 1`,
+      )
+      .get(ownerId, accountId) as unknown as BridgeConnectionRow | undefined
+  }
+
   createBridgeConnection(ownerId: string, bridgeType: AgentBridgeType): BridgeConnectionRow {
     const now = Date.now()
     const id = randomUUID()

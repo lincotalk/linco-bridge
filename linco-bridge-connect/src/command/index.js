@@ -15,6 +15,7 @@ const {
   validateHermesProfileName,
 } = require('./agentSelection');
 const { handleApprove } = require('./approve');
+const { handleAccounts, isAccountsCommand } = require('./accounts');
 const { buildHelpPayload } = require('./help');
 const {
   collectClaudeProjectSessions,
@@ -70,13 +71,17 @@ const {
 } = require('./status');
 
 function isBridgeControlCommand(text) {
-  return isGetModelsAndReasonsCommand(text);
+  return isGetModelsAndReasonsCommand(text) || isAccountsCommand(text);
 }
 
 function handleSlashCommand(text, ws, session, config) {
   const trimmed = text.trim();
   if (isGetModelsAndReasonsCommand(trimmed)) {
     return handleSettingsListCommand(ws, session, config);
+  }
+
+  if (isAccountsCommand(trimmed)) {
+    return handleAccounts(ws, session, config);
   }
 
   const parts = trimmed.split(/\s+/);

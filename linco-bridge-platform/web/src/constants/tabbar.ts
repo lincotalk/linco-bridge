@@ -1,5 +1,8 @@
 export type TabKey = 'messages' | 'bridge'
 
+/** 助手 Tab 暂未开放；页面保留在 /pages/agents/index，恢复时加回 tabBar 与 TAB_ITEMS。 */
+export const AGENTS_TAB_ROUTE = '/pages/agents/index'
+
 export interface TabItem {
   key: TabKey
   label: string
