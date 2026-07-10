@@ -81,15 +81,15 @@ Linco App、Reference Web、自定义 H5/小程序/App/IM 客户端
 
 | 路径 | 适合谁 | 说明 |
 | --- | --- | --- |
-| 官方 Linco 通道（`linco`） | 想直接体验官方产品链路的用户 | 使用默认通道和官方签发凭证，不需要部署平台项目。 |
-| 开源参考平台（`linco-demo`） | 想快速自部署、验证桥接链路或研究实现的团队 | 启动 `linco-bridge-platform` 的 server + web，再用连接器接入本机 Agent。 |
-| 自定义 channel adapter | 想做更好交互体验的产品或工程团队 | 复用连接器和 Agent 适配层，新增自己的 H5、小程序、App、Web 或 IM 通道。 |
+| 官方产品路径（Linco App） | 想以最低门槛体验官方 Linco 产品链路的用户 | 通常使用 Linco App 配合连接器即可。底层对应的官方 channel key 是 `linco`，但普通用户不需要关心这个技术名词。 |
+| 开源参考平台路径（`linco-demo`） | 想做本地验证、自部署评估或研究实现的团队 | 既可以本地启动 `linco-bridge-platform/server + web`，也可以直接使用官方在线 Demo；两者都属于开源参考平台路径。 |
+| 自定义扩展路径 | 想构建自己交互入口的产品或工程团队 | 复用连接器和 Agent 适配层，新增自己的 H5、小程序、App、Web 或 IM channel adapter。 |
 
 ## ⚡ 快速开始
 
-### 方式一：使用官方通道
+### 方式一：官方产品路径（Linco App）
 
-官方通道通常配合 Linco App 使用：
+官方产品路径通常配合 Linco App 使用：
 
 - iOS (TestFlight): [https://testflight.apple.com/join/Ahm1encB](https://testflight.apple.com/join/Ahm1encB)
 - Android: [https://www.lincotalk.com/download/apk/linco.apk](https://www.lincotalk.com/download/apk/linco.apk)
@@ -100,7 +100,7 @@ Linco App、Reference Web、自定义 H5/小程序/App/IM 客户端
 npm install -g linco-connect
 ```
 
-用官方通道签发的凭证初始化：
+用官方产品路径签发的凭证初始化：
 
 ```bash
 linco-connect init \
@@ -114,9 +114,9 @@ linco-connect init \
 linco-connect start --daemon
 ```
 
-然后打开兼容客户端，确认设备上线，进入会话并发送测试消息。
+然后打开 Linco App 或其他兼容的官方客户端，确认设备上线，进入会话并发送测试消息。
 
-### 方式二：部署开源参考平台
+### 方式二：开源参考平台（本地部署）
 
 先启动参考平台后端：
 
@@ -169,6 +169,8 @@ linco-connect start --daemon
 完整流程见 [快速开始](docs/zh-CN/quick-start.md)、[平台 README](linco-bridge-platform/README.zh-CN.md)、[平台 Server README](linco-bridge-platform/server/README.zh-CN.md) 和 [Web / H5 README](linco-bridge-platform/web/README.zh-CN.md)。
 
 ### 方式三：使用官方在线 Demo
+
+这是开源参考平台路径下的托管体验入口，适合想快速试用桥接流程、但不想本地启动 `server + web` 的用户。
 
 如果希望通过官方托管 Demo 快速体验 Linco Bridge，通常只需：
 
