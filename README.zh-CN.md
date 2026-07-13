@@ -28,6 +28,14 @@
 
 **项目状态：** Open Source Alpha。接口、兼容性和文档仍可能变化；首期开源版本聚焦于可运行的本地连接器、可部署的参考平台通道，以及 Codex CLI、Claude Code、Hermes、OpenClaw 四类 Agent 的桥接验证。
 
+## 🎬 效果预览
+
+查看录制演示视频：[linco-bridge-demo.mp4](docs/media/linco-bridge-demo.mp4)
+
+| Linco App 首页 | 项目与会话流程 |
+| --- | --- |
+| ![Linco App 首页](docs/images/demo/linco-app-home.jpg) | ![Linco App 项目与会话流程](docs/images/demo/linco-app-project-chat.jpg) |
+
 ## ✨ 亮点
 
 | 本地优先桥接 | 更适合 Agent 的交互形态 | 开放扩展面 |

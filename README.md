@@ -28,6 +28,14 @@
 
 **Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change. The first open-source release focuses on a working local connector, a deployable reference platform channel, and bridge validation for Codex CLI, Claude Code, Hermes, and OpenClaw.
 
+## 🎬 Demo Preview
+
+See the recorded demo: [linco-bridge-demo.mp4](docs/media/linco-bridge-demo.mp4)
+
+| Linco App home | Project and chat flow |
+| --- | --- |
+| ![Linco App home](docs/images/demo/linco-app-home.jpg) | ![Linco App project and chat flow](docs/images/demo/linco-app-project-chat.jpg) |
+
 ## ✨ Highlights
 
 | Local-first bridge | Better interaction model | Open extension surface |
