@@ -16,6 +16,7 @@ const {
   safeReadFilesRecursive,
 } = require('../project');
 const {
+  isCodexSubagentSource,
   normalizeCodexTitle,
   readClaudeSessionSummary,
   readCodexSessionIndex,
@@ -136,6 +137,7 @@ function collectCodexProjectSessions(homeDir, workspace, options = {}) {
 
   for (const file of safeReadFilesRecursive(path.join(codexDir, 'sessions'), { extension: '.jsonl', limit: scanLimit })) {
     const meta = readCodexSessionMeta(file.fullPath);
+    if (isCodexSubagentSource('', meta.source)) continue;
     const matchTier = codexWorkspaceMatchTier(meta.cwd, workspaceKeys);
     if (!meta.id || !matchTier) continue;
     const indexed = index.get(meta.id) || {};
