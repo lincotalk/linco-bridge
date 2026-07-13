@@ -25,7 +25,7 @@
   ·
   <a href="https://bridge-demo.lincotalk.com">🌐 在线 Demo</a>
   ·
-  <a href="docs/media/linco-bridge-demo.mp4">🎬 演示视频</a>
+  <a href="docs/media/linco-bridge-demo.mp4">▶ Watch Demo</a>
   ·
   <a href="docs/zh-CN/quick-start.md">📘 快速开始</a>
   ·
