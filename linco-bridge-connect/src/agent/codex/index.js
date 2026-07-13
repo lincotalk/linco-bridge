@@ -14,6 +14,12 @@ const { createTextStreamBuffer, appendTextStream, flushTextStream, resetTextStre
 const { captureAssistantReplyText, startAssistantReplyLog } = require('../../core/conversationLog');
 const { GET_MODELS_AND_REASONS_COMMAND } = require('../../command/settings');
 const {
+  createCodexHostDirectiveStreamState,
+  filterCodexHostDirectiveChunk,
+  flushCodexHostDirectiveStream,
+  resetCodexHostDirectiveStream,
+} = require('./hostDirectives');
+const {
   clearPendingPermissions,
   getPendingPermission,
   pendingPermissionIds,
@@ -1137,6 +1143,14 @@ function appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted, 
   if (session.codexAssistantEnded) return;
   const state = ensureCodexStreamState(session);
   state.onStart = ensureAssistantStarted;
+  const output = meta.ephemeral
+    ? text
+    : filterCodexHostDirectiveChunk(ensureCodexHostDirectiveStreamState(session), text);
+  if (!output) return;
+  appendCodexAssistantTextOutput(output, ws, session, state, meta);
+}
+
+function appendCodexAssistantTextOutput(text, ws, session, state, meta) {
   appendTextStream(text, ws, state, meta);
   rememberCodexAssistantText(session, text);
   if (!meta.ephemeral) session.codexSawFinalAssistantText = true;
@@ -1144,15 +1158,35 @@ function appendCodexAssistantTextNow(text, ws, session, ensureAssistantStarted, 
 }
 
 function flushCodexAssistantText(ws, session) {
-  flushTextStream(ws, session.codexStreamState);
+  const streamState = session.codexStreamState;
+  const directiveTail = flushCodexHostDirectiveStream(session.codexHostDirectiveStreamState);
+  if (directiveTail) {
+    const state = ensureCodexStreamState(session);
+    appendCodexAssistantTextOutput(
+      directiveTail,
+      ws,
+      session,
+      state,
+      codexAssistantChunkMeta(session, 'final_answer'),
+    );
+  }
+  flushTextStream(ws, streamState);
 }
 
 function resetCodexAssistantText(session) {
   resetTextStream(ensureCodexStreamState(session));
+  resetCodexHostDirectiveStream(ensureCodexHostDirectiveStreamState(session));
   resetProgressiveAnswer(session);
   session.codexNeedsAssistantBreak = false;
   session.codexSawFinalAssistantText = false;
   session.codexAssistantTextTail = '';
+}
+
+function ensureCodexHostDirectiveStreamState(session) {
+  if (!session.codexHostDirectiveStreamState) {
+    session.codexHostDirectiveStreamState = createCodexHostDirectiveStreamState();
+  }
+  return session.codexHostDirectiveStreamState;
 }
 
 function appendCodexProgressAssistantText(text, ws, session) {

@@ -226,6 +226,62 @@ withCapturedTimers((timers) => {
   assert(sent.some(message => message.type === 'assistant_chunk' && message.text === 'final answer with enough text to flush immediately'));
 });
 
+withCapturedTimers(() => {
+  const { session, sent } = createRemoteSession();
+  const answer = '已合并到本地 master。';
+  const directive = '::git-create-branch{cwd="/workspace" branch="master"}';
+
+  handleAppServerMessage({
+    method: 'item/completed',
+    params: {
+      item: {
+        type: 'agentMessage',
+        id: 'agent-host-directive-complete',
+        text: `${answer}\n\n${directive}`,
+        phase: 'final_answer',
+      },
+    },
+  }, session);
+  handleAppServerMessage({ method: 'turn/completed', params: {} }, session);
+
+  const assistantText = sent
+    .filter(message => message.type === 'assistant_chunk')
+    .map(message => message.text)
+    .join('');
+  assert.strictEqual(assistantText, answer);
+  assert(!assistantText.includes('::git-create-branch'));
+});
+
+withCapturedTimers(() => {
+  const { session, sent } = createRemoteSession();
+  const answer = '提交并推送完成。';
+
+  handleAppServerMessage({
+    method: 'item/agentMessage/delta',
+    params: {
+      item: { type: 'agentMessage', id: 'agent-host-directive-split', phase: 'final_answer' },
+      delta: `${answer}\n\n::git-pu`,
+      phase: 'final_answer',
+    },
+  }, session);
+  handleAppServerMessage({
+    method: 'item/agentMessage/delta',
+    params: {
+      item: { type: 'agentMessage', id: 'agent-host-directive-split', phase: 'final_answer' },
+      delta: 'sh{cwd="/workspace" branch="master"}',
+      phase: 'final_answer',
+    },
+  }, session);
+  handleAppServerMessage({ method: 'turn/completed', params: {} }, session);
+
+  const assistantText = sent
+    .filter(message => message.type === 'assistant_chunk')
+    .map(message => message.text)
+    .join('');
+  assert.strictEqual(assistantText, answer);
+  assert(!assistantText.includes('::git-push'));
+});
+
 withCapturedTimers((timers) => {
   const { session, sent } = createSession();
   handleAppServerMessage({
