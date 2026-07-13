@@ -74,6 +74,22 @@ function isBridgeControlCommand(text) {
   return isGetModelsAndReasonsCommand(text);
 }
 
+function handleRemoteBridgeSlashCommand(text, ws, session, config) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed.startsWith('/')) return false;
+
+  const parts = trimmed.split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  const rawArg = trimmed.slice(parts[0].length).trim();
+
+  if (cmd === '/accounts') {
+    handleAccounts(rawArg, ws, session, config);
+    return completeLocalCommand(ws, session);
+  }
+
+  return false;
+}
+
 function handleSlashCommand(text, ws, session, config) {
   const trimmed = text.trim();
   if (isGetModelsAndReasonsCommand(trimmed)) {
@@ -86,7 +102,7 @@ function handleSlashCommand(text, ws, session, config) {
 
   switch (cmd) {
     case '/help':
-      sendSlashCommandResult(ws, 'help', buildHelpPayload(session));
+      sendSlashCommandResult(ws, 'help', buildHelpPayload(session), session);
       return completeLocalCommand(ws, session);
 
     case '/commands':
@@ -290,6 +306,7 @@ function handleReasoningCommand(rawArg, ws, session, config = {}) {
 
 module.exports = {
   handleSlashCommand,
+  handleRemoteBridgeSlashCommand,
   isBridgeControlCommand,
   _internal: {
     encodeClaudeProjectDir,

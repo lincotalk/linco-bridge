@@ -1,4 +1,3 @@
-const { sendError } = require('../core/protocol');
 const { splitCommandArgs } = require('./args');
 const { sendSlashCommandResult } = require('./common');
 
@@ -7,20 +6,24 @@ const USAGE = 'Usage: /accounts --channel <channel>';
 function handleAccounts(rawArg, ws, session, config = {}) {
   const parsed = parseAccountsArgs(rawArg);
   if (!parsed.ok) {
-    sendError(ws, parsed.message);
+    sendSlashCommandResult(ws, 'accounts', { error: parsed.message, accountIds: [] }, session);
     return;
   }
 
   const channelConfig = config?.channels?.[parsed.channel];
   if (!channelConfig) {
-    sendError(ws, `Unknown channel: ${parsed.channel}`);
+    sendSlashCommandResult(ws, 'accounts', {
+      channel: parsed.channel,
+      accountIds: [],
+      error: `Unknown channel: ${parsed.channel}`,
+    }, session);
     return;
   }
 
   sendSlashCommandResult(ws, 'accounts', {
     channel: parsed.channel,
     accountIds: listChannelAccountIds(channelConfig),
-  });
+  }, session);
 }
 
 function parseAccountsArgs(rawArg) {

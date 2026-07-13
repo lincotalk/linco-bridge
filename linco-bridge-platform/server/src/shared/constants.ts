@@ -10,6 +10,18 @@ export function isAgentBridgeType(value: string): value is AgentBridgeType {
   return (AGENT_BRIDGE_TYPES as readonly string[]).includes(value)
 }
 
+/** Infer bridge type from linco-connect account slot id, e.g. codex_a962e6c4 → codex. */
+export function inferAgentBridgeTypeFromAccountId(accountId: string): AgentBridgeType | null {
+  const normalized = accountId.trim()
+  if (!normalized) return null
+  for (const type of AGENT_BRIDGE_TYPES) {
+    if (normalized === type || normalized.startsWith(`${type}_`)) {
+      return type
+    }
+  }
+  return null
+}
+
 export function defaultAccountId(type: AgentBridgeType): string {
   return type === 'openclaw' ? 'openclaw_1' : `${type}_1`
 }

@@ -113,12 +113,13 @@ export class BridgeRelayService {
 
   handleConnectorFrame(frame: Record<string, unknown>): void {
     const streamId = typeof frame.streamId === 'string' ? frame.streamId : ''
-    if (!streamId) return
 
     if (frame.type === 'slash_command_result') {
       this.handleSlashCommandResult(streamId, frame)
       return
     }
+
+    if (!streamId) return
 
     if (frame.type === 'system') {
       const pending = this.pendingTurns.get(streamId)
@@ -494,14 +495,25 @@ export class BridgeRelayService {
   }
 
   private handleSlashCommandResult(streamId: string, frame: Record<string, unknown>): void {
-    const pending = this.pendingSlashCommands.get(streamId)
-    if (!pending) return
-
     const command = typeof frame.command === 'string' ? frame.command.trim() : ''
+    let pending = this.pendingSlashCommands.get(streamId)
+    let pendingKey = streamId
+
+    if (!pending && command) {
+      const matches = [...this.pendingSlashCommands.entries()].filter(([, item]) =>
+        this.matchesExpectedSlashCommand(command, item.expectedCommand),
+      )
+      if (matches.length === 1) {
+        pendingKey = matches[0][0]
+        pending = matches[0][1]
+      }
+    }
+
+    if (!pending) return
     if (command && !this.matchesExpectedSlashCommand(command, pending.expectedCommand)) return
 
     clearTimeout(pending.timeout)
-    this.pendingSlashCommands.delete(streamId)
+    this.pendingSlashCommands.delete(pendingKey)
 
     const rawData = frame.data
     if (pending.expectedCommand === 'history') {

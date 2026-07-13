@@ -17,12 +17,25 @@ function completeMaybeAsyncLocalCommand(result, ws, session) {
   completeLocalCommand(ws, session);
 }
 
-function sendSlashCommandResult(ws, command, data = {}) {
+function resolveSlashCommandRouting(ws, session) {
+  const linco = session?.linco || ws?.linco || {};
+  const streamId = String(linco.streamId || '').trim();
+  const sessionKey = String(session?.id || linco.sessionKey || '').trim();
+  return {
+    streamId: streamId || undefined,
+    sessionKey: sessionKey || undefined,
+  };
+}
+
+function sendSlashCommandResult(ws, command, data = {}, session = null) {
+  const routing = resolveSlashCommandRouting(ws, session);
   ws.send(JSON.stringify({
     type: 'slash_command_result',
     command,
     version: 1,
     data,
+    ...(routing.streamId ? { streamId: routing.streamId } : {}),
+    ...(routing.sessionKey ? { sessionKey: routing.sessionKey } : {}),
   }));
 }
 
@@ -49,6 +62,7 @@ module.exports = {
   completeLocalCommand,
   completeMaybeAsyncLocalCommand,
   sendSlashCommandResult,
+  resolveSlashCommandRouting,
   usesProviderManagedWorkspace,
   sendProviderWorkspaceNotice,
 };

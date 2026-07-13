@@ -2,7 +2,11 @@ const { executeAgentQuery, resolvePendingDanger, resolvePendingPermission } = re
 const { handleMessageWithAttachments } = require('../attachment/attachmentHandler');
 const { send, sendError, sendSystem, sendTurnEnd } = require('./protocol');
 const { cleanupSession, createSession, saveSessionMetadata, stopAgentProcess } = require('./session');
-const { handleSlashCommand, isBridgeControlCommand } = require('../command');
+const {
+  handleSlashCommand,
+  handleRemoteBridgeSlashCommand,
+  isBridgeControlCommand,
+} = require('../command');
 const { getClientInfo, getDeviceIdentity } = require('./deviceIdentity');
 const { getChannelAdapter } = require('./channelRegistry');
 const lincoAdapter = require('../channel/linco');
@@ -256,8 +260,12 @@ class ImConnector {
     const ws = createRemoteAdapter(this, session, session.linco);
     if (!session.isTurnActive) session.ws = ws;
 
-    if ((rawText.startsWith('/') || isBridgeControlCommand(rawText)) && attachments.length === 0) {
-      if (handleSlashCommand(rawText, ws, session, this.config)) return;
+    if (attachments.length === 0) {
+      if (handleRemoteBridgeSlashCommand(rawText, ws, session, this.config)) return;
+      if ((rawText.startsWith('/') || isBridgeControlCommand(rawText))
+        && handleSlashCommand(rawText, ws, session, this.config)) {
+        return;
+      }
     }
 
     handleMessageWithAttachments(input, ws, session, this.config, executeAgentQuery);

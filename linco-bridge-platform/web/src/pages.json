@@ -7,14 +7,14 @@
       }
     },
     {
-      "path": "pages/bridge/index",
+      "path": "pages/agents/index",
       "style": {
         "navigationStyle": "custom",
         "backgroundColor": "#ffffff"
       }
     },
     {
-      "path": "pages/agents/index",
+      "path": "pages/bridge/index",
       "style": {
         "navigationStyle": "custom",
         "backgroundColor": "#ffffff"
@@ -88,6 +88,12 @@
         "text": "消息",
         "iconPath": "static/tabbar/messages.png",
         "selectedIconPath": "static/tabbar/messages-active.png"
+      },
+      {
+        "pagePath": "pages/agents/index",
+        "text": "助手",
+        "iconPath": "static/tabbar/agents.png",
+        "selectedIconPath": "static/tabbar/agents-active.png"
       },
       {
         "pagePath": "pages/bridge/index",

@@ -33,11 +33,14 @@ const config = {
 
 {
   const ws = createWs();
-  assert.strictEqual(handleSlashCommand('/accounts --channel linco', ws, {}, config), true);
+  const session = { id: 'remote-session-1', linco: { streamId: 'linco-cmd-test-1' } };
+  assert.strictEqual(handleSlashCommand('/accounts --channel linco', ws, session, config), true);
 
   const result = ws.sent.find(item => item.type === 'slash_command_result' && item.command === 'accounts');
   assert(result, 'expected accounts slash_command_result');
   assert.strictEqual(result.version, 1);
+  assert.strictEqual(result.streamId, 'linco-cmd-test-1');
+  assert.strictEqual(result.sessionKey, 'remote-session-1');
   assert.deepStrictEqual(result.data, {
     channel: 'linco',
     accountIds: ['claude_1', 'codex_1', 'shared'],
@@ -50,18 +53,21 @@ const config = {
 {
   const ws = createWs();
   assert.strictEqual(handleSlashCommand('/accounts', ws, {}, config), true);
-  assert.strictEqual(ws.sent.some(item => item.type === 'slash_command_result'), false);
-  assert.strictEqual(ws.sent[0].type, 'error');
-  assert.match(ws.sent[0].text, /--channel <channel>/);
+  const result = ws.sent.find(item => item.type === 'slash_command_result' && item.command === 'accounts');
+  assert(result, 'expected accounts slash_command_result for usage error');
+  assert.match(result.data.error, /--channel <channel>/);
+  assert.deepStrictEqual(result.data.accountIds, []);
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
 }
 
 {
   const ws = createWs();
   assert.strictEqual(handleSlashCommand('/accounts --channel missing', ws, {}, config), true);
-  assert.strictEqual(ws.sent.some(item => item.type === 'slash_command_result'), false);
-  assert.strictEqual(ws.sent[0].type, 'error');
-  assert.match(ws.sent[0].text, /Unknown channel: missing/);
+  const result = ws.sent.find(item => item.type === 'slash_command_result' && item.command === 'accounts');
+  assert(result, 'expected accounts slash_command_result for unknown channel');
+  assert.strictEqual(result.data.channel, 'missing');
+  assert.deepStrictEqual(result.data.accountIds, []);
+  assert.match(result.data.error, /Unknown channel: missing/);
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
 }
 
