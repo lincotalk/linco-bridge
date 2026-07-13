@@ -219,11 +219,12 @@ Release 中至少包含：
 - **修复**：在 `linco-bridge-platform/web` 重新 `npm run build:h5`，将 `dist/build/h5` **整目录**（含 `assets/`、`static/`、`index.html`）覆盖上传到 Nginx `root`（如 `/var/www/linco-bridge-h5`）。不要只更新 server 或单个图标文件。
 - **验证**：`npm run build:h5` 末尾应输出 `[verify-h5-tabbar] OK`；浏览器硬刷新后底部应显示「消息 | 助手 | 桥接」。
 
-### 助手页 `/accounts` 返回 `channel: linco` 且列表为空
+### 助手页 `/accounts` 列表为空
 
-- **原因**：在线 Demo / 自建平台应使用 `linco-demo` channel（非官方 `linco` 网关）。旧版 server 可能仍向 connector 发 `/accounts --channel linco`，或本机 `linco-connect init` 未带 `--channel linco-demo`。
-- **修复**：部署最新 server；桥接页复制的新 `setupCommands` 应含 `--channel linco-demo`。若本机曾用 `linco` 初始化，需重新执行 init 或手动改 `~/.linco-connect/config.json` 中对应 channel。
-- **验证**：Network 中 `POST /api/bridge-command` 响应 `payload.channel` 应为 `linco-demo`；connector 在线且账号配置在 `channels.linco-demo` 下。
+- **定位**：本 Demo 平台**仅支持** `linco-demo` channel，不涉及官方 IM 的 `linco` 通道。
+- **原因**：本机 `linco-connect init` 未带 `--channel linco-demo`，账号写在错误的 channel 下；或 server 未部署最新版。
+- **修复**：从桥接页复制 setup 命令（固定含 `--channel linco-demo`）重新 init；部署最新 server。
+- **验证**：`GET /api/demo-config` 返回 `connectChannel: linco-demo`；`POST /api/bridge-command` 响应 `payload.channel` 为 `linco-demo`。
 
 ## 相关文档
 

@@ -499,6 +499,7 @@ export class ChatService {
     return {
       apiBaseUrl: resolvePublicHttpOrigin(),
       wsBaseUrl: this.bridgeService.getWsUrl(),
+      connectChannel: 'linco-demo',
       dataRetentionNotice:
         'Demo 数据绑定当前浏览器会话 Cookie，刷新页面仍会保留；清除 Cookie/缓存、换设备或使用无痕模式可能丢失。',
     }

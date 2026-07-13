@@ -249,7 +249,6 @@ export function createMockBridgeSdk(options?: {
         appId,
         appSecret,
         accountId,
-        channel: BRIDGE_CONNECT_CHANNEL,
       }),
       ...setupOverrides?.[type],
     }
@@ -403,7 +402,6 @@ export function createMockBridgeSdk(options?: {
             appId: nextAppId,
             appSecret: nextSecret,
             accountId: nextAccountId,
-            channel: setup.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
             wsUrl: setup.wsUrl,
           }),
         }

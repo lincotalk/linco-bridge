@@ -1,7 +1,6 @@
 import { computed, ref, type Ref } from 'vue'
 
 import {
-  BRIDGE_CONNECT_CHANNEL,
   buildSetupCommands,
   getAgentDisplayName,
   requiresContextBinding,
@@ -57,7 +56,6 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
         appId: setup.value.appId,
         appSecret: setup.value.appSecret,
         accountId: setup.value.accountId,
-        channel: setup.value.connectChannel ?? BRIDGE_CONNECT_CHANNEL,
         wsUrl: setup.value.wsUrl,
       })
     }

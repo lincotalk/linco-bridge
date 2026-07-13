@@ -38,7 +38,6 @@ export function toBridgeSetupDto(
     appId: input.appId,
     appSecret: input.appSecret,
     accountId: input.accountId,
-    channel: BRIDGE_CONNECT_CHANNEL,
     ...(shouldEmbedWsUrlInSetupCommands() ? { wsUrl } : {}),
   }
   const initCommand = buildInitCommand(input.bridgeType, params)
