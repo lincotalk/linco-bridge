@@ -231,6 +231,12 @@ Each public release should ideally include:
 - If you need isolation, use per-user browser-local state plus anonymous visitor IDs, or provide independent demo environments.
 - If you need true local isolation for each evaluator, use the **local full-stack demo** path instead.
 
+### Assistant tab works locally but is missing online
+
+- **Cause**: The hosted H5 bundle is stale. An older build had only two tabBar entries (Messages / Bridge) while the router still reserved `pages/agents/index` at `tabBarIndex: 1`, which leaves an empty middle slot.
+- **Fix**: Run `npm run build:h5` under `linco-bridge-platform/web`, then upload the entire `dist/build/h5` directory (`assets/`, `static/`, `index.html`) to the Nginx root (for example `/var/www/linco-bridge-h5`). Do not deploy only the server or individual icon files.
+- **Verify**: The build should end with `[verify-h5-tabbar] OK`; after a hard refresh the footer should show Messages | Assistant | Bridge.
+
 ## Related Docs
 
 - [Quick Start](quick-start.md)

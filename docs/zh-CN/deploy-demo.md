@@ -213,6 +213,12 @@ Release 中至少包含：
 - 在线 Demo 每种 Agent 仅一个 connector 槽，属预期行为
 - 需要独立环境请走 **本地全栈 Demo**
 
+### 本地有「助手」Tab，线上中间空白或没有助手
+
+- **原因**：线上 H5 静态资源未随代码更新。旧 bundle 的 `tabBar.list` 只有「消息 / 桥接」两项，但路由仍预留了 `pages/agents/index`（`tabBarIndex: 1`），底部会留出空位。
+- **修复**：在 `linco-bridge-platform/web` 重新 `npm run build:h5`，将 `dist/build/h5` **整目录**（含 `assets/`、`static/`、`index.html`）覆盖上传到 Nginx `root`（如 `/var/www/linco-bridge-h5`）。不要只更新 server 或单个图标文件。
+- **验证**：`npm run build:h5` 末尾应输出 `[verify-h5-tabbar] OK`；浏览器硬刷新后底部应显示「消息 | 助手 | 桥接」。
+
 ## 相关文档
 
 - [快速开始](quick-start.md)

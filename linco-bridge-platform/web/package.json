@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:h5": "uni",
-    "build:h5": "node scripts/with-prod-env.mjs build",
+    "build:h5": "node scripts/with-prod-env.mjs build && node scripts/verify-h5-tabbar.mjs",
     "dev:mp-weixin": "uni -p mp-weixin",
     "build:mp-weixin": "node scripts/with-prod-env.mjs build -p mp-weixin",
     "typecheck": "vue-tsc --noEmit",
