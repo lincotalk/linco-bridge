@@ -492,27 +492,7 @@ describe('BridgeService', () => {
     expect(payload.text).toContain('--agent codex')
   })
 
-  it('resolves plugin accountIds into bridge account items', () => {
-    const codex = service.getSetup('codex')
-    const claude = service.getSetup('claude')
-    presence.attach(codex.connectionId, onlineSocket())
-
-    const fallback = service.buildAccountsFallback(true)
-    expect(fallback).toEqual({
-      channel: 'linco-demo',
-      accountIds: [codex.accountId],
-    })
-
-    const items = service.resolveAccountItems([codex.accountId, claude.accountId], {
-      onlineOnly: true,
-    })
-    expect(items).toHaveLength(1)
-    expect(items[0]?.accountId).toBe(codex.accountId)
-    expect(items[0]?.agentType).toBe('codex')
-    expect(items[0]?.connectionId).toBe(codex.connectionId)
-  })
-
-  it('requests accounts from the linco-demo connector channel', async () => {
+  it('fetchAccountsFromConnector returns plugin payload as-is', async () => {
     const setup = service.getSetup('codex')
     const socket = onlineSocket()
     presence.attach(setup.connectionId, socket)
@@ -538,5 +518,39 @@ describe('BridgeService', () => {
       channel: 'linco-demo',
       accountIds: [setup.accountId],
     })
+  })
+
+  it('enrichAccountsPayload maps accountIds to bridge connection rows', () => {
+    const setup = service.getSetup('codex')
+    presence.attach(setup.connectionId, onlineSocket())
+
+    const enriched = service.enrichAccountsPayload({
+      channel: 'linco-demo',
+      accountIds: [setup.accountId],
+    })
+
+    expect(enriched.accountIds).toEqual([setup.accountId])
+    expect(enriched.items).toHaveLength(1)
+    expect(enriched.items[0]?.connectionId).toBe(setup.connectionId)
+    expect(enriched.items[0]?.accountId).toBe(setup.accountId)
+    expect(enriched.items[0]?.agentType).toBe('codex')
+    expect(enriched.items[0]?.status).toBe('online')
+    expect(enriched.items[0]?.title).toBeTruthy()
+  })
+
+  it('enrichAccountsPayload skips accountIds without platform connection', () => {
+    const enriched = service.enrichAccountsPayload({
+      channel: 'linco-demo',
+      accountIds: ['codex_missing'],
+    })
+
+    expect(enriched.items).toEqual([])
+    expect(enriched.warning).toContain('codex_missing')
+  })
+
+  it('fetchAccountsFromConnector throws when connector is offline', async () => {
+    service.getSetup('codex')
+
+    await expect(service.fetchAccountsFromConnector()).rejects.toThrow(ConflictException)
   })
 })

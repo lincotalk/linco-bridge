@@ -5,6 +5,7 @@ const { StringDecoder } = require('string_decoder');
 const { _internal: agentPromptInternals } = require('../../core/agentPrompt');
 const { candidatePathsFromMarkdownLinks, mimeFromFilename } = require('../../core/fileReferences');
 const { SESSION_SUMMARY_SCAN_LIMIT } = require('./constants');
+const { sanitizeCodexHostDirectives } = require('../../agent/codex/hostDirectives');
 const {
   extractHistoryTimestamp,
   stringOrEmpty,
@@ -399,32 +400,7 @@ function parseCodexHistoryRounds(filePath) {
 }
 
 function sanitizeCodexHistoryAssistantText(value) {
-  const text = stringOrEmpty(value);
-  if (!text) return '';
-
-  const lines = text.split(/\r\n|\n|\r/);
-  let inFence = false;
-  const kept = [];
-
-  for (const line of lines) {
-    if (!inFence && isCodexHostDirectiveLine(line)) {
-      continue;
-    }
-    kept.push(line);
-    if (isMarkdownFenceLine(line)) {
-      inFence = !inFence;
-    }
-  }
-
-  return kept.join('\n').trim();
-}
-
-function isCodexHostDirectiveLine(line) {
-  return /^[ \t]{0,3}::(?:git-stage|git-commit|git-push|git-create-branch|git-create-pr|code-comment)\{.*\}[ \t]*$/.test(line);
-}
-
-function isMarkdownFenceLine(line) {
-  return /^[ \t]{0,3}(```+|~~~+)/.test(line);
+  return sanitizeCodexHostDirectives(stringOrEmpty(value));
 }
 
 function escapeRegExp(value) {

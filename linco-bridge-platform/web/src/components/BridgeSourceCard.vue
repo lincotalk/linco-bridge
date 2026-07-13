@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import type { BridgeSourceCard } from '@/bridge/types'
 
-defineProps<{
-  item: BridgeSourceCard
-}>()
+withDefaults(
+  defineProps<{
+    item: BridgeSourceCard
+    /** 嵌入 swipe 等容器时不留外边距，避免露出底层删除按钮 */
+    embedded?: boolean
+  }>(),
+  {
+    embedded: false,
+  },
+)
 
 const emit = defineEmits<{
   select: [item: BridgeSourceCard]
@@ -11,7 +18,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <view class="source-card" @tap="emit('select', item)">
+  <view class="source-card" :class="{ 'source-card--embedded': embedded }" @tap="emit('select', item)">
     <view class="source-card__icon-wrap">
       <image class="source-card__icon" :src="item.icon" mode="aspectFit" />
     </view>
@@ -33,6 +40,10 @@ const emit = defineEmits<{
   border: 1rpx solid #ebedf0;
   border-radius: 16rpx;
   box-sizing: border-box;
+}
+
+.source-card--embedded {
+  margin-bottom: 0;
 }
 
 .source-card__icon-wrap {

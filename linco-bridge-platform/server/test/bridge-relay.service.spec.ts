@@ -260,6 +260,70 @@ describe('BridgeRelayService', () => {
     await expect(completed).resolves.toEqual({ rounds: [] })
   })
 
+  it('resolves slash_command_result by command when streamId mismatches', async () => {
+    const relay = new BridgeRelayService()
+    let capturedStreamId = ''
+    const { completed } = relay.forwardSlashCommand(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: '/accounts --channel linco-demo',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      '/accounts --channel linco-demo',
+      'accounts',
+      10_000,
+    )
+
+    relay.handleConnectorFrame({
+      type: 'slash_command_result',
+      streamId: 'linco-stream-stale',
+      command: 'accounts',
+      data: { channel: 'linco-demo', accountIds: ['codex_1'] },
+    })
+
+    await expect(completed).resolves.toEqual({
+      channel: 'linco-demo',
+      accountIds: ['codex_1'],
+    })
+    expect(capturedStreamId).not.toBe('linco-stream-stale')
+  })
+
+  it('resolves slash_command_result by command when streamId is missing', async () => {
+    const relay = new BridgeRelayService()
+    const { completed } = relay.forwardSlashCommand(
+      () => true,
+      {
+        sessionId: 'session-1',
+        text: '/accounts --channel linco-demo',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      '/accounts --channel linco-demo',
+      'accounts',
+      10_000,
+    )
+
+    relay.handleConnectorFrame({
+      type: 'slash_command_result',
+      command: 'accounts',
+      data: { channel: 'linco-demo', accountIds: ['codex_1'] },
+    })
+
+    await expect(completed).resolves.toEqual({
+      channel: 'linco-demo',
+      accountIds: ['codex_1'],
+    })
+  })
+
   it('resolves forwardLocalCommand on empty turn_end', async () => {
     const relay = new BridgeRelayService()
     let capturedStreamId = ''

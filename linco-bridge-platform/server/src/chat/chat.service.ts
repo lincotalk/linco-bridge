@@ -748,15 +748,16 @@ export class ChatService {
     }
 
     if (trimmed.toLowerCase() === 'accounts') {
-      const accounts = await this.bridgeService.loadAccounts({ onlineOnly: true })
+      const pluginPayload = await this.bridgeService.fetchAccountsFromConnector()
+      const payload = this.bridgeService.enrichAccountsPayload(pluginPayload)
+      const accountIds = payload.accountIds
       return {
         command: 'accounts',
-        text: accounts.items.length > 0 ? `${accounts.items.length} 个在线助手` : '暂无在线助手',
-        payload: {
-          channel: accounts.channel,
-          accountIds: accounts.accountIds,
-          items: accounts.items,
-        },
+        text:
+          accountIds.length > 0
+            ? `${accountIds.length} 个已连接助手`
+            : '暂无已连接助手',
+        payload: { ...payload },
       }
     }
 

@@ -1,6 +1,12 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService, type BridgeConnectionRow } from '../database/database.service'
-import { type AgentBridgeType, agentDisplayName, agentBridgeSubtitle, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
+import {
+  type AgentBridgeType,
+  agentDisplayName,
+  agentBridgeSubtitle,
+  isAgentBridgeType,
+  resolveConnectionDisplayName,
+} from '../shared/constants'
 import {
   buildSessionsCommand,
   buildBindCommand,
@@ -18,6 +24,7 @@ import { toBridgeSetupDto } from './bridge-setup.dto'
 import type { BridgeConnectionDetailDto } from './bridge-connection-detail.dto'
 import { BRIDGE_CONNECT_CHANNEL } from './bridge.commands'
 import { resolveConnectionDeviceName } from '../chat/session-list-title.util'
+import { resolveAgentHistoryPreview } from '../chat/agent-history-list.util'
 import { resolvePublicWsBaseUrl } from '../shared/public-endpoint.util'
 import { ResourceAccessService } from '../shared/resource-access.service'
 import {
@@ -60,6 +67,7 @@ export interface BridgeAccountItemDto {
   deviceName?: string
   boundContextName?: string
   sessionId?: string
+  lastMessage?: string
   updatedAt: number
 }
 
@@ -67,6 +75,7 @@ export interface BridgeAccountsPayloadDto {
   channel: string
   accountIds: string[]
   items: BridgeAccountItemDto[]
+  warning?: string
 }
 
 const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
@@ -78,6 +87,7 @@ const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
 
 const CONNECTOR_CONTEXT_TYPES = new Set<AgentBridgeType>(['codex', 'claude'])
 const CONNECTOR_SELECTOR_TYPES = new Set<AgentBridgeType>(['openclaw', 'hermes'])
+const ACCOUNTS_SLASH_COMMAND_TIMEOUT_MS = 10_000
 
 @Injectable()
 export class BridgeService {
@@ -236,67 +246,7 @@ export class BridgeService {
     }
   }
 
-  listAccounts(options?: { onlineOnly?: boolean }): BridgeAccountItemDto[] {
-    const fallback = this.buildAccountsFallback(options?.onlineOnly !== false)
-    return this.resolveAccountItems(fallback.accountIds, { onlineOnly: options?.onlineOnly !== false })
-  }
-
-  buildAccountsFallback(onlineOnly = true): { channel: string; accountIds: string[] } {
-    const ownerId = this.resourceAccess.getOwnerId()
-    const accountIds = this.database
-      .listConnectionsByOwner(ownerId)
-      .filter((connection) => !onlineOnly || this.presence.isOnline(connection.id))
-      .map((connection) => connection.account_id)
-    return {
-      channel: BRIDGE_CONNECT_CHANNEL,
-      accountIds,
-    }
-  }
-
-  resolveAccountItems(
-    accountIds: string[],
-    options?: { onlineOnly?: boolean },
-  ): BridgeAccountItemDto[] {
-    const onlineOnly = options?.onlineOnly !== false
-    const ownerId = this.resourceAccess.getOwnerId()
-    const items: BridgeAccountItemDto[] = []
-
-    for (const rawAccountId of accountIds) {
-      const accountId = rawAccountId.trim()
-      if (!accountId) continue
-
-      const connection = this.database.getConnectionByAccountId(ownerId, accountId)
-      if (!connection) continue
-
-      const online = this.presence.isOnline(connection.id)
-      if (onlineOnly && !online) continue
-
-      const session =
-        this.database.getSessionByConnectionId(connection.id) ??
-        (connection.session_id ? this.database.getSession(connection.session_id) : undefined)
-      const deviceName =
-        resolveConnectionDeviceName(connection.id, this.presence, connection) || undefined
-
-      items.push({
-        connectionId: connection.id,
-        agentType: connection.bridge_type,
-        accountId: connection.account_id,
-        title: resolveConnectionDisplayName(connection),
-        description: agentBridgeSubtitle(connection.bridge_type),
-        avatar: BRIDGE_AVATAR[connection.bridge_type],
-        status: online ? 'online' : 'offline',
-        deviceName,
-        boundContextName: connection.bound_context_name?.trim() || undefined,
-        sessionId: session?.id,
-        updatedAt: session?.update_time ?? connection.update_time,
-      })
-    }
-
-    items.sort((left, right) => right.updatedAt - left.updatedAt)
-    return items
-  }
-
-  async fetchAccountsFromConnector(): Promise<{ channel: string; accountIds: string[] }> {
+  async fetchAccountsFromConnector(): Promise<Record<string, unknown>> {
     const ownerId = this.resourceAccess.getOwnerId()
     const connection = this.database
       .listConnectionsByOwner(ownerId)
@@ -311,32 +261,80 @@ export class BridgeService {
       this.connectorInput(connection, sessionKey),
       `/accounts --channel ${BRIDGE_CONNECT_CHANNEL}`,
       'accounts',
+      ACCOUNTS_SLASH_COMMAND_TIMEOUT_MS,
     )
-    const data = await completed
-    const channel = typeof data.channel === 'string' && data.channel.trim() ? data.channel.trim() : BRIDGE_CONNECT_CHANNEL
-    const accountIds = Array.isArray(data.accountIds)
-      ? data.accountIds
+    try {
+      const data = await completed
+      return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error
+      }
+      throw new ConflictException('读取本机 Agent 配置失败，请确认 linco-connect 在线')
+    }
+  }
+
+  enrichAccountsPayload(pluginPayload: Record<string, unknown>): BridgeAccountsPayloadDto {
+    const channel =
+      String(pluginPayload.channel ?? BRIDGE_CONNECT_CHANNEL).trim() || BRIDGE_CONNECT_CHANNEL
+    const accountIds = Array.isArray(pluginPayload.accountIds)
+      ? pluginPayload.accountIds
           .filter((value): value is string => typeof value === 'string')
           .map((value) => value.trim())
           .filter(Boolean)
       : []
+    const ownerId = this.resourceAccess.getOwnerId()
+    const items: BridgeAccountItemDto[] = []
+    const unmatchedAccountIds: string[] = []
 
-    return { channel, accountIds }
-  }
+    for (const accountId of accountIds) {
+      const connection = this.database.getConnectionByAccountId(ownerId, accountId)
+      if (!connection) {
+        unmatchedAccountIds.push(accountId)
+        continue
+      }
 
-  async loadAccounts(options?: { onlineOnly?: boolean }): Promise<BridgeAccountsPayloadDto> {
-    const onlineOnly = options?.onlineOnly !== false
-    let pluginData: { channel: string; accountIds: string[] }
-    try {
-      pluginData = await this.fetchAccountsFromConnector()
-    } catch {
-      pluginData = this.buildAccountsFallback(onlineOnly)
+      const session = connection.session_id
+        ? this.database.getSession(connection.session_id)
+        : undefined
+      const lastAssistant = session
+        ? this.database.getLastAssistantMessage(session.id)
+        : undefined
+      const preview = session
+        ? resolveAgentHistoryPreview(session, lastAssistant?.content)
+        : ''
+      const deviceName = resolveConnectionDeviceName(connection.id, this.presence, connection)
+      const online = this.presence.isOnline(connection.id)
+
+      items.push({
+        connectionId: connection.id,
+        agentType: connection.bridge_type,
+        accountId: connection.account_id,
+        title: resolveConnectionDisplayName(connection),
+        description: agentBridgeSubtitle(connection.bridge_type),
+        avatar: BRIDGE_AVATAR[connection.bridge_type],
+        status: online ? 'online' : 'offline',
+        deviceName: deviceName || undefined,
+        boundContextName: connection.bound_context_name?.trim() || undefined,
+        sessionId: connection.session_id ?? undefined,
+        lastMessage:
+          preview && preview !== '暂无消息'
+            ? preview
+            : session?.last_message?.trim() || undefined,
+        updatedAt: session?.update_time ?? connection.update_time ?? connection.create_time,
+      })
     }
 
+    const warning =
+      unmatchedAccountIds.length > 0
+        ? `以下账号未在平台找到连接记录：${unmatchedAccountIds.join(', ')}`
+        : undefined
+
     return {
-      channel: pluginData.channel,
-      accountIds: pluginData.accountIds,
-      items: this.resolveAccountItems(pluginData.accountIds, { onlineOnly }),
+      channel,
+      accountIds,
+      items,
+      warning,
     }
   }
 
