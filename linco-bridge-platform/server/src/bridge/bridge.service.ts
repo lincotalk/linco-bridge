@@ -275,8 +275,6 @@ export class BridgeService {
   }
 
   enrichAccountsPayload(pluginPayload: Record<string, unknown>): BridgeAccountsPayloadDto {
-    const channel =
-      String(pluginPayload.channel ?? BRIDGE_CONNECT_CHANNEL).trim() || BRIDGE_CONNECT_CHANNEL
     const accountIds = Array.isArray(pluginPayload.accountIds)
       ? pluginPayload.accountIds
           .filter((value): value is string => typeof value === 'string')
@@ -331,7 +329,7 @@ export class BridgeService {
         : undefined
 
     return {
-      channel,
+      channel: BRIDGE_CONNECT_CHANNEL,
       accountIds,
       items,
       warning,

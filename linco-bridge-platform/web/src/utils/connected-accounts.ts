@@ -1,4 +1,5 @@
 import { getBridgeSourceCard } from '@/bridge/constants'
+import { BRIDGE_CONNECT_CHANNEL } from '@/bridge/commands'
 import type { AgentBridgeType, BridgeSourceCard, ChatSessionItem } from '@/bridge/types'
 import type { BridgeCommandResult } from '@/api/session-api'
 
@@ -157,7 +158,6 @@ function bridgeAvatar(agentType: AgentBridgeType): string {
 
 export function parseAccountsCommandResult(result: BridgeCommandResult): AccountsCommandPayload {
   const payload = result.payload ?? {}
-  const channel = String(payload.channel ?? 'linco-demo').trim() || 'linco-demo'
   const accountIds = Array.isArray(payload.accountIds)
     ? payload.accountIds
         .filter((value): value is string => typeof value === 'string')
@@ -173,5 +173,5 @@ export function parseAccountsCommandResult(result: BridgeCommandResult): Account
   const warning = String(payload.warning ?? '').trim()
   const hint = warning || String(result.text ?? '').trim() || undefined
 
-  return { channel, accountIds, items, hint }
+  return { channel: BRIDGE_CONNECT_CHANNEL, accountIds, items, hint }
 }

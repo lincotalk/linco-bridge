@@ -48,6 +48,20 @@ describe('parseAccountsCommandResult', () => {
     expect(result.hint).toBe('暂无在线助手')
   })
 
+  it('normalizes legacy linco channel to linco-demo on platform', () => {
+    const result = parseAccountsCommandResult({
+      command: 'accounts',
+      text: '暂无已连接助手',
+      payload: {
+        channel: 'linco',
+        accountIds: [],
+        items: [],
+      },
+    })
+
+    expect(result.channel).toBe('linco-demo')
+  })
+
   it('parses warning hint from payload', () => {
     const result = parseAccountsCommandResult({
       command: 'accounts',

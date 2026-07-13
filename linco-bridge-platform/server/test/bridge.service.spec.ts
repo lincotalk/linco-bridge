@@ -548,6 +548,15 @@ describe('BridgeService', () => {
     expect(enriched.warning).toContain('codex_missing')
   })
 
+  it('enrichAccountsPayload always returns linco-demo channel for platform', () => {
+    const enriched = service.enrichAccountsPayload({
+      channel: 'linco',
+      accountIds: [],
+    })
+
+    expect(enriched.channel).toBe('linco-demo')
+  })
+
   it('fetchAccountsFromConnector throws when connector is offline', async () => {
     service.getSetup('codex')
 
