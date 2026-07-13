@@ -36,13 +36,32 @@ function readClaudeSessionSummary(filePath) {
   return result;
 }
 
+function isCodexSubagentSource(threadSource, source) {
+  if (stringOrEmpty(threadSource).trim().toLowerCase() === 'subagent') return true;
+  if (source && typeof source === 'object' && !Array.isArray(source)) {
+    return Object.prototype.hasOwnProperty.call(source, 'subagent');
+  }
+  const text = stringOrEmpty(source).trim();
+  if (!text) return false;
+  try {
+    const parsed = JSON.parse(text);
+    return !!parsed && typeof parsed === 'object' &&
+      Object.prototype.hasOwnProperty.call(parsed, 'subagent');
+  } catch {
+    return false;
+  }
+}
+
 function readCodexSessionMeta(filePath) {
-  const result = { id: '', cwd: '', firstMessage: '' };
+  const result = { id: '', cwd: '', firstMessage: '', source: undefined };
   let fallbackFirstMessage = '';
   readJsonlRecordsUntil(filePath, SESSION_SUMMARY_SCAN_LIMIT, item => {
     if (item?.type === 'session_meta') {
       result.id = stringOrEmpty(item.payload?.id || item.id) || result.id;
       result.cwd = stringOrEmpty(item.payload?.cwd || item.cwd) || result.cwd;
+      if (Object.prototype.hasOwnProperty.call(item.payload || {}, 'source')) {
+        result.source = item.payload.source;
+      }
     }
 
     if (!result.firstMessage) {
@@ -412,6 +431,7 @@ module.exports = {
   extractCodexAssistantFiles,
   extractCodexMentionedUserFiles,
   extractTextFromMessageContent,
+  isCodexSubagentSource,
   normalizeCodexTitle,
   parseClaudeHistoryRounds,
   parseCodexHistoryRounds,
