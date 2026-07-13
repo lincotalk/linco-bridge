@@ -1,8 +1,8 @@
 import { appendAgentTypeQuery } from '@/bridge/sdk/agent-chat'
 import { BRIDGE_HISTORY_SYNC_LIMIT } from '@/bridge/constants'
 import { useSessionStore } from '@/stores'
+import { appendQueryToPath, createQueryParams, setQueryParam } from '@/utils/query-string'
 import { isBoundWorkspacePick, hasWorkspaceSessionPick, type PickWorkspaceResult } from '@/utils/pick-workspace'
-
 export { isBoundWorkspacePick as isBoundWorkspaceSession }
 
 export function shouldReloadHistoryOnOpen(picked: PickWorkspaceResult): boolean {
@@ -16,14 +16,14 @@ export async function openBoundBridgeChat(picked: PickWorkspaceResult): Promise<
   const sessionStore = useSessionStore()
   await sessionStore.loadSessions().catch(() => undefined)
 
-  const params = new URLSearchParams({ sessionId })
-  appendAgentTypeQuery(params, sessionStore.getSession(sessionId)?.agentType ?? null)
+  let params = createQueryParams({ sessionId })
+  params = appendAgentTypeQuery(params, sessionStore.getSession(sessionId)?.agentType ?? null)
   if (shouldReloadHistoryOnOpen(picked)) {
-    params.set('reloadHistory', '1')
+    params = setQueryParam(params, 'reloadHistory', '1')
   }
 
   uni.redirectTo({
-    url: `/pages/chat/index?${params.toString()}`,
+    url: appendQueryToPath('/pages/chat/index', params),
   })
   return true
 }

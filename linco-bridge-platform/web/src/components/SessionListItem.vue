@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  tap: []
+  select: []
 }>()
 
 const bridgeAvatarMap: Record<ChatSessionItem['agentType'], string> = {
@@ -20,14 +20,23 @@ const bridgeAvatarMap: Record<ChatSessionItem['agentType'], string> = {
 
 const previewText = computed(() => formatSessionPreview(props.item.lastMessage))
 
+let lastActivateAt = 0
+
+function handleActivate() {
+  const now = Date.now()
+  if (now - lastActivateAt < 300) return
+  lastActivateAt = now
+  emit('select')
+}
+
 function avatarFor(item: ChatSessionItem): string {
   return bridgeAvatarMap[item.agentType]
 }
 </script>
 
 <template>
-  <view class="session-item">
-    <view class="session-item__body" @tap="emit('tap')">
+  <view class="session-item" @tap.stop="handleActivate" @click.stop="handleActivate">
+    <view class="session-item__body">
       <view class="session-item__avatar-wrap">
         <image class="session-item__avatar" :src="avatarFor(item)" mode="aspectFill" />
         <view class="session-item__ai-badge">
@@ -60,6 +69,7 @@ function avatarFor(item: ChatSessionItem): string {
   height: 148rpx;
   padding: 0 32rpx;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
 .session-item__avatar-wrap {

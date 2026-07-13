@@ -1,5 +1,24 @@
-import type { ChatMessage, ChatMessageAttachment, ChatSessionItem, AgentTrace, ResumeSessionResult } from '@/bridge/types'
-import { apiGet, apiPost, getApiBaseUrl } from './http-client'
+import type { ChatMessage, ChatMessageAttachment, ChatSessionItem, ResumeSessionResult } from '@/bridge/types'
+import {
+  consumeSseBuffer,
+  decodeChunkData,
+  type StreamChunkPayload,
+  type StreamMessageHandlers,
+  type StreamReasoningPayload,
+} from '@/api/sse-stream'
+import { appendQueryToPath, createQueryParams, setQueryParam } from '@/utils/query-string'
+import {
+  isH5Runtime,
+  isMiniProgramRuntime,
+  supportsFetchStream,
+  throwIfCancelled,
+  type CancelToken,
+} from '@/utils/platform-runtime'
+import { apiGet, apiPost, buildApiRequestHeaders, getApiBaseUrl } from './http-client'
+import { CHAT_REQUEST_TIMEOUT_MS } from './http-transport'
+import { ensureVisitorSession } from './visitor-bootstrap'
+
+export type { CancelToken }
 
 export async function fetchSessions(): Promise<ChatSessionItem[]> {
   const res = await apiGet<ChatSessionItem[]>('/api/sessions')
@@ -31,16 +50,15 @@ export async function fetchMessages(
   sessionId: string,
   options?: { limit?: number; reload?: boolean },
 ): Promise<ChatMessage[]> {
-  const params = new URLSearchParams()
+  let params = createQueryParams()
   if (typeof options?.limit === 'number' && options.limit > 0) {
-    params.set('limit', String(options.limit))
+    params = setQueryParam(params, 'limit', options.limit)
   }
   if (options?.reload) {
-    params.set('reload', '1')
+    params = setQueryParam(params, 'reload', '1')
   }
-  const query = params.toString()
   const res = await apiGet<ChatMessage[]>(
-    `/api/sessions/${sessionId}/messages${query ? `?${query}` : ''}`,
+    appendQueryToPath(`/api/sessions/${sessionId}/messages`, params),
   )
   if (!res.success || !res.data) {
     throw new Error(res.message || '加载消息失败')
@@ -49,7 +67,11 @@ export async function fetchMessages(
 }
 
 export async function sendSessionMessage(sessionId: string, content: string): Promise<ChatMessage> {
-  const res = await apiPost<ChatMessage>(`/api/sessions/${sessionId}/messages`, { content })
+  const res = await apiPost<ChatMessage>(
+    `/api/sessions/${sessionId}/messages`,
+    { content },
+    { timeout: CHAT_REQUEST_TIMEOUT_MS },
+  )
   if (!res.success || !res.data) {
     throw new Error(res.message || '发送消息失败')
   }
@@ -75,63 +97,32 @@ export interface BridgeCommandResult {
   }
 }
 
-export interface StreamChunkPayload {
-  delta?: string
-  fullText: string
-  phase?: string
-  ephemeral?: boolean
-  replacePrevious?: boolean
-}
+export type {
+  StreamChunkPayload,
+  StreamMessageHandlers,
+  StreamReasoningPayload,
+} from '@/api/sse-stream'
 
-export interface StreamReasoningPayload {
-  delta?: string
-  fullText: string
-}
-
-export interface StreamMessageHandlers {
-  onStart?: (payload: { streamId: string }) => void
-  onUserMessage?: (message: ChatMessage) => void
-  onChunk?: (payload: StreamChunkPayload) => void
-  onReasoning?: (payload: StreamReasoningPayload) => void
-  onReasoningEnd?: () => void
-  onReasoningClear?: () => void
-  onAgentTrace?: (trace: AgentTrace) => void
-  onAttachment?: (attachment: ChatMessageAttachment) => void
-  onDone?: (message: ChatMessage) => void
-  onError?: (message: string) => void
-}
-
-function parseSseBlock(block: string): { event: string; data: string } | null {
-  const lines = block.split('\n').filter(Boolean)
-  let event = 'message'
-  const dataLines: string[] = []
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      event = line.slice(6).trim()
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5).trim())
-    }
-  }
-  if (dataLines.length === 0) return null
-  return { event, data: dataLines.join('\n') }
-}
-
-export async function streamSessionMessage(
+async function streamSessionMessageViaFetch(
   sessionId: string,
   content: string,
   handlers: StreamMessageHandlers,
-  signal?: AbortSignal,
+  cancel?: CancelToken,
   files: OutboundChatFile[] = [],
 ): Promise<ChatMessage> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  cancel?.onAbort(() => controller?.abort())
+
   const response = await fetch(`${getApiBaseUrl()}/api/sessions/${sessionId}/messages/stream`, {
     method: 'POST',
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
+      ...buildApiRequestHeaders({
+        Accept: 'text/event-stream',
+      }),
     },
     body: JSON.stringify({ content, files }),
-    signal,
+    signal: controller?.signal,
   })
 
   if (!response.ok || !response.body) {
@@ -144,86 +135,179 @@ export async function streamSessionMessage(
   let finalMessage: ChatMessage | null = null
 
   while (true) {
+    throwIfCancelled(cancel)
     const { done, value } = await reader.read()
     if (done) break
 
     buffer += decoder.decode(value, { stream: true })
-    const blocks = buffer.split('\n\n')
-    buffer = blocks.pop() ?? ''
-
-    for (const block of blocks) {
-      const parsed = parseSseBlock(block)
-      if (!parsed) continue
-
-      let payload: Record<string, unknown> = {}
-      try {
-        payload = JSON.parse(parsed.data) as Record<string, unknown>
-      } catch {
-        continue
-      }
-
-      switch (parsed.event) {
-        case 'start':
-          handlers.onStart?.({ streamId: String(payload.streamId ?? '') })
-          break
-        case 'user': {
-          const message = payload.message as ChatMessage | undefined
-          if (message) handlers.onUserMessage?.(message)
-          break
-        }
-        case 'chunk':
-          handlers.onChunk?.({
-            delta: typeof payload.delta === 'string' ? payload.delta : '',
-            fullText: typeof payload.fullText === 'string' ? payload.fullText : '',
-            phase: typeof payload.phase === 'string' ? payload.phase : undefined,
-            ephemeral: typeof payload.ephemeral === 'boolean' ? payload.ephemeral : undefined,
-            replacePrevious:
-              typeof payload.replacePrevious === 'boolean' ? payload.replacePrevious : undefined,
-          })
-          break
-        case 'reasoning':
-          handlers.onReasoning?.({
-            delta: typeof payload.delta === 'string' ? payload.delta : '',
-            fullText: typeof payload.fullText === 'string' ? payload.fullText : '',
-          })
-          break
-        case 'reasoning_end':
-          handlers.onReasoningEnd?.()
-          break
-        case 'reasoning_clear':
-          handlers.onReasoningClear?.()
-          break
-        case 'agent_trace': {
-          const trace = payload.trace as AgentTrace | undefined
-          if (trace) handlers.onAgentTrace?.(trace)
-          break
-        }
-        case 'attachment': {
-          const attachment = payload.attachment as ChatMessageAttachment | undefined
-          if (attachment) handlers.onAttachment?.(attachment)
-          break
-        }
-        case 'done': {
-          const message = payload.message as ChatMessage | undefined
-          if (message) {
-            finalMessage = message
-            handlers.onDone?.(message)
-          }
-          break
-        }
-        case 'error':
-          handlers.onError?.(typeof payload.message === 'string' ? payload.message : 'stream error')
-          break
-        default:
-          break
-      }
-    }
+    buffer = consumeSseBuffer(buffer, handlers, (message) => {
+      finalMessage = message
+    })
   }
 
   if (!finalMessage) {
     throw new Error('流式响应未完成')
   }
   return finalMessage
+}
+
+type ChunkCapableRequestTask = UniApp.RequestTask & {
+  onChunkReceived?: (listener: (res: { data: ArrayBuffer }) => void) => void
+  offChunkReceived?: (listener: (res: { data: ArrayBuffer }) => void) => void
+  abort?: () => void
+}
+
+const MP_STREAM_TIMEOUT_MS = CHAT_REQUEST_TIMEOUT_MS
+
+async function streamSessionMessageViaBlocking(
+  sessionId: string,
+  content: string,
+  handlers: StreamMessageHandlers,
+  cancel?: CancelToken,
+): Promise<ChatMessage> {
+  throwIfCancelled(cancel)
+  const streamId = `block-${Date.now()}`
+  handlers.onStart?.({ streamId })
+
+  const assistantMessage = await sendSessionMessage(sessionId, content)
+  throwIfCancelled(cancel)
+
+  if (assistantMessage.content.trim()) {
+    handlers.onChunk?.({
+      fullText: assistantMessage.content,
+      delta: assistantMessage.content,
+    })
+  }
+  for (const attachment of assistantMessage.attachments ?? []) {
+    handlers.onAttachment?.(attachment)
+  }
+  handlers.onDone?.(assistantMessage)
+  return assistantMessage
+}
+
+async function streamSessionMessageViaUniRequest(
+  sessionId: string,
+  content: string,
+  handlers: StreamMessageHandlers,
+  cancel?: CancelToken,
+  files: OutboundChatFile[] = [],
+): Promise<ChatMessage> {
+  await ensureVisitorSession()
+
+  return new Promise((resolve, reject) => {
+    let buffer = ''
+    let finalMessage: ChatMessage | null = null
+    let settled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const finish = (err?: Error) => {
+      if (settled) return
+      settled = true
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      if (err) {
+        reject(err)
+        return
+      }
+      if (!finalMessage) {
+        reject(new Error('流式响应未完成'))
+        return
+      }
+      resolve(finalMessage)
+    }
+
+    const onChunk = (chunk: string | ArrayBuffer) => {
+      if (settled || cancel?.aborted) return
+      buffer += decodeChunkData(chunk)
+      buffer = consumeSseBuffer(buffer, handlers, (message) => {
+        finalMessage = message
+      })
+    }
+
+    timeoutId = setTimeout(() => {
+      task.abort?.()
+      finish(new Error('流式响应超时'))
+    }, MP_STREAM_TIMEOUT_MS)
+
+    let task = uni.request({
+      url: `${getApiBaseUrl()}/api/sessions/${sessionId}/messages/stream`,
+      method: 'POST',
+      header: buildApiRequestHeaders({
+        Accept: 'text/event-stream',
+      }),
+      data: { content, files },
+      enableChunked: true,
+      responseType: 'arraybuffer',
+      timeout: CHAT_REQUEST_TIMEOUT_MS,
+      success: (res) => {
+        if (cancel?.aborted) {
+          finish(new Error('Aborted'))
+          return
+        }
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          finish(new Error(`流式发送失败 (${res.statusCode})`))
+          return
+        }
+        if (res.data) {
+          onChunk(res.data as string | ArrayBuffer)
+        }
+        finish()
+      },
+      fail: (err) => {
+        finish(new Error(err.errMsg || '流式发送失败'))
+      },
+    }) as ChunkCapableRequestTask
+
+    cancel?.onAbort(() => {
+      task.abort?.()
+      finish(new Error('Aborted'))
+    })
+
+    task.onChunkReceived?.((res) => {
+      onChunk(res.data)
+    })
+  })
+}
+
+export async function streamSessionMessage(
+  sessionId: string,
+  content: string,
+  handlers: StreamMessageHandlers,
+  cancel?: CancelToken,
+  files: OutboundChatFile[] = [],
+): Promise<ChatMessage> {
+  await ensureVisitorSession()
+  throwIfCancelled(cancel)
+
+  if (supportsFetchStream()) {
+    return streamSessionMessageViaFetch(sessionId, content, handlers, cancel, files)
+  }
+
+  // 小程序不支持浏览器 fetch SSE；enableChunked 对 SSE 也不稳定，默认走阻塞 HTTP。
+  if (isMiniProgramRuntime()) {
+    if (files.length === 0) {
+      return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
+    }
+    try {
+      return await streamSessionMessageViaUniRequest(sessionId, content, handlers, cancel, files)
+    } catch (err) {
+      if (cancel?.aborted) throw err
+      return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
+    }
+  }
+
+  if (isH5Runtime()) {
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
+  }
+
+  try {
+    return await streamSessionMessageViaUniRequest(sessionId, content, handlers, cancel, files)
+  } catch (err) {
+    if (cancel?.aborted) throw err
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
+  }
 }
 
 export async function cancelStreamMessage(

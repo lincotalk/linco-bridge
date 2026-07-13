@@ -84,7 +84,7 @@ function connectedAgentSubtitle(item: ConnectedAgentItem): string {
 function connectedAgentIcon(item: ConnectedAgentItem): string {
   const avatar = item.avatar?.trim()
   if (avatar) return avatar
-  return getBridgeSourceCard(item.agentType)?.icon ?? bridgeAvatar(item.agentType)
+  return getBridgeSourceCard(item.agentType)?.icon ?? ''
 }
 
 export function connectedAgentToBridgeCard(item: ConnectedAgentItem): BridgeSourceCard {
@@ -97,81 +97,20 @@ export function connectedAgentToBridgeCard(item: ConnectedAgentItem): BridgeSour
   }
 }
 
-function buildItemsFromAccountIds(accountIds: string[]): ConnectedAgentItem[] {
-  return accountIds.flatMap((rawAccountId) => {
-    const accountId = rawAccountId.trim()
-    if (!accountId) return []
-    const agentType = inferAgentTypeFromAccountId(accountId)
-    if (!agentType) return []
-    return [
-      {
-        connectionId: accountId,
-        agentType,
-        accountId,
-        title: agentTypeLabel(agentType),
-        description: '',
-        avatar: bridgeAvatar(agentType),
-        status: 'offline',
-        updatedAt: 0,
-      },
-    ]
-  })
-}
-
-function inferAgentTypeFromAccountId(accountId: string): AgentBridgeType | null {
-  if (accountId === 'codex' || accountId.startsWith('codex_')) return 'codex'
-  if (accountId === 'claude' || accountId.startsWith('claude_')) return 'claude'
-  if (accountId === 'hermes' || accountId.startsWith('hermes_')) return 'hermes'
-  if (accountId === 'openclaw' || accountId.startsWith('openclaw_')) return 'openclaw'
-  return null
-}
-
-function agentTypeLabel(agentType: AgentBridgeType): string {
-  switch (agentType) {
-    case 'codex':
-      return 'Codex'
-    case 'claude':
-      return 'Claude Code'
-    case 'hermes':
-      return 'Hermes'
-    case 'openclaw':
-      return 'OpenClaw'
-    default:
-      return agentType
-  }
-}
-
-function bridgeAvatar(agentType: AgentBridgeType): string {
-  switch (agentType) {
-    case 'codex':
-      return '/static/icons/bot/bridge_codex.png'
-    case 'claude':
-      return '/static/icons/bot/bridge_claude.png'
-    case 'hermes':
-      return '/static/icons/bot/bridge_hermes.png'
-    case 'openclaw':
-      return '/static/icons/bot/bridge_claw.png'
-    default:
-      return ''
-  }
-}
-
 export function parseAccountsCommandResult(result: BridgeCommandResult): AccountsCommandPayload {
   const payload = result.payload ?? {}
-  const accountIds = Array.isArray(payload.accountIds)
-    ? payload.accountIds
-        .filter((value): value is string => typeof value === 'string')
-        .map((value) => value.trim())
-        .filter(Boolean)
-    : []
   const parsedItems = Array.isArray(payload.items)
     ? payload.items
         .map(parseConnectedAgentItem)
         .filter((item): item is ConnectedAgentItem => item !== null)
     : []
-  const items = parsedItems.length > 0 ? parsedItems : buildItemsFromAccountIds(accountIds)
+  const items = parsedItems
+  const accountIds = items.map((item) => item.accountId)
   const warning = String(payload.warning ?? '').trim()
-  const hint = warning || String(result.text ?? '').trim() || undefined
+  const hint =
+    items.length === 0
+      ? String(result.text ?? warning).trim() || undefined
+      : warning || String(result.text ?? '').trim() || undefined
 
   return { channel: BRIDGE_CONNECT_CHANNEL, accountIds, items, hint }
 }

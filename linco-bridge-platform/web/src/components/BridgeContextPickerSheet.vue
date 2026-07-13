@@ -114,6 +114,7 @@ function handleRetry() {
   position: fixed;
   inset: 0;
   z-index: 1200;
+  pointer-events: auto;
   background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: flex-end;

@@ -6,7 +6,11 @@ import { parseVisitorIdHeader, VISITOR_ID_HEADER } from './visitor-id.util'
 
 import { VisitorContextService } from './visitor-context.service'
 
-import { parseVisitorSessionCookie } from './visitor-session.util'
+import {
+  parseVisitorSessionHeader,
+  parseVisitorSessionCookie,
+  VISITOR_SESSION_HEADER,
+} from './visitor-session.util'
 
 
 
@@ -56,12 +60,12 @@ export class VisitorMiddleware implements NestMiddleware {
 
 
 
-    const visitorId = parseVisitorSessionCookie(req.headers.cookie)
+    const visitorId =
+      parseVisitorSessionCookie(req.headers.cookie) ??
+      parseVisitorSessionHeader(req.headers[VISITOR_SESSION_HEADER])
 
     if (!visitorId) {
-
       throw new UnauthorizedException('缺少有效访客会话，请先 bootstrap')
-
     }
 
 

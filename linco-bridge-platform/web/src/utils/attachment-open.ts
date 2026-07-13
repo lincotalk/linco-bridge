@@ -1,6 +1,7 @@
 import type { ChatMessageAttachment } from '@/bridge/types'
 import { showToast } from '@/utils/format'
 import { isImageAttachment } from '@/utils/chat-attachments'
+import { isH5Runtime } from '@/utils/platform-runtime'
 
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
@@ -112,10 +113,6 @@ export function normalizeBridgeFileGetPath(target: string): string | null {
     value = decodeFileUri(value)
   }
   return stripLineNumberSuffix(value)
-}
-
-function isH5Runtime(): boolean {
-  return typeof window !== 'undefined' && typeof document !== 'undefined'
 }
 
 function openHttpPreviewInBrowser(previewUrl: string) {

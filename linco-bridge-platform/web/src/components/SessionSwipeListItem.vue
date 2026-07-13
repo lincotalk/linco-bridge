@@ -17,8 +17,12 @@ const emit = defineEmits<{
 }>()
 
 const swipeRef = ref<InstanceType<typeof SwipeActionItem> | null>(null)
+let lastTapAt = 0
 
 function handleTap() {
+  const now = Date.now()
+  if (now - lastTapAt < 300) return
+  lastTapAt = now
   emit('tap', props.item)
 }
 
@@ -38,7 +42,8 @@ defineExpose({
     @open="emit('open')"
     @close="emit('close')"
     @action="handleDelete"
+    @tap="handleTap"
   >
-    <SessionListItem :item="item" @tap="handleTap" />
+    <SessionListItem :item="item" @select="handleTap" />
   </SwipeActionItem>
 </template>

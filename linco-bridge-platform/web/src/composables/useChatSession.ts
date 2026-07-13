@@ -7,7 +7,13 @@ import { takePendingFiles } from '@/composables/pendingAttachmentTransfer'
 import { takePendingLaunch } from '@/composables/pendingLaunchTransfer'
 import { resolveChatHeader, type ChatHeaderView } from '@/utils/chat-header'
 import { showToast } from '@/utils/format'
-
+import {
+  createCancelToken,
+  delay,
+  isAbortError,
+  scheduleNextFrame,
+  type CancelToken,
+} from '@/utils/platform-runtime'
 export function useChatSession() {
   const sessionStore = useSessionStore()
   const bridgeStore = useBridgeStore()
@@ -20,8 +26,7 @@ export function useChatSession() {
   const scrollAnchor = ref('')
   const pendingDraft = ref('')
   const activeStreamId = ref('')
-  const abortController = ref<AbortController | null>(null)
-
+  const cancelToken = ref<CancelToken | null>(null)
   const messages = computed(() => sessionStore.getMessages(sessionId.value))
 
   async function refreshHeader() {
@@ -131,16 +136,15 @@ export function useChatSession() {
   function scrollToBottom() {
     scrollAnchor.value = ''
     void nextTick(() => {
-      requestAnimationFrame(() => {
+      scheduleNextFrame(() => {
         scrollAnchor.value = 'chat-bottom'
       })
-      window.setTimeout(() => {
+      void delay(160).then(() => {
         scrollAnchor.value = ''
         scrollAnchor.value = 'chat-bottom'
-      }, 160)
+      })
     })
   }
-
   async function sendMessage(contentOverride?: string, files: OutboundChatFile[] = []) {
     const content = (contentOverride ?? draft.value).trim()
     if ((!content && files.length === 0) || !sessionId.value || sending.value) return
@@ -149,27 +153,27 @@ export function useChatSession() {
     activeStreamId.value = ''
     draft.value = ''
 
-    const controller = new AbortController()
-    abortController.value = controller
+    const cancel = createCancelToken()
+    cancelToken.value = cancel
     scrollToBottom()
 
     try {
       await sessionStore.sendMessageStream(sessionId.value, content, {
-        signal: controller.signal,
+        cancel,
         onStreamId: (streamId) => {
           activeStreamId.value = streamId
         },
         files,
       })
     } catch (err) {
-      if (controller.signal.aborted) {
+      if (isAbortError(err) || cancel.aborted) {
         showToast('已停止生成')
       } else {
         const message = err instanceof Error ? err.message : '发送失败'
         showToast(message)
       }
     } finally {
-      abortController.value = null
+      cancelToken.value = null
       activeStreamId.value = ''
       sending.value = false
       await refreshHeader()
@@ -180,7 +184,7 @@ export function useChatSession() {
   async function stopGeneration() {
     if (!sending.value || !sessionId.value) return
 
-    abortController.value?.abort()
+    cancelToken.value?.abort()
 
     const streamId = activeStreamId.value
     if (streamId) {
@@ -194,16 +198,19 @@ export function useChatSession() {
 
     sending.value = false
     activeStreamId.value = ''
-    abortController.value = null
+    cancelToken.value = null
     scrollToBottom()
   }
 
-  async function reloadHistory(limit = BRIDGE_HISTORY_SYNC_LIMIT, reload = true) {
+  async function reloadHistory(limit?: number, reload = true) {
     if (!sessionId.value) return
     loading.value = true
     try {
       await sessionStore.loadMessages(sessionId.value, { limit, reload })
       scrollToBottom()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '加载消息失败')
+      throw err
     } finally {
       loading.value = false
       await refreshHeader()

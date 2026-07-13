@@ -10,6 +10,12 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: resolveCorsOrigin(),
     credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Accept',
+      'X-Linco-Visitor-Id',
+      'X-Linco-Visitor-Session',
+    ],
   })
   app.useWebSocketAdapter(new BridgeWsAdapter(app))
 

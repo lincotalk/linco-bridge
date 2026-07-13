@@ -103,6 +103,10 @@ function handleVoice() {
   emit('voice')
 }
 
+function handlePickSettings() {
+  emit('pick-settings')
+}
+
 const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmit(
   () => canSubmit.value,
   handleSend,
@@ -154,7 +158,7 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
             {{ bridgeProjectLabel || '临时会话' }}
           </text>
           <view class="chat-input__bridge-divider" />
-          <view class="chat-input__bridge-settings" @tap="emit('pick-settings')">
+          <view class="chat-input__bridge-settings" @tap.stop="handlePickSettings">
             <text class="chat-input__bridge-settings-text">{{ bridgeSettingsText }}</text>
             <view class="chat-input__bridge-settings-chevron" />
           </view>
@@ -288,8 +292,10 @@ const { onCompositionStart, onCompositionEnd, onKeydown } = useChatTextareaSubmi
 .chat-input__bridge-settings {
   display: flex;
   align-items: center;
-  height: 36rpx;
-  min-width: 0;
+  min-height: 64rpx;
+  min-width: 96rpx;
+  padding: 0 8rpx;
+  box-sizing: border-box;
   flex-shrink: 1;
 }
 

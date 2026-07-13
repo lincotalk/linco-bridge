@@ -18,6 +18,7 @@ import { useBridgeStore, useSessionStore } from '@/stores'
 
 import { showToast } from '@/utils/format'
 import { buildAgentLandingUrl } from '@/utils/open-agent-landing'
+import { appendQueryToPath, createQueryParams } from '@/utils/query-string'
 
 export interface BridgeConnectionCompleteResult {
   agentType: AgentBridgeType
@@ -262,10 +263,12 @@ export function useBridgeConnection(type: Ref<AgentBridgeType>) {
 
   function navigateAfterConnect(result: BridgeConnectionCompleteResult) {
     if (requiresContextBinding(result.agentType)) {
-      const params = new URLSearchParams({ sessionId: result.sessionId })
-      params.set('agentType', result.agentType)
+      const params = createQueryParams({
+        sessionId: result.sessionId,
+        agentType: result.agentType,
+      })
       uni.redirectTo({
-        url: `/pages/chat/index?${params.toString()}`,
+        url: appendQueryToPath('/pages/chat/index', params),
       })
       return
     }

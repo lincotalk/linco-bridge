@@ -6,6 +6,7 @@ import {
   fetchMessages,
   fetchSessions,
   streamSessionMessage,
+  type CancelToken,
   type OutboundChatFile,
 } from '@/api/session-api'
 import type { BridgeSdk } from '@/bridge/sdk/types'
@@ -224,7 +225,7 @@ export const useSessionStore = defineStore('session', () => {
     sessionId: string,
     content: string,
     options?: {
-      signal?: AbortSignal
+      cancel?: CancelToken
       onStreamId?: (streamId: string) => void
       files?: OutboundChatFile[]
     },
@@ -332,7 +333,7 @@ export const useSessionStore = defineStore('session', () => {
           finalizeStreamingAssistant(sessionId, assistantPlaceholderId, message)
         },
       },
-      options?.signal,
+      options?.cancel,
       options?.files ?? [],
     )
 

@@ -262,11 +262,12 @@ function handleDismiss() {
   <view
     v-if="bridgeWorkspacePickerState.visible"
     class="workspace-sheet"
+    @tap="handleDismiss"
     @touchmove.stop.prevent
   >
-    <view class="workspace-sheet__backdrop" @tap="handleDismiss" />
+    <view class="workspace-sheet__backdrop" />
 
-    <view class="workspace-sheet__panel">
+    <view class="workspace-sheet__panel" @tap.stop>
       <view class="workspace-sheet__handle-wrap">
         <view class="workspace-sheet__handle" />
       </view>
@@ -403,6 +404,7 @@ function handleDismiss() {
   position: fixed;
   inset: 0;
   z-index: 99998;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;

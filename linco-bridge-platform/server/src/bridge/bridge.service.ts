@@ -274,6 +274,18 @@ export class BridgeService {
     }
   }
 
+  listAccountsFromDatabase(): BridgeAccountsPayloadDto {
+    const ownerId = this.resourceAccess.getOwnerId()
+    const accountIds = this.database
+      .listConnectionsByOwner(ownerId)
+      .map((row) => row.account_id?.trim() ?? '')
+      .filter(Boolean)
+    return this.enrichAccountsPayload({
+      channel: BRIDGE_CONNECT_CHANNEL,
+      accountIds,
+    })
+  }
+
   enrichAccountsPayload(pluginPayload: Record<string, unknown>): BridgeAccountsPayloadDto {
     const accountIds = Array.isArray(pluginPayload.accountIds)
       ? pluginPayload.accountIds
@@ -324,13 +336,13 @@ export class BridgeService {
     }
 
     const warning =
-      unmatchedAccountIds.length > 0
+      unmatchedAccountIds.length > 0 && items.length > 0
         ? `以下账号未在平台找到连接记录：${unmatchedAccountIds.join(', ')}`
         : undefined
 
     return {
       channel: BRIDGE_CONNECT_CHANNEL,
-      accountIds,
+      accountIds: items.map((item) => item.accountId),
       items,
       warning,
     }

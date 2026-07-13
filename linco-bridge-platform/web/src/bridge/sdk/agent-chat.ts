@@ -41,10 +41,12 @@ export function resolveSessionAgentType(input: {
   return null
 }
 
+import type { QueryParams } from '@/utils/query-string'
+
 export function appendAgentTypeQuery(
-  params: URLSearchParams,
+  params: QueryParams,
   agentType: AgentBridgeType | null | undefined,
-): URLSearchParams {
-  if (agentType) params.set('agentType', agentType)
-  return params
+): QueryParams {
+  if (!agentType) return params
+  return { ...params, agentType }
 }

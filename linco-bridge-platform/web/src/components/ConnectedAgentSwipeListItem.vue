@@ -21,8 +21,12 @@ const emit = defineEmits<{
 }>()
 
 const swipeRef = ref<InstanceType<typeof SwipeActionItem> | null>(null)
+let lastTapAt = 0
 
 function handleTap() {
+  const now = Date.now()
+  if (now - lastTapAt < 300) return
+  lastTapAt = now
   emit('tap', props.item)
 }
 
@@ -43,6 +47,7 @@ defineExpose({
     @open="emit('open')"
     @close="emit('close')"
     @action="handleDelete"
+    @tap="handleTap"
   >
     <BridgeSourceCard embedded :item="cardItem" @select="handleTap" />
   </SwipeActionItem>

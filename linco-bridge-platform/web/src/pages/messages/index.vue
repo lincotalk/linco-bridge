@@ -5,8 +5,9 @@ import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import SessionSwipeListItem from '@/components/SessionSwipeListItem.vue'
+import SessionListItem from '@/components/SessionListItem.vue'
 
-import DemoDataNotice from '@/components/DemoDataNotice.vue'
+import { deleteSessionsFromList } from '@/api/session-api'
 
 import { switchRootTab } from '@/constants/tabbar'
 
@@ -14,14 +15,14 @@ import { useSessionStore } from '@/stores'
 
 import type { ChatSessionItem } from '@/bridge/types'
 
-import { deleteSessionsFromList } from '@/api/session-api'
-
 import { showToast } from '@/utils/format'
 
-import { openAgentLanding } from '@/utils/open-agent-landing'
+import { openSessionLanding } from '@/utils/open-agent-landing'
 import { getCustomNavPagePaddingStyle } from '@/utils/page-safe-area'
+import { isH5Runtime } from '@/utils/platform-runtime'
 
 const pageSafeStyle = getCustomNavPagePaddingStyle()
+const useSimpleListOnH5 = isH5Runtime()
 
 
 
@@ -32,6 +33,7 @@ const refreshing = ref(false)
 const openedSwipeId = ref<string | null>(null)
 
 const deletingId = ref<string | null>(null)
+let lastItemTapAt = 0
 
 
 
@@ -66,39 +68,32 @@ async function handleRefresh() {
 
 
 function openSession(item: ChatSessionItem) {
+  openSessionLanding(item)
+}
 
-  openAgentLanding({
 
-    agentType: item.agentType,
 
-    connectionId: item.connectionId,
-
-  })
-
+function handleScrollBackgroundTap() {
+  if (!useSimpleListOnH5 && openedSwipeId.value) {
+    openedSwipeId.value = null
+  }
 }
 
 
 
 function handleItemTap(item: ChatSessionItem) {
+  const now = Date.now()
+  if (now - lastItemTapAt < 400) return
+  lastItemTapAt = now
 
   if (openedSwipeId.value === item.id) {
-
     openedSwipeId.value = null
-
     return
-
   }
-
   if (openedSwipeId.value) {
-
     openedSwipeId.value = null
-
-    return
-
   }
-
   openSession(item)
-
 }
 
 
@@ -198,8 +193,6 @@ function goBridge() {
 
   <view class="page-container messages-page" :style="pageSafeStyle">
 
-    <DemoDataNotice />
-
     <scroll-view
 
       class="messages-page__scroll"
@@ -212,7 +205,7 @@ function goBridge() {
 
       @refresherrefresh="handleRefresh"
 
-      @tap="openedSwipeId = null"
+      @tap="handleScrollBackgroundTap"
 
     >
 
@@ -236,28 +229,27 @@ function goBridge() {
 
 
 
-      <view v-else class="messages-page__list" @tap.stop>
-
-        <SessionSwipeListItem
-
-          v-for="item in sessionStore.sessions"
-
-          :key="item.id"
-
-          :item="item"
-
-          :open="openedSwipeId === item.id"
-
-          @open="handleSwipeOpen(item.id)"
-
-          @close="handleSwipeClose(item.id)"
-
-          @tap="handleItemTap(item)"
-
-          @delete="confirmDeleteSession(item)"
-
-        />
-
+      <view v-else class="messages-page__list">
+        <template v-if="useSimpleListOnH5">
+          <SessionListItem
+            v-for="item in sessionStore.sessions"
+            :key="item.id"
+            :item="item"
+            @select="handleItemTap(item)"
+          />
+        </template>
+        <template v-else>
+          <SessionSwipeListItem
+            v-for="item in sessionStore.sessions"
+            :key="item.id"
+            :item="item"
+            :open="openedSwipeId === item.id"
+            @open="handleSwipeOpen(item.id)"
+            @close="handleSwipeClose(item.id)"
+            @tap="handleItemTap(item)"
+            @delete="confirmDeleteSession(item)"
+          />
+        </template>
       </view>
 
     </scroll-view>

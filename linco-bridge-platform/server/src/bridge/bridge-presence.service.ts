@@ -43,6 +43,10 @@ export class BridgePresenceService {
     return Boolean(socket && socket.readyState === socket.OPEN)
   }
 
+  listOnlineConnectionIds(): string[] {
+    return [...this.clients.keys()].filter((connectionId) => this.isOnline(connectionId))
+  }
+
   getSocket(connectionId: string): WebSocket | undefined {
     const socket = this.clients.get(connectionId)
     if (!socket || socket.readyState !== socket.OPEN) return undefined

@@ -14,22 +14,47 @@ function createVisitorId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }
-  return '00000000-0000-4000-8000-000000000001'
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const random = (Math.random() * 16) | 0
+    const value = char === 'x' ? random : (random & 0x3) | 0x8
+    return value.toString(16)
+  })
 }
 
 export function getOrCreateVisitorId(): string {
-  if (typeof localStorage === 'undefined') {
-    if (!memoryVisitorId) {
-      memoryVisitorId = createVisitorId()
+  try {
+    const fromUni = uni.getStorageSync(VISITOR_ID_STORAGE_KEY)
+    if (typeof fromUni === 'string' && isValidVisitorId(fromUni)) {
+      return fromUni
     }
-    return memoryVisitorId
+  } catch {
+    // ignore storage read errors
   }
-  const existing = localStorage.getItem(VISITOR_ID_STORAGE_KEY)
-  if (existing && isValidVisitorId(existing)) {
-    return existing
+
+  if (typeof localStorage !== 'undefined') {
+    const existing = localStorage.getItem(VISITOR_ID_STORAGE_KEY)
+    if (existing && isValidVisitorId(existing)) {
+      return existing
+    }
   }
-  const next = createVisitorId()
-  localStorage.setItem(VISITOR_ID_STORAGE_KEY, next)
+
+  if (!memoryVisitorId) {
+    memoryVisitorId = createVisitorId()
+  }
+
+  const next = memoryVisitorId
+  try {
+    uni.setStorageSync(VISITOR_ID_STORAGE_KEY, next)
+  } catch {
+    // ignore storage write errors
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(VISITOR_ID_STORAGE_KEY, next)
+    } catch {
+      // ignore storage write errors
+    }
+  }
   return next
 }
 

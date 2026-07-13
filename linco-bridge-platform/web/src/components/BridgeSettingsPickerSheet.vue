@@ -362,6 +362,8 @@ function onMaskTap() {
 
   z-index: 1200;
 
+  pointer-events: auto;
+
   display: flex;
 
   align-items: flex-end;

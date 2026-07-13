@@ -25,6 +25,7 @@ import type {
   BridgeSessionSettings,
 } from '../types'
 import type { BridgeHttpClient, BridgeSdk } from './types'
+import { appendQueryToPath, createQueryParams, setQueryParam } from '@/utils/query-string'
 
 function ok<T>(data: T): ApiResponse<T> {
   return { code: 0, success: true, data, message: '' }
@@ -101,13 +102,15 @@ export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
     },
 
     async listProjectSessions(type, projectPath, connectionId, limit = 10) {
-      const params = new URLSearchParams({
+      let params = createQueryParams({
         projectPath,
         limit: String(limit),
       })
-      if (connectionId?.trim()) params.set('connectionId', connectionId.trim())
+      if (connectionId?.trim()) {
+        params = setQueryParam(params, 'connectionId', connectionId.trim())
+      }
       const res = await client.get<BridgeWorkspaceSession[]>(
-        `/api/agent-bridges/${type}/sessions?${params.toString()}`,
+        appendQueryToPath(`/api/agent-bridges/${type}/sessions`, params),
       )
       if (!res.success || !res.data) {
         throw new Error(res.message || '获取项目会话失败')
@@ -116,10 +119,12 @@ export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
     },
 
     async listChats(type, connectionId, limit = 10) {
-      const params = new URLSearchParams({ limit: String(limit) })
-      if (connectionId?.trim()) params.set('connectionId', connectionId.trim())
+      let params = createQueryParams({ limit: String(limit) })
+      if (connectionId?.trim()) {
+        params = setQueryParam(params, 'connectionId', connectionId.trim())
+      }
       const res = await client.get<BridgeWorkspaceSession[]>(
-        `/api/agent-bridges/${type}/chats?${params.toString()}`,
+        appendQueryToPath(`/api/agent-bridges/${type}/chats`, params),
       )
       if (!res.success || !res.data) {
         throw new Error(res.message || '获取对话列表失败')
@@ -192,12 +197,11 @@ export function createRestBridgeSdk(client: BridgeHttpClient): BridgeSdk {
     },
 
     async loadSettingsOptions(type, connectionId, sessionId) {
-      const params = new URLSearchParams()
-      if (connectionId?.trim()) params.set('connectionId', connectionId.trim())
-      if (sessionId?.trim()) params.set('sessionId', sessionId.trim())
-      const query = params.toString()
+      let params = createQueryParams()
+      if (connectionId?.trim()) params = setQueryParam(params, 'connectionId', connectionId.trim())
+      if (sessionId?.trim()) params = setQueryParam(params, 'sessionId', sessionId.trim())
       const res = await client.get<BridgeSettingsOptions>(
-        `/api/agent-bridges/${type}/settings/options${query ? `?${query}` : ''}`,
+        appendQueryToPath(`/api/agent-bridges/${type}/settings/options`, params),
       )
       if (!res.success || !res.data) {
         throw new Error(res.message || '加载模型与推理设置失败')

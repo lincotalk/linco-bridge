@@ -84,7 +84,7 @@ npm run build:mp-weixin
 | --- | --- |
 | `npm run dev:h5` | H5 开发服务器 |
 | `npm run build:h5` | H5 生产构建 |
-| `npm run dev:mp-weixin` | 微信小程序开发 |
+| `npm run dev:mp-weixin` | 微信小程序开发（自动加载 `prod.env`） |
 | `npm run typecheck` | 类型检查 |
 | `npm run test` | Vitest |
 | `npm run lint` | ESLint |
@@ -100,11 +100,25 @@ npm run build:mp-weixin
 | `VITE_USE_REMOTE_API` | `true` | 设为 `false` 时使用内存 Mock |
 | `VITE_AGENT_CHAT_SDK` | 空 | 设为 `mock` 时强制 AgentChat SDK 走 Mock |
 
-本地开发不读 `prod.env`，`VITE_API_BASE_URL` 保持空，走 Vite 代理：
+本地 H5 开发不读 `prod.env`，`VITE_API_BASE_URL` 保持空，走 Vite 代理：
 
 ```text
 /api → http://127.0.0.1:3300
 ```
+
+微信小程序本地开发使用 [`local.env`](local.env)（默认 `http://127.0.0.1:3300`）：
+
+```bash
+# 终端 1：启动本地 server
+cd linco-bridge-platform/server && npm run start:dev
+
+# 终端 2：编译小程序（加载 local.env）
+cd linco-bridge-platform/web && npm run dev:mp-weixin
+```
+
+微信开发者工具 → 详情 → 本地设置 → 勾选 **「不校验合法域名」**。真机预览时把 `local.env` 里的地址改成本机局域网 IP（如 `http://192.168.x.x:3300`）。
+
+线上发布仍用 `prod.env`：`npm run build:mp-weixin`。
 
 如果只做纯 UI 调试，不启动后端：
 
@@ -190,3 +204,27 @@ npm test
 2. 修改 `pages.json` 或新增页面后，需要重启 UniApp 开发服务
 3. 流式聊天依赖后端 SSE
 4. 如果 Agent 能力行为发生变化，请同步更新本文件与 [`../server/README.zh-CN.md`](../server/README.zh-CN.md)
+
+## H5 与微信小程序差异
+
+本项目按 **UniApp 跨端思路** 开发：业务层统一走 `uni.request` / `uni.storage`，浏览器专用 API 只在 H5 分支或 `platform-runtime` 中封装。
+
+| 能力 | H5 | 微信小程序 |
+| --- | --- | --- |
+| HTTP | Vite 代理 + Cookie 会话 | 绝对 URL + `X-Linco-Visitor-Session` header |
+| 访客 ID / Session | `localStorage` + Cookie | `uni.setStorageSync` |
+| 流式聊天 | `fetch` + SSE | 阻塞 HTTP（等 Agent 完整回复后一次展示） |
+| 取消生成 | `AbortController` | 自研 `CancelToken` |
+| 滚动到底 | `requestAnimationFrame` | `setTimeout`（条件编译） |
+| 外链打开 | `window.open` | 复制链接 / `uni.downloadFile` + `openDocument` |
+| 语音输入 | Web Speech API | 暂不支持（需微信录音 API） |
+
+**重要**：H5 与小程序是**独立访客会话**，桥接连接不共享。小程序端需在本机重新执行 `linco-connect` 并完成连接检测，才能看到助手与聊天数据。
+
+聊天发送**不依赖客户端 WebSocket**（WebSocket 仅用于本机 `linco-connect` 连接器与平台通信）。小程序通过 `uni.request` 调用 HTTP API；纯文本消息默认走阻塞接口，Agent 回复完成后一次性展示（仍可能显示「正在思考」，直到本机 Agent 返回）。
+
+本地调试小程序时：
+
+1. 微信开发者工具勾选 **不校验合法域名**
+2. 使用 `local.env` 指向可访问的后端地址
+3. 修改代码后 **清缓存并重新编译**

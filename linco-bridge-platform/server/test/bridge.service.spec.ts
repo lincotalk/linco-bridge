@@ -545,7 +545,8 @@ describe('BridgeService', () => {
     })
 
     expect(enriched.items).toEqual([])
-    expect(enriched.warning).toContain('codex_missing')
+    expect(enriched.warning).toBeUndefined()
+    expect(enriched.accountIds).toEqual([])
   })
 
   it('enrichAccountsPayload always returns linco-demo channel for platform', () => {
@@ -561,5 +562,13 @@ describe('BridgeService', () => {
     service.getSetup('codex')
 
     await expect(service.fetchAccountsFromConnector()).rejects.toThrow(ConflictException)
+  })
+
+  it('listAccountsFromDatabase returns owner connections without live connect', () => {
+    const setup = service.getSetup('codex')
+    const payload = service.listAccountsFromDatabase()
+
+    expect(payload.accountIds).toContain(setup.accountId)
+    expect(payload.items.some((item) => item.connectionId === setup.connectionId)).toBe(true)
   })
 })

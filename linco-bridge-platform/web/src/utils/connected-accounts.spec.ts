@@ -31,7 +31,7 @@ describe('parseAccountsCommandResult', () => {
     })
 
     expect(result.channel).toBe('linco-demo')
-    expect(result.accountIds).toEqual(['codex_1', 'claude_1'])
+    expect(result.accountIds).toEqual(['codex_1'])
     expect(result.items).toHaveLength(1)
     expect(result.items[0]?.sessionId).toBe('session-codex')
   })
@@ -77,10 +77,10 @@ describe('parseAccountsCommandResult', () => {
     expect(result.hint).toBe('本机 Agent 未连接')
   })
 
-  it('falls back to accountIds when server items are missing', () => {
+  it('returns empty items when server items are missing', () => {
     const result = parseAccountsCommandResult({
       command: 'accounts',
-      text: '1 个已连接助手',
+      text: '暂无已连接助手',
       payload: {
         channel: 'linco-demo',
         accountIds: ['codex_a962e6c4'],
@@ -88,11 +88,9 @@ describe('parseAccountsCommandResult', () => {
       },
     })
 
-    expect(result.items).toHaveLength(1)
-    expect(result.items[0]?.accountId).toBe('codex_a962e6c4')
-    expect(result.items[0]?.agentType).toBe('codex')
-    expect(result.items[0]?.connectionId).toBe('codex_a962e6c4')
-    expect(result.items[0]?.status).toBe('offline')
+    expect(result.items).toEqual([])
+    expect(result.accountIds).toEqual([])
+    expect(result.hint).toBe('暂无已连接助手')
   })
 
   it('maps enriched server item to bridge card row', () => {

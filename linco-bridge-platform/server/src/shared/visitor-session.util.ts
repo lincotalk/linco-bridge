@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 
 export const VISITOR_SESSION_COOKIE = 'linco-bridge-session'
+export const VISITOR_SESSION_HEADER = 'x-linco-visitor-session'
 
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000
 
@@ -80,4 +81,22 @@ export function parseVisitorSessionCookie(raw: string | undefined): string | nul
     }
   }
   return null
+}
+
+export function parseVisitorSessionHeader(
+  raw: string | string[] | undefined,
+): string | null {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (!value?.trim()) return null
+  return verifyVisitorSessionToken(value.trim())
+}
+
+export function resolveVisitorIdFromRequest(input: {
+  cookieHeader?: string
+  sessionHeader?: string | string[]
+}): string | null {
+  return (
+    parseVisitorSessionCookie(input.cookieHeader) ??
+    parseVisitorSessionHeader(input.sessionHeader)
+  )
 }

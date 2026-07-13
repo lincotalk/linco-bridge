@@ -5,15 +5,17 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(__dirname, '..')
-const prodEnvPath = resolve(webRoot, 'prod.env')
 
-function loadProdEnv() {
-  if (!existsSync(prodEnvPath)) {
-    console.warn('[with-prod-env] prod.env not found, skipping')
+function loadEnvFile(envFileName) {
+  const envPath = resolve(webRoot, envFileName)
+  if (!existsSync(envPath)) {
+    console.warn(`[with-prod-env] ${envFileName} not found, skipping`)
     return
   }
 
-  for (const line of readFileSync(prodEnvPath, 'utf8').split(/\r?\n/)) {
+  console.log(`[with-prod-env] loading ${envFileName}`)
+
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) continue
 
@@ -33,9 +35,10 @@ function loadProdEnv() {
   }
 }
 
-loadProdEnv()
-
 const uniArgs = process.argv.slice(2)
+const envFileName = uniArgs[0]?.endsWith('.env') ? uniArgs.shift() : 'prod.env'
+loadEnvFile(envFileName)
+
 if (uniArgs.length === 0) {
   uniArgs.push('build')
 }

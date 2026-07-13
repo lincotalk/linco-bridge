@@ -18,7 +18,11 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <view class="source-card" :class="{ 'source-card--embedded': embedded }" @tap="emit('select', item)">
+  <view
+    class="source-card"
+    :class="{ 'source-card--embedded': embedded }"
+    @tap.stop="emit('select', item)"
+  >
     <view class="source-card__icon-wrap">
       <image class="source-card__icon" :src="item.icon" mode="aspectFit" />
     </view>

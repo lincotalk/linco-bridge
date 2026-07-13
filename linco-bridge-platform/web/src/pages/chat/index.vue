@@ -2,13 +2,13 @@
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref, watch } from 'vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
+import AppOverlayHost from '@/components/AppOverlayHost.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
 import ChatInputArea from '@/components/ChatInputArea.vue'
 import { parseAgentTypeFromQuery, resolveSessionAgentType } from '@/bridge/sdk/agent-chat'
 import type { AgentBridgeType } from '@/bridge/types'
 import { useChatSession } from '@/composables/useChatSession'
 import { useProjectPicker } from '@/composables/useProjectPicker'
-import { useAgentPanel } from '@/composables/useAgentPanel'
 import { useAttachmentPicker } from '@/composables/useAttachmentPicker'
 import { useVoiceInput } from '@/composables/useVoiceInput'
 import { useSessionStore } from '@/stores'
@@ -87,13 +87,6 @@ watch(
   { immediate: true },
 )
 
-const agentPanel = useAgentPanel({
-  sessionId: chat.sessionId,
-  agentType,
-  connectionId,
-  onReloadHistory: reloadHistory,
-})
-
 onLoad((query) => {
   const id = String(query?.sessionId ?? '')
   routeSessionId.value = id
@@ -171,10 +164,6 @@ async function handleWorkspace() {
   }
 }
 
-function handleMore() {
-  agentPanel.openPanel()
-}
-
 async function handleAdd() {
   await pickFiles()
 }
@@ -194,7 +183,10 @@ function handleVoice() {
 async function handleRefresh() {
   refreshing.value = true
   try {
-    await reloadHistory()
+    // 下拉刷新只重新拉取已持久化的消息，不做 destructive 的 bridge history-reload
+    await reloadHistory(undefined, false)
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '刷新失败')
   } finally {
     refreshing.value = false
   }
@@ -228,9 +220,8 @@ async function handlePickSettings() {
       :subtitle="header.subtitle"
       :avatar="header.avatar"
       :show-workspace="agentType ? supportsBridgeWorkspaceSelector(agentType) : false"
-      show-more
+      :show-more="false"
       @workspace="handleWorkspace"
-      @more="handleMore"
     />
 
     <scroll-view
@@ -279,6 +270,9 @@ async function handlePickSettings() {
       @remove-file="removeFile"
       @pick-settings="handlePickSettings"
     />
+    <!-- #ifndef H5 -->
+    <AppOverlayHost />
+    <!-- #endif -->
   </view>
 </template>
 

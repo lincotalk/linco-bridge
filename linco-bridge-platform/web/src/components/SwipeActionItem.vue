@@ -16,6 +16,7 @@ const emit = defineEmits<{
   open: []
   close: []
   action: []
+  tap: []
 }>()
 
 const ACTION_WIDTH = uni.upx2px(160)
@@ -25,6 +26,11 @@ let startX = 0
 let startY = 0
 let startOffset = 0
 let horizontalSwipe = false
+let maxAbsDeltaX = 0
+let maxAbsDeltaY = 0
+let tapEmittedFromTouch = false
+
+const TAP_MOVE_THRESHOLD = 10
 
 const contentStyle = computed(() => ({
   transform: `translateX(${offsetX.value}px)`,
@@ -39,12 +45,25 @@ watch(
   { immediate: true },
 )
 
+function isTapGesture(): boolean {
+  return maxAbsDeltaX < TAP_MOVE_THRESHOLD && maxAbsDeltaY < TAP_MOVE_THRESHOLD && !horizontalSwipe
+}
+
+function emitTapIfNeeded() {
+  if (!isTapGesture()) return
+  tapEmittedFromTouch = true
+  emit('tap')
+}
+
 function onTouchStart(event: TouchEvent) {
   startX = event.touches[0]?.clientX ?? 0
   startY = event.touches[0]?.clientY ?? 0
   startOffset = offsetX.value
   dragging.value = true
-  horizontalSwipe = offsetX.value !== 0
+  horizontalSwipe = false
+  maxAbsDeltaX = 0
+  maxAbsDeltaY = 0
+  tapEmittedFromTouch = false
 }
 
 function onTouchMove(event: TouchEvent) {
@@ -52,6 +71,8 @@ function onTouchMove(event: TouchEvent) {
   const currentY = event.touches[0]?.clientY ?? startY
   const deltaX = currentX - startX
   const deltaY = currentY - startY
+  maxAbsDeltaX = Math.max(maxAbsDeltaX, Math.abs(deltaX))
+  maxAbsDeltaY = Math.max(maxAbsDeltaY, Math.abs(deltaY))
 
   if (!horizontalSwipe) {
     if (Math.abs(deltaX) < 8 || Math.abs(deltaX) <= Math.abs(deltaY)) {
@@ -74,8 +95,20 @@ function snapOpen(open: boolean) {
 
 function onTouchEnd() {
   dragging.value = false
+  const canTap = isTapGesture()
   horizontalSwipe = false
   snapOpen(offsetX.value < -ACTION_WIDTH / 2)
+  if (canTap) {
+    emitTapIfNeeded()
+  }
+}
+
+function onContentTap() {
+  if (tapEmittedFromTouch) {
+    tapEmittedFromTouch = false
+    return
+  }
+  emitTapIfNeeded()
 }
 
 function onActionTap() {
@@ -102,6 +135,7 @@ defineExpose({ close })
       @touchmove.stop="onTouchMove"
       @touchend.stop="onTouchEnd"
       @touchcancel.stop="onTouchEnd"
+      @tap.stop="onContentTap"
     >
       <slot />
     </view>

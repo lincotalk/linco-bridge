@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getCustomNavBarPaddingStyle } from '@/utils/page-safe-area'
+
 defineProps<{
   title?: string
   showBack?: boolean
@@ -8,7 +10,7 @@ const emit = defineEmits<{
   back: []
 }>()
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight ?? 20
+const navBarSafeStyle = getCustomNavBarPaddingStyle()
 
 function handleBack() {
   emit('back')
@@ -17,7 +19,7 @@ function handleBack() {
 </script>
 
 <template>
-  <view class="nav-bar" :style="{ paddingTop: `${statusBarHeight}px` }">
+  <view class="nav-bar" :style="navBarSafeStyle">
     <view class="nav-bar__inner">
       <view v-if="showBack" class="nav-bar__back" @tap="handleBack">
         <text class="nav-bar__back-icon">‹</text>

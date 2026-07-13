@@ -7,6 +7,7 @@ import {
   resolveSessionAgentType,
 } from '@/bridge/sdk/agent-chat'
 import { buildLandingSubtitle } from '@/utils/chat-header'
+import { createQueryParams } from '@/utils/query-string'
 
 describe('createMockAgentChatSdk', () => {
   it('returns empty history without fake project rows', async () => {
@@ -75,7 +76,7 @@ describe('agent type helpers', () => {
   })
 
   it('appends agentType query param', () => {
-    const params = appendAgentTypeQuery(new URLSearchParams(), 'codex')
-    expect(params.get('agentType')).toBe('codex')
+    const params = appendAgentTypeQuery(createQueryParams(), 'codex')
+    expect(params.agentType).toBe('codex')
   })
 })

@@ -7,8 +7,7 @@ import { ref } from 'vue'
 
 
 import ConnectedAgentSwipeListItem from '@/components/ConnectedAgentSwipeListItem.vue'
-
-import DemoDataNotice from '@/components/DemoDataNotice.vue'
+import BridgeSourceCard from '@/components/BridgeSourceCard.vue'
 
 import { fetchConnectedAccounts } from '@/api/accounts-api'
 
@@ -17,21 +16,19 @@ import { switchRootTab } from '@/constants/tabbar'
 import { useBridgeStore, useSessionStore } from '@/stores'
 
 import type { ConnectedAgentItem } from '@/utils/connected-accounts'
+import { connectedAgentToBridgeCard } from '@/utils/connected-accounts'
 
 import { showToast } from '@/utils/format'
 
 import { openConnectedAgent } from '@/utils/open-connected-agent'
 
 import { getCustomNavPagePaddingStyle } from '@/utils/page-safe-area'
-
-
+import { isH5Runtime } from '@/utils/platform-runtime'
 
 const pageSafeStyle = getCustomNavPagePaddingStyle()
-
-
+const useSimpleListOnH5 = isH5Runtime()
 
 const bridgeStore = useBridgeStore()
-
 const sessionStore = useSessionStore()
 
 
@@ -123,25 +120,14 @@ async function handleRefresh() {
 
 
 function handleItemTap(item: ConnectedAgentItem) {
-
   if (openedSwipeId.value === item.connectionId) {
-
     openedSwipeId.value = null
-
     return
-
   }
-
   if (openedSwipeId.value) {
-
     openedSwipeId.value = null
-
-    return
-
   }
-
   openConnectedAgent(item)
-
 }
 
 
@@ -272,10 +258,6 @@ function goBridge() {
 
   <view class="page-container agents-page" :style="pageSafeStyle">
 
-    <DemoDataNotice />
-
-
-
     <scroll-view
 
       class="agents-page__scroll"
@@ -311,27 +293,28 @@ function goBridge() {
 
 
       <view v-else class="agents-page__list">
-
-        <ConnectedAgentSwipeListItem
-
-          v-for="item in items"
-
-          :key="item.connectionId"
-
-          :item="item"
-
-          :open="openedSwipeId === item.connectionId"
-
-          @open="handleSwipeOpen(item.connectionId)"
-
-          @close="handleSwipeClose(item.connectionId)"
-
-          @tap="handleItemTap(item)"
-
-          @delete="confirmDeleteAgent"
-
-        />
-
+        <template v-if="useSimpleListOnH5">
+          <BridgeSourceCard
+            v-for="item in items"
+            :key="item.connectionId"
+            embedded
+            class="agents-page__card"
+            :item="connectedAgentToBridgeCard(item)"
+            @select="handleItemTap(item)"
+          />
+        </template>
+        <template v-else>
+          <ConnectedAgentSwipeListItem
+            v-for="item in items"
+            :key="item.connectionId"
+            :item="item"
+            :open="openedSwipeId === item.connectionId"
+            @open="handleSwipeOpen(item.connectionId)"
+            @close="handleSwipeClose(item.connectionId)"
+            @tap="handleItemTap(item)"
+            @delete="confirmDeleteAgent"
+          />
+        </template>
       </view>
 
     </scroll-view>
@@ -371,6 +354,10 @@ function goBridge() {
 .agents-page__list {
   padding: 16rpx 30rpx 24rpx;
   background: #ffffff;
+}
+
+.agents-page__card {
+  margin-bottom: 24rpx;
 }
 
 

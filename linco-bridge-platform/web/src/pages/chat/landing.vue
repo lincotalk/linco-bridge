@@ -3,6 +3,7 @@ import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import AgentHistoryRow from '@/components/AgentHistoryRow.vue'
 import AgentLandingAppBar from '@/components/AgentLandingAppBar.vue'
+import AppOverlayHost from '@/components/AppOverlayHost.vue'
 import AgentLandingInput from '@/components/AgentLandingInput.vue'
 import { useAgentLanding } from '@/composables/useAgentLanding'
 import { useAttachmentPicker } from '@/composables/useAttachmentPicker'
@@ -16,6 +17,7 @@ import { showToast } from '@/utils/format'
 import { showAgentSidePanel } from '@/utils/agent-side-panel'
 import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
+import { appendQueryToPath, createQueryParams } from '@/utils/query-string'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
 import { supportsBridgeSettingsSelector, supportsBridgeSlashCommands, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
@@ -165,10 +167,10 @@ async function handleSend() {
     draft.value = ''
     clearFiles()
     await sessionStore.loadSessions().catch(() => undefined)
-    const params = new URLSearchParams({ sessionId: result.sessionId })
-    appendAgentTypeQuery(params, agentType.value)
+    let params = createQueryParams({ sessionId: result.sessionId })
+    params = appendAgentTypeQuery(params, agentType.value)
     uni.navigateTo({
-      url: `/pages/chat/index?${params.toString()}`,
+      url: appendQueryToPath('/pages/chat/index', params),
     })
   } catch (error) {
     showToast(error instanceof Error ? error.message : '发起会话失败')
@@ -203,13 +205,15 @@ async function handleSend() {
         </view>
 
         <view v-else class="landing-page__history">
-          <AgentHistoryRow
+          <!-- 间距放在外层 view：小程序自定义组件不吃父级 class 的 margin -->
+          <view
             v-for="(item, index) in visibleItems"
             :key="item.id"
-            :item="item"
-            :class="{ 'landing-page__history-gap': index < visibleItems.length - 1 }"
-            @tap="openHistoryItem(item)"
-          />
+            class="landing-page__history-item"
+            :class="{ 'landing-page__history-item--gap': index < visibleItems.length - 1 }"
+          >
+            <AgentHistoryRow :item="item" @tap="openHistoryItem(item)" />
+          </view>
           <view v-if="hasMore" class="landing-page__view-all" @tap="viewAllHistory">
             <text class="landing-page__view-all-text">查看历史对话</text>
           </view>
@@ -231,6 +235,9 @@ async function handleSend() {
       @remove-file="removeFile"
       @pick-settings="handlePickSettings"
     />
+    <!-- #ifndef H5 -->
+    <AppOverlayHost />
+    <!-- #endif -->
   </view>
 </template>
 
@@ -268,7 +275,11 @@ async function handleSend() {
   box-sizing: border-box;
 }
 
-.landing-page__history-gap {
+.landing-page__history-item {
+  width: 100%;
+}
+
+.landing-page__history-item--gap {
   margin-bottom: 48rpx;
 }
 

@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { buildAgentHistoryUrl, buildAgentLandingUrl } from '@/utils/open-agent-landing'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  buildAgentHistoryUrl,
+  buildAgentLandingUrl,
+  openSessionLanding,
+} from '@/utils/open-agent-landing'
+import type { ChatSessionItem } from '@/bridge/types'
 
 describe('open-agent-landing', () => {
   it('builds landing url with agent type only', () => {
@@ -24,5 +29,28 @@ describe('open-agent-landing', () => {
         connectionId: 'conn-abc',
       }),
     ).toBe('/pages/chat/history?agentType=codex&connectionId=conn-abc')
+  })
+
+  it('opens landing page from session list item', () => {
+    const navigateTo = vi.fn()
+    vi.stubGlobal('uni', { navigateTo })
+
+    const item: ChatSessionItem = {
+      id: 'session-1',
+      agentType: 'codex',
+      connectionId: 'conn-abc',
+      title: 'Codex-aa',
+      lastMessage: 'hello',
+      updatedAt: 1,
+      online: true,
+    }
+
+    openSessionLanding(item)
+
+    expect(navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/pages/chat/landing?agentType=codex&connectionId=conn-abc',
+      }),
+    )
   })
 })

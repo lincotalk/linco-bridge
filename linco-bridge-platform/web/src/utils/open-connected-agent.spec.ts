@@ -94,11 +94,11 @@ describe('openConnectedAgent', () => {
 
 
 
-    expect(navigateTo).toHaveBeenCalledWith({
-
-      url: '/pages/chat/landing?agentType=codex&connectionId=conn-1',
-
-    })
+    expect(navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/pages/chat/landing?agentType=codex&connectionId=conn-1',
+      }),
+    )
 
   })
 
@@ -130,11 +130,11 @@ describe('openConnectedAgent', () => {
 
 
 
-    expect(navigateTo).toHaveBeenCalledWith({
-
-      url: '/pages/chat/landing?agentType=codex&connectionId=conn-from-session',
-
-    })
+    expect(navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/pages/chat/landing?agentType=codex&connectionId=conn-from-session',
+      }),
+    )
 
   })
 

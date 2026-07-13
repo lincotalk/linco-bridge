@@ -1,22 +1,7 @@
 import { createSSRApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
-import AppOverlayHost from './components/AppOverlayHost.vue'
-
-let overlayMounted = false
-
-function mountAppOverlayHost(pinia: ReturnType<typeof createPinia>) {
-  if (overlayMounted || typeof document === 'undefined') return
-  overlayMounted = true
-
-  const mountEl = document.createElement('div')
-  mountEl.id = 'app-overlay-root'
-  document.body.appendChild(mountEl)
-
-  const hostApp = createSSRApp(AppOverlayHost)
-  hostApp.use(pinia)
-  hostApp.mount(mountEl)
-}
+import { mountAppOverlayHostForH5 } from '@/utils/mount-app-overlay'
 
 export function createApp() {
   const app = createSSRApp(App)
@@ -24,7 +9,7 @@ export function createApp() {
   app.use(pinia)
 
   if (typeof document !== 'undefined') {
-    queueMicrotask(() => mountAppOverlayHost(pinia))
+    queueMicrotask(() => mountAppOverlayHostForH5(pinia))
   }
 
   return { app }

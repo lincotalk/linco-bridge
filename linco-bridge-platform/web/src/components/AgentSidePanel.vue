@@ -81,13 +81,14 @@ function handleOpenBotConfig() {
         </view>
 
         <view v-else class="agent-side-panel__history">
-          <AgentHistoryRow
+          <view
             v-for="(item, index) in visibleHistory"
             :key="item.id"
-            :item="item"
-            :class="{ 'agent-side-panel__history-gap': index < visibleHistory.length - 1 }"
-            @tap="handleOpenHistory(item)"
-          />
+            class="agent-side-panel__history-item"
+            :class="{ 'agent-side-panel__history-item--gap': index < visibleHistory.length - 1 }"
+          >
+            <AgentHistoryRow :item="item" @tap="handleOpenHistory(item)" />
+          </view>
           <view
             v-if="hasMoreHistory"
             class="agent-side-panel__view-all"
@@ -252,7 +253,11 @@ function handleOpenBotConfig() {
   margin-bottom: 32rpx;
 }
 
-.agent-side-panel__history-gap {
+.agent-side-panel__history-item {
+  width: 100%;
+}
+
+.agent-side-panel__history-item--gap {
   margin-bottom: 36rpx;
 }
 

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import type { AgentHistoryItem } from '@/bridge/types'
-import { formatConversationTime, formatSessionPreview } from '@/utils/format'
+import { formatConversationTime } from '@/utils/format'
 import { resolveAgentHistoryPreviewText } from '@/utils/agent-history-preview'
+
+defineOptions({
+  // 小程序：去掉自定义组件额外宿主节点，避免高度塌陷/样式落不到根上
+  virtualHost: true,
+})
 
 const props = defineProps<{
   item: AgentHistoryItem
@@ -30,13 +35,19 @@ function previewText(): string {
 
 <style scoped lang="scss">
 .history-row {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .history-row__head {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  width: 100%;
   min-width: 0;
+  min-height: 36rpx;
 }
 
 .history-row__dot {
@@ -52,7 +63,7 @@ function previewText(): string {
   flex-shrink: 0;
   margin-right: 8rpx;
   font-size: 22rpx;
-  line-height: 1;
+  line-height: 22rpx;
   opacity: 0.55;
 }
 
@@ -61,7 +72,7 @@ function previewText(): string {
   min-width: 0;
   font-size: 30rpx;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 36rpx;
   color: #1a1a1a;
 }
 
@@ -69,14 +80,15 @@ function previewText(): string {
   flex-shrink: 0;
   margin-left: 20rpx;
   font-size: 21rpx;
-  line-height: 1.35;
+  line-height: 28rpx;
   color: rgba(0, 0, 0, 0.3);
 }
 
 .history-row__preview-line {
-  margin-top: 8rpx;
+  margin-top: 12rpx;
   width: 100%;
   min-width: 0;
+  min-height: 32rpx;
   overflow: hidden;
 }
 
@@ -87,7 +99,7 @@ function previewText(): string {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 26rpx;
-  line-height: 1.2;
+  line-height: 32rpx;
   color: rgba(0, 0, 0, 0.45);
 }
 

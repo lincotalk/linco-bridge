@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common'
+import { Injectable, BadRequestException, ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import {
   DatabaseService,
   type BridgeConnectionRow,
@@ -233,7 +233,7 @@ export class ChatService {
 
     if (shouldPersistSessionMessages(session)) {
       if (forceReload) {
-        this.database.clearSessionMessages(sessionId)
+        await this.replaceMessagesFromBridgeHistory(session, effectiveLimit)
       } else {
         const stored = this.database
           .listMessages(sessionId, effectiveLimit)
@@ -500,8 +500,6 @@ export class ChatService {
       apiBaseUrl: resolvePublicHttpOrigin(),
       wsBaseUrl: this.bridgeService.getWsUrl(),
       connectChannel: 'linco-demo',
-      dataRetentionNotice:
-        'Demo 数据绑定当前浏览器会话 Cookie，刷新页面仍会保留；清除 Cookie/缓存、换设备或使用无痕模式可能丢失。',
     }
   }
 
@@ -749,15 +747,20 @@ export class ChatService {
     }
 
     if (trimmed.toLowerCase() === 'accounts') {
-      const pluginPayload = await this.bridgeService.fetchAccountsFromConnector()
-      const payload = this.bridgeService.enrichAccountsPayload(pluginPayload)
-      const accountIds = payload.accountIds
+      let payload: ReturnType<BridgeService['enrichAccountsPayload']>
+      try {
+        const pluginPayload = await this.bridgeService.fetchAccountsFromConnector()
+        payload = this.bridgeService.enrichAccountsPayload(pluginPayload)
+      } catch (error) {
+        if (!(error instanceof ConflictException)) {
+          throw error
+        }
+        payload = this.bridgeService.listAccountsFromDatabase()
+      }
+      const itemCount = payload.items.length
       return {
         command: 'accounts',
-        text:
-          accountIds.length > 0
-            ? `${accountIds.length} 个已连接助手`
-            : '暂无已连接助手',
+        text: itemCount > 0 ? `${itemCount} 个已连接助手` : '暂无已连接助手',
         payload: { ...payload },
       }
     }
@@ -928,6 +931,27 @@ export class ChatService {
       BRIDGE_HISTORY_TIMEOUT_MS,
     )
     return await completed
+  }
+
+  private async replaceMessagesFromBridgeHistory(
+    session: ChatSessionRow,
+    limit: number,
+  ): Promise<void> {
+    const connection = session.bridge_connection_id
+      ? this.database.getConnectionById(session.bridge_connection_id)
+      : undefined
+    if (!connection) return
+
+    try {
+      const payload = await this.fetchBridgeHistoryPayload(session, connection, limit, {
+        useHistoryReload: true,
+      })
+      if (!payload) return
+      this.database.clearSessionMessages(session.id)
+      importBridgeHistoryRounds(this.database, session.id, payload)
+    } catch {
+      // Keep existing SQLite messages when bridge sync fails.
+    }
   }
 
   private async maybeImportBridgeHistory(session: ChatSessionRow, limit: number): Promise<void> {

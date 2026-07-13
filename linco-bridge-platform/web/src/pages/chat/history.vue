@@ -7,6 +7,9 @@ import { createAppAgentChatSdk } from '@/api/agent-chat-api'
 import type { AgentBridgeType, AgentHistoryItem } from '@/bridge/types'
 import { openHistorySession } from '@/utils/open-agent-landing'
 import { showToast } from '@/utils/format'
+import { getCustomNavPagePaddingStyle } from '@/utils/page-safe-area'
+
+const pageSafeStyle = getCustomNavPagePaddingStyle()
 
 const SEARCH_HISTORY_KEY_PREFIX = 'bridge-agent-history-search:'
 const MAX_SEARCH_HISTORY = 10
@@ -247,7 +250,11 @@ async function deleteSelected() {
 </script>
 
 <template>
-  <view class="page-container history-page" :class="{ 'history-page--batch': isBatchMode && !isSearchMode }">
+  <view
+    class="page-container history-page"
+    :class="{ 'history-page--batch': isBatchMode && !isSearchMode }"
+    :style="pageSafeStyle"
+  >
     <AgentHistorySearchTopBar
       :is-search-mode="isSearchMode"
       :is-batch-mode="isBatchMode"

@@ -2,6 +2,7 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import BridgeConnectPanel from '@/components/BridgeConnectPanel.vue'
+import AppOverlayHost from '@/components/AppOverlayHost.vue'
 import { parseAgentBridgeType } from '@/bridge/commands'
 import type { AgentBridgeType } from '@/bridge/types'
 import { useBridgeConnection } from '@/composables/useBridgeConnection'
@@ -83,5 +84,8 @@ function handleRefresh() {
       @bind="handleBind"
       @select-context="(id) => (selectedContextId = id)"
     />
+    <!-- #ifndef H5 -->
+    <AppOverlayHost />
+    <!-- #endif -->
   </view>
 </template>

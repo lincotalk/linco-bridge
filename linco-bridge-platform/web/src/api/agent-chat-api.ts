@@ -9,6 +9,7 @@ import type {
 } from '@/bridge/types'
 import { assertMockSdkAllowed, isRemoteApiEnabled } from '@/utils/mock-sdk-guard'
 import { pickBridgeWorkspace } from '@/utils/pick-workspace'
+import { appendQueryToPath, createQueryParams, setQueryParam } from '@/utils/query-string'
 import { apiGet, apiPost } from './http-client'
 
 const forceMockAgentChat = import.meta.env.VITE_AGENT_CHAT_SDK === 'mock'
@@ -38,14 +39,13 @@ export function createRestAgentChatSdk(): AgentChatSdk {
       agentType: AgentBridgeType,
       options?: { limit?: number; offset?: number },
     ): Promise<AgentHistoryItem[]> {
-      const params = new URLSearchParams()
-      if (options?.limit != null) params.set('limit', String(options.limit))
-      if (options?.offset != null) params.set('offset', String(options.offset))
+      let params = createQueryParams()
+      if (options?.limit != null) params = setQueryParam(params, 'limit', options.limit)
+      if (options?.offset != null) params = setQueryParam(params, 'offset', options.offset)
       if (options?.connectionId?.trim()) {
-        params.set('connectionId', options.connectionId.trim())
+        params = setQueryParam(params, 'connectionId', options.connectionId.trim())
       }
-      const query = params.toString()
-      const path = `/api/agent-chat/${agentType}/history${query ? `?${query}` : ''}`
+      const path = appendQueryToPath(`/api/agent-chat/${agentType}/history`, params)
       const res = await apiGet<AgentHistoryItem[]>(path)
       if (!res.success || !res.data) {
         throw new Error(res.message || '加载历史会话失败')
