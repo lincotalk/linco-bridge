@@ -175,11 +175,22 @@ function collectCodexProjectSessionsFromState(codexDir, workspace, options = {})
     const limit = Math.max(1, Math.min(options.limit || DEFAULT_LOCAL_SESSIONS_LIMIT, MAX_LOCAL_SESSIONS_LIMIT));
     const cwdCandidates = sqliteCwdCandidates(workspace);
     const queryLimit = limit * Math.max(1, cwdCandidates.length);
+    const columns = sqliteTableColumns(db, 'threads');
+    const visibilityPredicates = [];
+    if (columns.has('thread_source')) {
+      visibilityPredicates.push("COALESCE(thread_source, '') <> 'subagent'");
+    }
+    if (columns.has('source')) {
+      visibilityPredicates.push("COALESCE(source, '') NOT LIKE '%\"subagent\"%'");
+    }
+    const visibilitySql = visibilityPredicates.length > 0
+      ? ` AND ${visibilityPredicates.join(' AND ')}`
+      : '';
     const rows = db.prepare(`
       SELECT id, rollout_path, cwd, title, first_user_message, preview,
              recency_at_ms, updated_at_ms, updated_at
       FROM threads
-      WHERE archived = 0 AND cwd IN (${cwdCandidates.map(() => '?').join(', ')})
+      WHERE archived = 0 AND cwd IN (${cwdCandidates.map(() => '?').join(', ')})${visibilitySql}
       ORDER BY recency_at_ms DESC, updated_at_ms DESC, updated_at DESC, id DESC
       LIMIT ?
     `).all(...cwdCandidates, queryLimit);
@@ -250,6 +261,12 @@ function hasSqliteTable(db, tableName) {
   } catch {
     return false;
   }
+}
+
+function sqliteTableColumns(db, tableName) {
+  return new Set(db.prepare(`PRAGMA table_info(${tableName})`).all()
+    .map(row => stringOrEmpty(row.name))
+    .filter(Boolean));
 }
 
 function sqliteCwdCandidates(workspace) {
