@@ -24,7 +24,7 @@ const emit = defineEmits<{
     </view>
     <view class="source-card__content">
       <text class="source-card__title">{{ item.title }}</text>
-      <text class="source-card__subtitle">{{ item.subtitle }}</text>
+      <text v-if="!embedded && item.subtitle" class="source-card__subtitle">{{ item.subtitle }}</text>
     </view>
     <text class="source-card__chevron">›</text>
   </view>

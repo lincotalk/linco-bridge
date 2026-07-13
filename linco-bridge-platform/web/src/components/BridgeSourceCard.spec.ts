@@ -34,4 +34,13 @@ describe('BridgeSourceCard', () => {
     await wrapper.trigger('tap')
     expect(wrapper.emitted('select')?.[0]).toEqual([mockItem])
   })
+
+  it('hides subtitle in embedded mode for assistant list', () => {
+    const wrapper = mount(BridgeSourceCard, {
+      props: { item: mockItem, embedded: true },
+    })
+
+    expect(wrapper.text()).toContain('从 Codex 导入')
+    expect(wrapper.text()).not.toContain('将手机与 Codex 连接')
+  })
 })
