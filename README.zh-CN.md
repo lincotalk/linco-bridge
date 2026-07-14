@@ -159,32 +159,24 @@ npm run dev:h5
 7. 点击 `进入 Codex` 进入聊天页；
 8. 如需选择项目、进入已有会话或新建会话，可点击右上角文件夹图标。
 
-手动执行时，命令形态通常如下：
-
-```bash
-npm install -g linco-connect
-
-linco-connect init \
-  --token "demo-codex-app:demo-codex-secret" \
-  --agent codex \
-  --channel linco-demo \
-  --account codex_1 \
-  --allow-insecure-ws
-
-linco-connect start --daemon
-```
-
 完整流程见 [快速开始](docs/zh-CN/quick-start.md)、[平台 README](linco-bridge-platform/README.zh-CN.md)、[平台 Server README](linco-bridge-platform/server/README.zh-CN.md) 和 [Web / H5 README](linco-bridge-platform/web/README.zh-CN.md)。
 
 ### 方式三：使用官方在线 Demo
 
 这是开源参考平台路径下的托管体验入口，适合想快速试用桥接流程、但不想本地启动 `server + web` 的用户。
 
-如果希望通过官方托管 Demo 快速体验 Linco Bridge，通常只需：
+如果希望通过官方托管体验快速试用 Linco Bridge：
 
-1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) 或小程序；
-2. **桥接** → 复制 `setupCommands` → 本机执行
-3. 本机安装并运行 `linco-connect` + 对应 Agent CLI
+1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)；如果使用小程序，可直接搜索入口或扫码进入。当前小程序版本默认使用**扫码登录**；
+2. 进入页面后打开 **桥接**；
+3. 点击 **从 Codex 导入**；
+4. 复制页面生成的 `setupCommands`；
+5. 在本机终端执行这些命令；
+6. 回到页面点击 **我已复制，获取连接状态**；
+7. 等待页面确认连接成功；
+8. 点击 **进入 Codex** 进入聊天页；
+9. 如需选择项目、进入已有会话或新建会话，点击右上角文件夹图标；
+10. 发送一条测试消息，确认整条桥接链路已打通。
 
 在线 Demo 主要用于轻量公开体验，不提供正式账号体系。Demo 状态通常通过匿名访客 ID 与浏览器本地缓存做隔离；如果清理浏览器缓存、更换设备或使用无痕模式，本地 Demo 历史记录和状态可能丢失。
 

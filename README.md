@@ -159,32 +159,24 @@ Open the local H5 URL printed by `npm run dev:h5`, then complete the bridge flow
 7. click `Enter Codex` to enter the chat page;
 8. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new session with `+`.
 
-A typical command set looks like this:
-
-```bash
-npm install -g linco-connect
-
-linco-connect init \
-  --token "demo-codex-app:demo-codex-secret" \
-  --agent codex \
-  --channel linco-demo \
-  --account codex_1 \
-  --allow-insecure-ws
-
-linco-connect start --daemon
-```
-
 For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), the [platform server README](linco-bridge-platform/server/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
 
 ### Option 3: Official Hosted Demo
 
 This is the hosted entry of the open reference-platform path. It is suitable for users who want to try the bridge flow quickly without deploying `server + web` locally.
 
-If you want to try Linco Bridge through the official hosted demo experience, you usually only need to:
+If you want to try Linco Bridge through the official hosted experience:
 
-1. open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) or the mini program;
-2. go to **Bridge**, copy the generated `setupCommands`, and run them locally;
-3. install and run `linco-connect` together with the target Agent CLI on their own PC.
+1. open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com); for the mini program, use the published search entry or QR code. The current mini-program flow uses **QR-code sign-in**;
+2. open **Bridge** after entering the page;
+3. click **Import from Codex**;
+4. copy the generated `setupCommands`;
+5. run those commands in a local terminal on your own computer;
+6. return to the page and click **I have copied it, get connection status**;
+7. wait until the page confirms the connector is online;
+8. click **Enter Codex** to enter the chat page;
+9. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new one;
+10. send a test message to confirm the full bridge flow is working.
 
 The hosted demo is intended for lightweight public evaluation and does not require a formal account system. Demo state is typically isolated through an anonymous visitor ID together with browser-local cache. If browser cache is cleared, the device is changed, or an incognito window is used, local demo history and state may be lost.
 

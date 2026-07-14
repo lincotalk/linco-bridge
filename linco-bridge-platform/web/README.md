@@ -51,7 +51,7 @@ cd linco-bridge-platform/web
 node scripts/generate-icons.mjs
 ```
 
-### 4. Validate the Codex flow
+### 4. Validate the local H5 Codex flow
 
 1. Open **Bridge**.
 2. Click **Import from Codex**.
@@ -63,15 +63,25 @@ node scripts/generate-icons.mjs
 8. Use the folder icon in the top-right corner to choose a project, open an existing session, or create a new session with `+`.
 9. Send a test message to verify the full chain.
 
-Example setup commands:
+> Always use the page-generated `setupCommands` as the source of truth. In local development, the commands usually include `--channel linco-demo` and may also include `--allow-insecure-ws`.
 
-```bash
-npm install -g linco-connect
-linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
-linco-connect start --daemon
-```
+### 5. Official H5 / WeChat Mini Program flow
 
-### 5. Mini Program
+If you are using a published H5 or WeChat Mini Program entry instead of local development:
+
+1. Open the public H5 page directly, or enter the WeChat Mini Program through the published search entry or QR code.
+2. The current mini-program flow uses **QR-code sign-in**.
+3. Open **Bridge** after entering the page.
+4. Click **Import from Codex**.
+5. Copy the generated `setupCommands`.
+6. Run those commands in a local terminal on your own computer.
+7. Return to the page and click `I have copied it, get connection status`.
+8. Wait until the page confirms the connector is online.
+9. Click `Enter Codex` to enter the chat page.
+10. Use the folder icon in the top-right corner to choose a project, open an existing session, or create a new one.
+11. Send a test message to confirm the full bridge flow is working.
+
+### 6. Mini Program development
 
 ```bash
 npm run dev:mp-weixin

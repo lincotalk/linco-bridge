@@ -51,7 +51,7 @@ cd linco-bridge-platform/web
 node scripts/generate-icons.mjs
 ```
 
-### 4. 验证 Codex 链路
+### 4. 验证本地 H5 的 Codex 链路
 
 1. 打开 **桥接**
 2. 点击 **从 Codex 导入**
@@ -63,15 +63,25 @@ node scripts/generate-icons.mjs
 8. 如需选择项目、进入已有会话或新建会话，点击右上角文件夹图标
 9. 发送测试消息，确认整条链路打通
 
-页面给出的命令通常类似：
+> 以页面生成的 `setupCommands` 为准。本地开发场景通常会自动带上 `--channel linco-demo`，并可能包含 `--allow-insecure-ws`。
 
-```bash
-npm install -g linco-connect
-linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
-linco-connect start --daemon
-```
+### 5. 官方 H5 / 微信小程序体验流程
 
-### 5. 微信小程序
+如果你使用的是已经发布的 H5 或微信小程序入口，而不是本地开发环境：
+
+1. 直接打开公开 H5 页面；或通过搜索 / 扫码进入微信小程序
+2. 当前小程序版本默认使用**扫码登录**
+3. 进入后打开 **桥接**
+4. 点击 **从 Codex 导入**
+5. 复制页面生成的 `setupCommands`
+6. 在本机终端执行这些命令
+7. 回到页面点击 `我已复制，获取连接状态`
+8. 等待页面确认连接成功
+9. 点击 `进入 Codex` 进入聊天页
+10. 如需选择项目、进入已有会话或新建会话，点击右上角文件夹图标
+11. 发送测试消息，确认整条桥接链路已打通
+
+### 6. 微信小程序开发
 
 ```bash
 npm run dev:mp-weixin
