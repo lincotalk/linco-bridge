@@ -19,19 +19,13 @@ Thank you for helping improve Linco Bridge. / 感谢你帮助改进 Linco Bridge
 
 ## Pull request expectations / Pull Request 期望
 
-- Keep each PR focused on one theme such as docs, connector behavior, platform behavior, or protocol changes.
-- Explain the user-visible impact, not only the implementation detail.
-- Update related documentation when changing onboarding, protocol, commands, settings, or support scope.
-- If English and Chinese docs describe the same feature area, keep them aligned in the same PR when possible.
-- Include screenshots, terminal logs, API examples, or short videos when the change affects product presentation or integration flow.
-
-## Pull requests
-
-- Discuss protocol changes, cross-module work, and large features before implementation.
-- Keep each PR focused and explain user-visible behavior.
-- Add or update tests, documentation, compatibility notes, and screenshots or logs where relevant.
-- Never include secrets, user data, internal documents, or unlicensed assets.
-- Breaking changes require an explicit migration plan.
+- Discuss protocol changes, cross-module work, breaking changes, and large features before implementation. / 协议变更、跨模块改动、破坏性变更和大型功能请先讨论再实现。
+- Keep each PR focused on one theme such as documentation, connector behavior, platform behavior, or protocol changes. / 每个 PR 尽量聚焦一个主题，例如文档、连接器行为、平台行为或协议调整。
+- Explain the user-visible impact, not only the implementation detail. / 说明用户可感知的变化，而不只是实现细节。
+- Add or update tests, documentation, compatibility notes, screenshots, terminal logs, API examples, or short videos when relevant. / 根据改动范围补充测试、文档、兼容性说明、截图、终端日志、API 示例或短视频。
+- Keep English and Chinese documentation aligned when they describe the same feature area. / 同一功能区域的英文和中文文档应保持同步。
+- Never include secrets, user data, internal documents, private links, or unlicensed assets. / 不要提交密钥、用户数据、内部文档、私有链接或未授权素材。
+- Breaking changes require an explicit migration plan. / 破坏性变更需要提供明确的迁移方案。
 
 ## Documentation contributions / 文档贡献说明
 

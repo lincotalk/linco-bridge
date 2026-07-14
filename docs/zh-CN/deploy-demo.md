@@ -124,7 +124,7 @@ server {
 
 ## 3. 构建并发布 H5
 
-生产环境变量在 [`linco-bridge-platform/web/prod.env`](../linco-bridge-platform/web/prod.env)，`npm run build:h5` 会自动加载，无需命令行传 `VITE_*`。
+生产环境变量在 [`linco-bridge-platform/web/prod.env`](../../linco-bridge-platform/web/prod.env)，`npm run build:h5` 会自动加载，无需命令行传 `VITE_*`。
 
 ```bash
 cd linco-bridge-platform/web
