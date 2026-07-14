@@ -1,3 +1,9 @@
+import {
+  formatJsonCode,
+  isHtmlFence,
+  normalizeFenceLanguage,
+  resolveCodeLanguage,
+} from '@/utils/fence-language'
 import { isOpenableFileLinkTarget } from '@/utils/attachment-open'
 import { hasMarkdownStructure, normalizeCodeFences } from '@/utils/markdown-render'
 
@@ -13,6 +19,12 @@ export type MessageCodeSegment = {
   incomplete?: boolean
 }
 
+export type MessageHtmlSegment = {
+  type: 'html'
+  content: string
+  incomplete?: boolean
+}
+
 export type MessageLinkSegment = {
   type: 'link'
   label: string
@@ -20,78 +32,102 @@ export type MessageLinkSegment = {
   localFile: boolean
 }
 
-export type MessageSegment = MessageTextSegment | MessageCodeSegment | MessageLinkSegment
+export type MessageSegment =
+  | MessageTextSegment
+  | MessageCodeSegment
+  | MessageHtmlSegment
+  | MessageLinkSegment
 
 export type ParseMessageOptions = {
   streaming?: boolean
 }
 
-const FENCED_CODE_PATTERN = /```([^\n`]*)\n?([\s\S]*?)```/g
 const MARKDOWN_LINK_PATTERN = /\[([^\]]+)\]\(([^)]+)\)/g
 
 export function parseMessageSegments(content: string, options?: ParseMessageOptions): MessageSegment[] {
   const normalized = normalizeCodeFences(content)
   if (!normalized.trim()) return []
-
-  if (options?.streaming) {
-    return parseStreamingMessageSegments(normalized)
-  }
-
-  return parseCompleteMessageSegments(normalized)
+  return parseFenceAwareSegments(normalized, options?.streaming === true)
 }
 
 export function hasRichMessageContent(content: string, streaming = false): boolean {
   return (
     hasMarkdownStructure(content) ||
     parseMessageSegments(content, { streaming }).some(
-      (segment) => segment.type === 'code' || segment.type === 'link',
+      (segment) => segment.type === 'code' || segment.type === 'html' || segment.type === 'link',
     )
   )
 }
 
-function parseStreamingMessageSegments(content: string): MessageSegment[] {
-  const lastFenceIndex = content.lastIndexOf('```')
-  if (lastFenceIndex === -1) {
-    return parseCompleteMessageSegments(content)
-  }
-
-  const fencesBeforeLast = content.slice(0, lastFenceIndex).match(/```/g) ?? []
-  if (fencesBeforeLast.length % 2 !== 0) {
-    return parseCompleteMessageSegments(content)
-  }
-
-  const completePart = content.slice(0, lastFenceIndex)
-  const tail = content.slice(lastFenceIndex)
-  const segments = parseCompleteMessageSegments(completePart)
-  appendTextSegments(segments, tail)
-  return segments.length > 0 ? segments : [{ type: 'text', content }]
-}
-
-function parseCompleteMessageSegments(content: string): MessageSegment[] {
+function parseFenceAwareSegments(content: string, streaming: boolean): MessageSegment[] {
+  const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   const segments: MessageSegment[] = []
-  let lastIndex = 0
-  let match: RegExpExecArray | null
+  const proseLines: string[] = []
+  const codeLines: string[] = []
+  let fenceLanguage = ''
+  let inFence = false
 
-  FENCED_CODE_PATTERN.lastIndex = 0
-  while ((match = FENCED_CODE_PATTERN.exec(content)) !== null) {
-    const index = match.index
-    if (index > lastIndex) {
-      appendTextSegments(segments, content.slice(lastIndex, index))
+  const flushProse = () => {
+    const text = proseLines.join('\n').trim()
+    proseLines.length = 0
+    if (!text) return
+    appendTextSegments(segments, text)
+  }
+
+  const flushFence = (incomplete: boolean) => {
+    const rawCode = codeLines.join('\n').replace(/\n$/, '')
+    codeLines.length = 0
+    const language = normalizeFenceLanguage(fenceLanguage)
+    fenceLanguage = ''
+    if (!rawCode && !language) return
+
+    if (isHtmlFence(language, rawCode)) {
+      segments.push({
+        type: 'html',
+        content: rawCode,
+        ...(incomplete ? { incomplete: true } : {}),
+      })
+      return
     }
+
+    const resolvedLanguage = resolveCodeLanguage(language, rawCode)
     segments.push({
       type: 'code',
-      language: (match[1] ?? '').trim(),
-      content: (match[2] ?? '').replace(/\n$/, ''),
+      language: resolvedLanguage,
+      content: formatJsonCode(rawCode, resolvedLanguage),
+      ...(incomplete ? { incomplete: true } : {}),
     })
-    lastIndex = FENCED_CODE_PATTERN.lastIndex
   }
 
-  if (lastIndex < content.length) {
-    appendTextSegments(segments, content.slice(lastIndex))
+  for (const line of lines) {
+    const trimmedLeft = line.trimStart()
+    if (trimmedLeft.startsWith('```')) {
+      if (inFence) {
+        flushFence(false)
+        inFence = false
+      } else {
+        flushProse()
+        fenceLanguage = trimmedLeft.slice(3).trim()
+        inFence = true
+      }
+      continue
+    }
+
+    if (inFence) {
+      codeLines.push(line)
+    } else {
+      proseLines.push(line)
+    }
   }
 
-  if (segments.length === 0) {
-    appendTextSegments(segments, content)
+  if (inFence) {
+    flushFence(streaming)
+  } else {
+    flushProse()
+  }
+
+  if (segments.length === 0 && content.trim()) {
+    appendTextSegments(segments, content.trim())
   }
 
   return segments

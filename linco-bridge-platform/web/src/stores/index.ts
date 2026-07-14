@@ -12,6 +12,7 @@ import {
 import type { BridgeSdk } from '@/bridge/sdk/types'
 import type { AgentBridgeSetup, AgentBridgeType, BridgeStatusResult } from '@/bridge/types'
 import type { AgentTrace, ChatMessage, ChatMessageAttachment, ChatSessionItem } from '@/bridge/types'
+import { sanitizeBridgeAssistantContent } from '@/utils/bridge-message-sanitize'
 
 const STREAMING_ASSISTANT_ID_PREFIX = 'stream-assistant-'
 
@@ -107,9 +108,20 @@ export const useSessionStore = defineStore('session', () => {
       [sessionId]: true,
     }
     try {
+      const session = getSession(sessionId)
+      const fetched = await fetchMessages(sessionId, options)
       messagesBySession.value = {
         ...messagesBySession.value,
-        [sessionId]: await fetchMessages(sessionId, options),
+        [sessionId]: fetched.map((message) =>
+          message.role === 'assistant'
+            ? {
+                ...message,
+                content: sanitizeBridgeAssistantContent(message.content, {
+                  agentType: session?.agentType,
+                }),
+              }
+            : message,
+        ),
       }
     } finally {
       loadingMessages.value = {

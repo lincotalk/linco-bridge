@@ -1,15 +1,10 @@
 <script setup lang="ts">
-
 import { computed, ref } from 'vue'
-
 import ChatCodeBlock from '@/components/ChatCodeBlock.vue'
-
+import ChatHtmlBlock from '@/components/ChatHtmlBlock.vue'
 import MessageMarkdown from '@/components/MessageMarkdown.vue'
-
 import { runSessionBridgeCommand } from '@/api/session-api'
-
 import { hasRichMessageContent, parseMessageSegments } from '@/utils/message-content'
-
 import {
   buildBridgeFileGetCandidates,
   isOpenableFileLinkTarget,
@@ -17,7 +12,6 @@ import {
   quoteGetPath,
   shouldRetryBridgeFileGet,
 } from '@/utils/attachment-open'
-
 import { showToast } from '@/utils/format'
 
 
@@ -151,15 +145,24 @@ async function handleLinkTap(target: string) {
 
     <template v-for="(segment, index) in segments" :key="`${segment.type}-${index}`">
 
+      <ChatHtmlBlock
+        v-if="segment.type === 'html'"
+        :html="segment.content"
+        :incomplete="segment.incomplete === true"
+        :streaming="streaming === true"
+      />
+
       <ChatCodeBlock
 
-        v-if="segment.type === 'code'"
+        v-else-if="segment.type === 'code'"
 
         :code="segment.content"
 
         :language="segment.language"
 
         :variant="variant"
+
+        :show-streaming-indicator="streaming === true && segment.incomplete === true"
 
       />
 

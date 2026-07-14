@@ -686,4 +686,92 @@ describe('BridgeRelayService', () => {
       },
     ])
   })
+
+  it('drops attachment outbound notice and keeps following stream body', async () => {
+    const relay = new BridgeRelayService()
+    const chunks: string[] = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: 'hello',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onChunk: ({ fullText }) => {
+          chunks.push(fullText)
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'outbound_message',
+      streamId: capturedStreamId,
+      text: '📎 已处理 1 个附件：demo.txt 将直接发送给当前 Agent 读取',
+    })
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: '## 结果',
+    })
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: '## 结果',
+    })
+
+    await expect(completed).resolves.toEqual({ text: '## 结果' })
+    expect(chunks).toEqual(['## 结果'])
+  })
+
+  it('filters codex host directives from stream chunks', async () => {
+    const relay = new BridgeRelayService()
+    const chunks: string[] = []
+    let capturedStreamId = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedStreamId = String(payload.streamId)
+        return true
+      },
+      {
+        sessionId: 'session-1',
+        text: 'hello',
+        bridgeType: 'codex',
+        accountId: 'codex_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+      {
+        onChunk: ({ fullText }) => {
+          chunks.push(fullText)
+        },
+      },
+    )
+
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: '提交完成。\n\n::git-pu',
+    })
+    relay.handleConnectorFrame({
+      type: 'stream_chunk',
+      streamId: capturedStreamId,
+      delta: 'sh{cwd="/workspace"}',
+    })
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: '提交完成。',
+    })
+
+    await expect(completed).resolves.toEqual({ text: '提交完成。' })
+    expect(chunks).toEqual(['提交完成。'])
+  })
 })

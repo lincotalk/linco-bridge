@@ -8,6 +8,11 @@ import { parseHistoryReloadPayload, type HistoryReloadPayload } from './history.
 import { isBridgeSessionStatusMessage } from './bridge-status-message.util'
 import { BRIDGE_CONNECT_CHANNEL } from './bridge.commands'
 import {
+  BridgeStreamContentSanitizer,
+  isBridgeAttachmentOutboundNotice,
+  sanitizeBridgeAssistantContent,
+} from '../chat/bridge-message-sanitize.util'
+import {
   appendStreamingContent,
   separateAfterOutbound,
 } from '../chat/stream-content.util'
@@ -79,6 +84,8 @@ interface PendingTurn {
   allowEmptyTurnEnd: boolean
   pendingOutboundBoundary: boolean
   outboundFile?: ConnectorFileInput
+  bridgeType: string
+  streamSanitizer: BridgeStreamContentSanitizer
 }
 
 interface PendingSlashCommand {
@@ -219,6 +226,16 @@ export class BridgeRelayService {
         }
       }
 
+      if (fullText.trim()) {
+        fullText = pending.streamSanitizer.addChunk(fullText)
+      } else if (delta) {
+        delta = pending.streamSanitizer.addChunk(delta)
+      }
+
+      if (!fullText.trim() && !delta) {
+        return
+      }
+
       if (ephemeral) {
         if (fullText.trim()) {
           pending.accumulatedProgressText = fullText
@@ -255,11 +272,20 @@ export class BridgeRelayService {
       if (text && isBridgeSessionStatusMessage(text)) {
         return
       }
+      if (text && isBridgeAttachmentOutboundNotice(text)) {
+        pending.pendingOutboundBoundary = true
+        return
+      }
       if (text) {
-        pending.accumulatedText = appendStreamingContent(pending.accumulatedText, text)
+        const chunkText = pending.streamSanitizer.addChunk(text)
+        if (!chunkText) {
+          pending.pendingOutboundBoundary = true
+          return
+        }
+        pending.accumulatedText = appendStreamingContent(pending.accumulatedText, chunkText)
         pending.pendingOutboundBoundary = true
         pending.onChunk?.({
-          delta: text,
+          delta: chunkText,
           fullText: pending.accumulatedText,
         })
       }
@@ -295,7 +321,11 @@ export class BridgeRelayService {
       if (outboundFile) {
         this.localCommandFiles.set(streamId, outboundFile)
       }
-      const trimmed = text.trim()
+      const trailing = pending.streamSanitizer.close()
+      const resolvedText = `${text}${trailing}`
+      const trimmed = sanitizeBridgeAssistantContent(resolvedText.trim(), {
+        agentType: pending.bridgeType,
+      })
       const systemPart = pending.systemTexts.join('\n\n').trim()
       pending.resolve([systemPart, trimmed].filter(Boolean).join('\n\n'))
     }
@@ -427,8 +457,12 @@ export class BridgeRelayService {
     pending.cancelled = true
     clearTimeout(pending.timeout)
     this.pendingTurns.delete(streamId)
-    const partialText = pending.accumulatedText.trim()
-      || pending.accumulatedProgressText.trim()
+    const trailing = pending.streamSanitizer.close()
+    const partialText = sanitizeBridgeAssistantContent(
+      `${pending.accumulatedText}${trailing}`.trim() ||
+        pending.accumulatedProgressText.trim(),
+      { agentType: pending.bridgeType },
+    )
     pending.resolve(partialText)
     return { cancelled: true, partialText }
   }
@@ -488,6 +522,8 @@ export class BridgeRelayService {
         cancelled: false,
         allowEmptyTurnEnd: options.allowEmptyTurnEnd,
         pendingOutboundBoundary: false,
+        bridgeType: input.bridgeType,
+        streamSanitizer: new BridgeStreamContentSanitizer(input.bridgeType),
       })
     })
 

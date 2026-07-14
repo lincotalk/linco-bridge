@@ -10,6 +10,16 @@
 </p>
 
 <p align="center">
+  <a href="README.md">English</a>
+  ·
+  <a href="docs/zh-CN/quick-start.md">快速开始</a>
+  ·
+  <a href="COMMUNITY.zh-CN.md">社区</a>
+  ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/status-open%20source%20alpha-0f766e" alt="status: open source alpha" />
   <img src="https://img.shields.io/badge/agents-Codex%20%7C%20Claude%20%7C%20Hermes%20%7C%20OpenClaw-2563eb" alt="supported agents" />
   <img src="https://img.shields.io/badge/channel-official%20%2B%20reference%20platform-f59e0b" alt="channel types" />
@@ -18,23 +28,13 @@
 
 **项目状态：** Open Source Alpha。接口、兼容性和文档仍可能变化；首期开源版本聚焦于可运行的本地连接器、可部署的参考平台通道，以及 Codex CLI、Claude Code、Hermes、OpenClaw 四类 Agent 的桥接验证。
 
-<p align="center">
-  <a href="https://testflight.apple.com/join/Ahm1encB">📱 iOS 下载</a>
-  ·
-  <a href="https://www.lincotalk.com/download/apk/linco.apk">🤖 Android 下载</a>
-  ·
-  <a href="https://bridge-demo.lincotalk.com">🌐 在线 Demo</a>
-  ·
-  <a href="docs/media/linco-bridge-demo.mp4">▶ Watch Demo</a>
-  ·
-  <a href="docs/zh-CN/quick-start.md">📘 快速开始</a>
-  ·
-  <a href="COMMUNITY.zh-CN.md">💬 社区</a>
-  ·
-  <a href="README.md">🌐 English</a>
-</p>
+## 🎬 效果预览
 
-![Linco Bridge 主视觉预览](docs/images/demo/linco-bridge-hero.png)
+查看录制演示视频：[linco-bridge-demo.mp4](docs/media/linco-bridge-demo.mp4)
+
+| Linco App 首页 | 项目与会话流程 |
+| --- | --- |
+| ![Linco App 首页](docs/images/demo/linco-app-home.jpg) | ![Linco App 项目与会话流程](docs/images/demo/linco-app-project-chat.jpg) |
 
 ## ✨ 亮点
 

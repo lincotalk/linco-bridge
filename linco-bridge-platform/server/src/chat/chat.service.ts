@@ -20,6 +20,7 @@ import {
 import { createEphemeralMessage, roundsToMessages, type ChatMessageAttachmentDto, type HistoryReloadPayload } from '../bridge/history.util'
 import { normalizeSessionPreview } from './session-preview.util'
 import { importBridgeHistoryRounds } from './bridge-history-import.util'
+import { sanitizeBridgeAssistantContent } from './bridge-message-sanitize.util'
 import { shouldPersistSessionMessages } from './session-message-storage.util'
 import {
   buildTempSessionTitle,
@@ -237,7 +238,7 @@ export class ChatService {
       } else {
         const stored = this.database
           .listMessages(sessionId, effectiveLimit)
-          .map((row) => this.mapStoredMessage(row))
+          .map((row) => this.mapStoredMessage(row, session.agent_type))
         if (stored.length > 0) {
           return stored
         }
@@ -246,7 +247,7 @@ export class ChatService {
       await this.maybeImportBridgeHistory(session, effectiveLimit)
       return this.database
         .listMessages(sessionId, effectiveLimit)
-        .map((row) => this.mapStoredMessage(row))
+        .map((row) => this.mapStoredMessage(row, session.agent_type))
     }
 
     const connection = session.bridge_connection_id
@@ -265,7 +266,16 @@ export class ChatService {
     try {
       const payload = await this.fetchBridgeHistoryPayload(session, connection, effectiveLimit)
       if (!payload) return []
-      return roundsToMessages(sessionId, payload)
+      return roundsToMessages(sessionId, payload).map((message) =>
+        message.role === 'assistant'
+          ? {
+              ...message,
+              content: sanitizeBridgeAssistantContent(message.content, {
+                agentType: session.agent_type,
+              }),
+            }
+          : message,
+      )
     } catch {
       return []
     }
@@ -326,9 +336,12 @@ export class ChatService {
         this.database.insertMessage({
           sessionId,
           role: 'assistant',
-          content: assistantText,
+          content: sanitizeBridgeAssistantContent(assistantText, {
+            agentType: connection?.bridge_type ?? session.agent_type,
+          }),
           attachments: assistantAttachments,
         }),
+        session.agent_type,
       )
     }
 
@@ -337,7 +350,14 @@ export class ChatService {
       normalizeSessionPreview(assistantText.trim() || trimmed),
     )
 
-    return createEphemeralMessage(sessionId, 'assistant', assistantText, assistantAttachments)
+    return createEphemeralMessage(
+      sessionId,
+      'assistant',
+      sanitizeBridgeAssistantContent(assistantText, {
+        agentType: connection?.bridge_type ?? session.agent_type,
+      }),
+      assistantAttachments,
+    )
   }
 
   async sendMessageStream(
@@ -440,9 +460,12 @@ export class ChatService {
           this.database.insertMessage({
             sessionId,
             role: 'assistant',
-            content: assistantText,
+            content: sanitizeBridgeAssistantContent(assistantText, {
+              agentType: connection?.bridge_type ?? session.agent_type,
+            }),
             attachments: assistantAttachments,
           }),
+          session.agent_type,
         )
       : (() => {
           this.database.touchSession(
@@ -452,7 +475,9 @@ export class ChatService {
           return createEphemeralMessage(
             sessionId,
             'assistant',
-            assistantText,
+            sanitizeBridgeAssistantContent(assistantText, {
+              agentType: connection?.bridge_type ?? session.agent_type,
+            }),
             assistantAttachments,
           )
         })()
@@ -486,13 +511,26 @@ export class ChatService {
 
     if (shouldPersistSessionMessages(session)) {
       return this.mapStoredMessage(
-        this.database.insertMessage({ sessionId, role: 'assistant', content }),
+        this.database.insertMessage({
+          sessionId,
+          role: 'assistant',
+          content: sanitizeBridgeAssistantContent(content, {
+            agentType: connection?.bridge_type ?? session.agent_type,
+          }),
+        }),
+        session.agent_type,
       )
     }
 
     this.database.touchSession(sessionId, normalizeSessionPreview(content))
 
-    return createEphemeralMessage(sessionId, 'assistant', content)
+    return createEphemeralMessage(
+      sessionId,
+      'assistant',
+      sanitizeBridgeAssistantContent(content, {
+        agentType: connection?.bridge_type ?? session.agent_type,
+      }),
+    )
   }
 
   getDemoConfig() {
@@ -948,7 +986,7 @@ export class ChatService {
       })
       if (!payload) return
       this.database.clearSessionMessages(session.id)
-      importBridgeHistoryRounds(this.database, session.id, payload)
+      importBridgeHistoryRounds(this.database, session.id, payload, session.agent_type)
     } catch {
       // Keep existing SQLite messages when bridge sync fails.
     }
@@ -963,18 +1001,22 @@ export class ChatService {
     try {
       const payload = await this.fetchBridgeHistoryPayload(session, connection, limit)
       if (!payload) return
-      importBridgeHistoryRounds(this.database, session.id, payload)
+      importBridgeHistoryRounds(this.database, session.id, payload, session.agent_type)
     } catch {
       // Non-critical: local SQLite remains source when import fails.
     }
   }
 
-  private mapStoredMessage(row: ChatMessageRow): ChatMessageDto {
+  private mapStoredMessage(row: ChatMessageRow, agentType?: string): ChatMessageDto {
+    const content =
+      row.role === 'assistant'
+        ? sanitizeBridgeAssistantContent(row.content, { agentType })
+        : row.content
     return {
       id: row.id,
       sessionId: row.session_id,
       role: row.role,
-      content: row.content,
+      content,
       createdAt: row.create_time,
       attachments: this.parseStoredAttachments(row.attachments_json),
     }
