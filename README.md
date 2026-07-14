@@ -28,13 +28,23 @@
 
 **Project status:** Open Source Alpha. Interfaces, compatibility, and documentation may still change. The first open-source release focuses on a working local connector, a deployable reference platform channel, and bridge validation for Codex CLI, Claude Code, Hermes, and OpenClaw.
 
-## 🎬 Demo Preview
+<p align="center">
+  <a href="https://testflight.apple.com/join/Ahm1encB">📱 iOS App</a>
+  ·
+  <a href="https://www.lincotalk.com/download/apk/linco.apk">🤖 Android App</a>
+  ·
+  <a href="https://bridge-demo.lincotalk.com">🌐 Hosted Demo</a>
+  ·
+  <a href="docs/media/linco-bridge-demo.mov">▶ Watch Demo</a>
+  ·
+  <a href="docs/quick-start.md">📘 Quick Start</a>
+  ·
+  <a href="COMMUNITY.md">💬 Community</a>
+  ·
+  <a href="README.zh-CN.md">🌐 简体中文</a>
+</p>
 
-See the recorded demo: [linco-bridge-demo.mp4](docs/media/linco-bridge-demo.mp4)
-
-| Linco App home | Project and chat flow |
-| --- | --- |
-| ![Linco App home](docs/images/demo/linco-app-home.jpg) | ![Linco App project and chat flow](docs/images/demo/linco-app-project-chat.jpg) |
+![Linco Bridge hero preview](docs/images/demo/linco-bridge-hero.png)
 
 ## ✨ Highlights
 
