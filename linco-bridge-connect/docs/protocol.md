@@ -124,12 +124,19 @@
   "sessionKey": "s-1",
   "streamId": "linco-stream-m-1",
   "data": {
+    "version": 2,
     "rounds": []
   }
 }
 ```
 
 前端应按 `command` 分发渲染逻辑。无法识别的 `command` 可以回退为普通 JSON 或文本摘要。
+
+`command: "history"` 的 `data.version: 2` 会为每轮提供稳定的
+`roundId`、绝对 `ordinal`、`user.messageId`，以及存在最终回复时的
+`assistant.messageId`。`index` 只是当前最近历史窗口中的展示序号，不能用作
+持久化主键。Codex 历史继续只收录 `phase: "final_answer"`，不会把
+`commentary` 过程消息写入 Assistant 历史。
 
 ## 权限与危险操作
 

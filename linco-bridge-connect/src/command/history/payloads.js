@@ -1,4 +1,5 @@
 
+const { createHash } = require('node:crypto');
 const { buildPcResumeCommand } = require('../pc');
 const { projectAction, quoteProjectPath } = require('../project');
 const {
@@ -94,9 +95,29 @@ function mapRoundFiles(files) {
   }));
 }
 
+function stableHistoryRoundIdentity(agentType, sessionId, round, ordinal) {
+  const normalizedUser = String(round.user || '').replace(/\s+/gu, ' ').trim();
+  const userTimestampMs = timestampToMs(round.userTimestamp) || 0;
+  const digest = createHash('sha256')
+    .update(JSON.stringify([
+      String(agentType || ''),
+      String(sessionId || ''),
+      userTimestampMs,
+      normalizedUser,
+      ordinal,
+    ]))
+    .digest('hex')
+    .slice(0, 24);
+  const sessionToken = Buffer.from(String(sessionId || ''), 'utf8').toString('base64url');
+  return {
+    roundId: `bridge_round_${digest}`,
+    messageIdPrefix: `bridge_history_v2:${sessionToken}:${digest}`,
+  };
+}
+
 function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, options = {}) {
   return {
-    version: 1,
+    version: 2,
     agentType,
     agentSessionId: sessionId,
     workspace: options.workspace || undefined,
@@ -104,24 +125,41 @@ function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, optio
     switchedSession: options.switchedSession === true,
     requestedLimit,
     returnedRounds: rounds.length,
-    rounds: rounds.map((round, index) => ({
-      index: index + 1,
-      timestamp: round.userTimestamp || round.assistantTimestamp || null,
-      timestampMs: timestampToMs(round.userTimestamp || round.assistantTimestamp),
-      user: {
-        text: round.user || '',
-        timestamp: round.userTimestamp || null,
-        timestampMs: timestampToMs(round.userTimestamp),
-        files: mapRoundFiles(round.userFiles),
-      },
-      assistant: {
-        text: round.assistant || '',
-        missing: !round.assistant,
-        timestamp: round.assistantTimestamp || null,
-        timestampMs: timestampToMs(round.assistantTimestamp),
-        files: mapRoundFiles(round.assistantFiles),
-      },
-    })),
+    rounds: rounds.map((round, index) => {
+      const ordinal = Number.isInteger(round.ordinal) && round.ordinal > 0
+        ? round.ordinal
+        : index + 1;
+      const identity = stableHistoryRoundIdentity(
+        agentType,
+        sessionId,
+        round,
+        ordinal,
+      );
+      return {
+        index: index + 1,
+        ordinal,
+        roundId: identity.roundId,
+        timestamp: round.userTimestamp || round.assistantTimestamp || null,
+        timestampMs: timestampToMs(round.userTimestamp || round.assistantTimestamp),
+        user: {
+          messageId: `${identity.messageIdPrefix}:user`,
+          text: round.user || '',
+          timestamp: round.userTimestamp || null,
+          timestampMs: timestampToMs(round.userTimestamp),
+          files: mapRoundFiles(round.userFiles),
+        },
+        assistant: {
+          messageId: round.assistant
+            ? `${identity.messageIdPrefix}:assistant`
+            : undefined,
+          text: round.assistant || '',
+          missing: !round.assistant,
+          timestamp: round.assistantTimestamp || null,
+          timestampMs: timestampToMs(round.assistantTimestamp),
+          files: mapRoundFiles(round.assistantFiles),
+        },
+      };
+    }),
   };
 }
 

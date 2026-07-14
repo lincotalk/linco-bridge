@@ -18,6 +18,50 @@ test('buildHistoryPayload includes user and assistant files', () => {
   assert.equal(payload.rounds[0].assistant.files[0].base64, 'def');
 });
 
+test('buildHistoryPayload keeps stable identities across rolling windows', () => {
+  const allRounds = Array.from({ length: 12 }, (_, index) => ({
+    ordinal: index + 1,
+    user: index >= 10 ? '继续' : `question ${index + 1}`,
+    userTimestamp: new Date(Date.UTC(2026, 6, 13, 0, index)).toISOString(),
+    assistant: index === 11 ? '完成' : '',
+    assistantTimestamp:
+      index === 11
+        ? new Date(Date.UTC(2026, 6, 13, 0, index, 30)).toISOString()
+        : null,
+  }));
+
+  const first = buildHistoryPayload(
+    'codex',
+    'desktop-session-1',
+    10,
+    allRounds.slice(0, 10),
+  );
+  const second = buildHistoryPayload(
+    'codex',
+    'desktop-session-1',
+    10,
+    allRounds.slice(2, 12),
+  );
+
+  assert.equal(second.version, 2);
+  const firstByOrdinal = new Map(
+    first.rounds.map((round) => [round.ordinal, round]),
+  );
+  for (const round of second.rounds.filter((item) => item.ordinal <= 10)) {
+    assert.equal(round.roundId, firstByOrdinal.get(round.ordinal).roundId);
+    assert.equal(
+      round.user.messageId,
+      firstByOrdinal.get(round.ordinal).user.messageId,
+    );
+  }
+  assert.notEqual(second.rounds[8].roundId, second.rounds[9].roundId);
+  assert.notEqual(
+    second.rounds[8].user.messageId,
+    second.rounds[9].user.messageId,
+  );
+  assert.match(second.rounds[9].assistant.messageId, /:assistant$/);
+});
+
 test('extractClaudeContentFiles reads image blocks', () => {
   const files = extractClaudeContentFiles([
     { type: 'text', text: 'hello' },
@@ -62,6 +106,14 @@ test('parseCodexHistoryRounds strips Linco Connect system note even when attache
       payload: {
         type: 'user_message',
         message: userMessage,
+      },
+    },
+    {
+      type: 'event_msg',
+      payload: {
+        type: 'agent_message',
+        phase: 'commentary',
+        message: '这条过程消息必须继续过滤。',
       },
     },
     {

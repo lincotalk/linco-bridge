@@ -124,12 +124,20 @@ When `done: true`, the event may include `references` for clickable generated-fi
   "sessionKey": "s-1",
   "streamId": "linco-stream-m-1",
   "data": {
+    "version": 2,
     "rounds": []
   }
 }
 ```
 
 Frontend implementations should dispatch rendering by `command`. Unknown commands can fall back to JSON or a text summary.
+
+For `command: "history"`, `data.version: 2` provides a stable `roundId`, an
+absolute `ordinal`, `user.messageId`, and `assistant.messageId` when a final
+answer exists. `index` is only the display position inside the current recent
+history window and must not be used as a persistence key. Codex history still
+accepts only `phase: "final_answer"`; commentary progress messages are not
+included in Assistant history.
 
 ## Permissions And Dangerous Operations
 

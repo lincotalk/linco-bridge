@@ -220,6 +220,7 @@ function parseClaudeHistoryRounds(filePath) {
     if (isClaudeActualUserRecord(item)) {
       const userPayload = extractClaudeUserPayload(item);
       current = {
+        ordinal: rounds.length + 1,
         user: userPayload.text,
         userFiles: userPayload.files,
         assistant: '',
@@ -386,6 +387,7 @@ function parseCodexHistoryRounds(filePath) {
       const userFiles = extractCodexMentionedUserFiles(payload.message);
       if (!text && userFiles.length === 0) continue;
       current = {
+        ordinal: rounds.length + 1,
         user: text,
         userFiles,
         assistant: '',
