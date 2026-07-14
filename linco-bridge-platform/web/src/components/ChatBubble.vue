@@ -8,6 +8,7 @@ import MessageContent from '@/components/MessageContent.vue'
 import ThinkingProcessSheet from '@/components/ThinkingProcessSheet.vue'
 import { resolveStreamingTailIndicator } from '@/utils/chat-streaming-indicator'
 import { isEmptyAgentTrace } from '@/utils/agent-trace-view'
+import { isMiniProgramRuntime } from '@/utils/platform-runtime'
 
 const props = defineProps<{
   message: ChatMessage
@@ -42,6 +43,7 @@ const tailIndicator = computed(() =>
     content: props.message.content,
     hasReasoningEntry: hasProcessEntry.value,
     hasAgentTrace: hasAgentTrace.value,
+    useBlockingOutputLabel: isMiniProgramRuntime(),
   }),
 )
 </script>

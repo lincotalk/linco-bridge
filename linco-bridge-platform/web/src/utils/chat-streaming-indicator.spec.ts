@@ -9,6 +9,18 @@ describe('resolveStreamingTailIndicator', () => {
     })
   })
 
+  it('shows 输出中 for mini program blocking wait', () => {
+    expect(
+      resolveStreamingTailIndicator({
+        streaming: true,
+        useBlockingOutputLabel: true,
+      }),
+    ).toEqual({
+      show: true,
+      label: '输出中',
+    })
+  })
+
   it('shows 正在思考 when reasoning entry exists but body is still empty', () => {
     expect(
       resolveStreamingTailIndicator({
