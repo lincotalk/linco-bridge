@@ -20,7 +20,21 @@ linco-connect start --daemon
 
 开源参考平台请先启动后端，并确认 `http://127.0.0.1:3300/api/demo-config` 可访问；然后再启动 H5。打开 H5 开发地址后，进入 **桥接 → 从 Codex 导入**，复制页面生成的 `setupCommands`，在本机终端执行，再回到页面点击 **我已复制，获取连接状态** 完成验证。
 
-若要直接使用官方在线体验，打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)；如果使用小程序，可通过公开入口搜索或扫码进入，当前版本默认使用**扫码登录**。进入后同样按 **桥接 → 从 Codex 导入 → 复制 setupCommands → 本机执行 → 获取连接状态 → 进入聊天** 的顺序完成体验。若要自行部署（H5 / 小程序 + 用户本机 connector），见 [在线 Demo 部署指南](deploy-demo.md)。
+典型命令形态通常如下（实际仍以页面生成的 `setupCommands` 为准）：
+
+```bash
+npm install -g linco-connect
+linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
+linco-connect start --daemon
+```
+
+若要直接使用官方在线体验，打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)；如果使用小程序，可通过公开入口搜索或扫码进入，当前版本默认使用**扫码登录**。进入后同样按 **桥接 → 从 Codex 导入 → 复制 setupCommands → 本机执行 → 获取连接状态 → 进入聊天** 的顺序完成体验。
+
+小程序体验码：
+
+<img src="../images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" />
+
+说明：体验码可能会过期，请以仓库中的最新图片或官方渠道发布的信息为准。若要自行部署（H5 / 小程序 + 用户本机 connector），见 [在线 Demo 部署指南](deploy-demo.md)。
 
 ## 详细文档
 

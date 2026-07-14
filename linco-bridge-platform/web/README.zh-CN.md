@@ -65,6 +65,14 @@ node scripts/generate-icons.mjs
 
 > 以页面生成的 `setupCommands` 为准。本地开发场景通常会自动带上 `--channel linco-demo`，并可能包含 `--allow-insecure-ws`。
 
+典型命令形态通常如下（仅供理解流程）：
+
+```bash
+npm install -g linco-connect
+linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
+linco-connect start --daemon
+```
+
 ### 5. 官方 H5 / 微信小程序体验流程
 
 如果你使用的是已经发布的 H5 或微信小程序入口，而不是本地开发环境：
@@ -81,7 +89,13 @@ node scripts/generate-icons.mjs
 10. 如需选择项目、进入已有会话或新建会话，点击右上角文件夹图标
 11. 发送测试消息，确认整条桥接链路已打通
 
-### 6. 微信小程序开发
+小程序体验码：
+
+<img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" />
+
+说明：体验码可能会过期，请以仓库中的最新图片或官方渠道发布的信息为准。
+
+### 6. 微信小程序工程调试与构建
 
 ```bash
 npm run dev:mp-weixin

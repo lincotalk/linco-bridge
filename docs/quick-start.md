@@ -20,7 +20,21 @@ linco-connect start --daemon
 
 For the open reference platform, start the backend first, verify `http://127.0.0.1:3300/api/demo-config`, then start the H5 frontend. After opening the H5 dev URL, go to **Bridge → Import from Codex**, copy the generated `setupCommands`, run them on your local machine, then return to the page and confirm the connection status.
 
+A typical command shape looks like this for reference, while the page-generated `setupCommands` remain the source of truth:
+
+```bash
+npm install -g linco-connect
+linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
+linco-connect start --daemon
+```
+
 For the official hosted experience, open the hosted H5 page at [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). If you use the WeChat Mini Program, enter through the published search entry or QR code; the current flow uses **QR-code sign-in**. After entering, follow **Bridge → Import from Codex → copy setupCommands → run them locally → get connection status → enter chat**.
+
+Mini-program experience QR code:
+
+<img src="images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+
+Note: the experience QR code may expire. Please use the latest image in this repository or the official published entry.
 
 To use the official hosted demo, open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). To deploy your own hosted demo, see [Hosted Demo Deployment](deploy-demo.md).
 

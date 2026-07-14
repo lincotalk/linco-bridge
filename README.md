@@ -159,6 +159,21 @@ Open the local H5 URL printed by `npm run dev:h5`, then complete the bridge flow
 7. click `Enter Codex` to enter the chat page;
 8. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new session with `+`.
 
+Use the page-generated `setupCommands` as the source of truth. A typical command shape looks like this for reference:
+
+```bash
+npm install -g linco-connect
+
+linco-connect init \
+  --token "demo-codex-app:demo-codex-secret" \
+  --agent codex \
+  --channel linco-demo \
+  --account codex_1 \
+  --allow-insecure-ws
+
+linco-connect start --daemon
+```
+
 For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform README](linco-bridge-platform/README.md), the [platform server README](linco-bridge-platform/server/README.md), and the [Web / H5 README](linco-bridge-platform/web/README.md).
 
 ### Option 3: Official Hosted Demo
@@ -177,6 +192,12 @@ If you want to try Linco Bridge through the official hosted experience:
 8. click **Enter Codex** to enter the chat page;
 9. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new one;
 10. send a test message to confirm the full bridge flow is working.
+
+Mini-program experience QR code:
+
+<img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+
+Note: the mini-program experience QR code may expire. Please use the latest image in this repository or the official published entry.
 
 The hosted demo is intended for lightweight public evaluation and does not require a formal account system. Demo state is typically isolated through an anonymous visitor ID together with browser-local cache. If browser cache is cleared, the device is changed, or an incognito window is used, local demo history and state may be lost.
 

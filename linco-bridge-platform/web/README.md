@@ -65,6 +65,14 @@ node scripts/generate-icons.mjs
 
 > Always use the page-generated `setupCommands` as the source of truth. In local development, the commands usually include `--channel linco-demo` and may also include `--allow-insecure-ws`.
 
+A typical command shape looks like this for reference:
+
+```bash
+npm install -g linco-connect
+linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --channel linco-demo --account codex_1 --allow-insecure-ws
+linco-connect start --daemon
+```
+
 ### 5. Official H5 / WeChat Mini Program flow
 
 If you are using a published H5 or WeChat Mini Program entry instead of local development:
@@ -81,7 +89,13 @@ If you are using a published H5 or WeChat Mini Program entry instead of local de
 10. Use the folder icon in the top-right corner to choose a project, open an existing session, or create a new one.
 11. Send a test message to confirm the full bridge flow is working.
 
-### 6. Mini Program development
+Mini-program experience QR code:
+
+<img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+
+Note: the experience QR code may expire. Please use the latest image in this repository or the official published entry.
+
+### 6. Mini Program build and local debugging
 
 ```bash
 npm run dev:mp-weixin
