@@ -10,16 +10,6 @@
 </p>
 
 <p align="center">
-  <a href="README.zh-CN.md">简体中文</a>
-  ·
-  <a href="docs/quick-start.md">Quick Start</a>
-  ·
-  <a href="COMMUNITY.md">Community</a>
-  ·
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/status-open%20source%20alpha-0f766e" alt="status: open source alpha" />
   <img src="https://img.shields.io/badge/agents-Codex%20%7C%20Claude%20%7C%20Hermes%20%7C%20OpenClaw-2563eb" alt="supported agents" />
   <img src="https://img.shields.io/badge/channel-official%20%2B%20reference%20platform-f59e0b" alt="channel types" />
