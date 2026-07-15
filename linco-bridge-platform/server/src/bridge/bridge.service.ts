@@ -278,6 +278,7 @@ export class BridgeService {
     const ownerId = this.resourceAccess.getOwnerId()
     const accountIds = this.database
       .listConnectionsByOwner(ownerId)
+      .filter((row) => this.hasConnectedAssistantRecord(row))
       .map((row) => row.account_id?.trim() ?? '')
       .filter(Boolean)
     return this.enrichAccountsPayload({
@@ -848,12 +849,18 @@ export class BridgeService {
       throw new ConflictException('本机 Agent 尚未连接')
     }
 
-    const session = this.database.getSessionByConnectionId(connection.id)
+    let session = this.database.getSessionByConnectionId(connection.id)
     if (!session) {
-      throw new NotFoundException('会话不存在')
+      session = this.database.createSession({
+        ownerId: connection.owner_id,
+        agentType: type,
+        title: agentDisplayName(type),
+        bridgeConnectionId: connection.id,
+        lastMessage: type === 'codex' || type === 'claude' ? 'Ready when you are.' : '',
+      })
     }
 
-    if (!connection.session_id) {
+    if (!connection.session_id || connection.session_id !== session.id) {
       this.database.linkConnectionSession(connection.id, session.id)
     }
 
@@ -877,6 +884,14 @@ export class BridgeService {
     const appSecret = trimmed.slice(separator + 1)
     if (!appId || !appSecret) return null
     return this.database.getConnectionByToken(appId, appSecret) ?? null
+  }
+
+  /** 仅展示已真正连上过的助手；setup 预创建的凭证不算。 */
+  private hasConnectedAssistantRecord(connection: BridgeConnectionRow): boolean {
+    if (this.presence.isOnline(connection.id)) return true
+    if (connection.session_id?.trim()) return true
+    if (connection.bound_context_id?.trim()) return true
+    return Boolean(this.database.getSessionByConnectionId(connection.id))
   }
 
   private async fetchProjectsFromConnector(connection: BridgeConnectionRow): Promise<BridgeProjectDto[]> {

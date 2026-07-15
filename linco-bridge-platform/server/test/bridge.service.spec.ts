@@ -5,6 +5,7 @@ import { BridgePresenceService } from '../src/bridge/bridge-presence.service'
 import { BridgeRelayService } from '../src/bridge/bridge-relay.service'
 import { BridgeService } from '../src/bridge/bridge.service'
 import { DatabaseService } from '../src/database/database.service'
+import { VisitorContextService } from '../src/shared/visitor-context.service'
 import { TEST_SEED_OWNER_ID } from '../src/shared/visitor-id.util'
 import { createTestServices, resetTestVisitorContext } from './test-services'
 
@@ -564,11 +565,37 @@ describe('BridgeService', () => {
     await expect(service.fetchAccountsFromConnector()).rejects.toThrow(ConflictException)
   })
 
-  it('listAccountsFromDatabase returns owner connections without live connect', () => {
-    const setup = service.getSetup('codex')
-    const payload = service.listAccountsFromDatabase()
+  it('listAccountsFromDatabase hides setup-only connections until online sync', () => {
+    const visitorId = 'visitor-setup-only'
+    resetTestVisitorContext()
+    VisitorContextService.setTestDefault(visitorId)
 
-    expect(payload.accountIds).toContain(setup.accountId)
-    expect(payload.items.some((item) => item.connectionId === setup.connectionId)).toBe(true)
+    const setup = service.getSetup('codex')
+    expect(database.getSessionByConnectionId(setup.connectionId)).toBeUndefined()
+
+    const beforeConnect = service.listAccountsFromDatabase()
+    expect(beforeConnect.items.some((item) => item.connectionId === setup.connectionId)).toBe(
+      false,
+    )
+
+    presence.attach(setup.connectionId, onlineSocket())
+    service.syncAgent('codex', setup.connectionId)
+
+    const afterConnect = service.listAccountsFromDatabase()
+    expect(afterConnect.accountIds).toContain(setup.accountId)
+    expect(afterConnect.items.some((item) => item.connectionId === setup.connectionId)).toBe(true)
+  })
+
+  it('syncAgent creates assistant session when connector is online and none exists', () => {
+    const visitorId = 'visitor-no-seed'
+    resetTestVisitorContext()
+    VisitorContextService.setTestDefault(visitorId)
+    const setup = service.getSetup('codex')
+    expect(database.getSessionByConnectionId(setup.connectionId)).toBeUndefined()
+
+    presence.attach(setup.connectionId, onlineSocket())
+    const synced = service.syncAgent('codex', setup.connectionId)
+    expect(synced.sessionId).toBeTruthy()
+    expect(database.getSession(synced.sessionId)?.bridge_connection_id).toBe(setup.connectionId)
   })
 })

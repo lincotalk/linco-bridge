@@ -244,6 +244,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const appId = generateConnectionAppId(bridgeType)
     const appSecret = DatabaseService.generateConnectionSecret()
     const accountId = generateConnectionAccountId(bridgeType)
+    // Setup 仅落凭证；助手 session 等 connector 真正连上后再写（见 BridgeService.syncAgent / bindContext）。
     this.db
       .prepare(
         `INSERT INTO bridge_connections
@@ -251,22 +252,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
       )
       .run(id, ownerId, bridgeType, appId, appSecret, accountId, now, now)
-
-    const sessionId = randomUUID()
-    this.db
-      .prepare(
-        `INSERT INTO chat_sessions (id, owner_id, agent_type, title, bridge_connection_id, last_message, update_time)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        sessionId,
-        ownerId,
-        bridgeType,
-        agentDisplayName(bridgeType),
-        id,
-        bridgeType === 'codex' ? 'Ready when you are.' : 'Waiting for bridge connection.',
-        now,
-      )
 
     const created = this.getConnectionById(id)
     if (!created) {

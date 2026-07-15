@@ -1,5 +1,6 @@
 import { DatabaseService } from '../src/database/database.service'
 import { shouldShowSessionInList } from '../src/chat/session-list-filter.util'
+import { TEST_SEED_OWNER_ID } from '../src/shared/visitor-id.util'
 
 describe('shouldShowSessionInList', () => {
   let database: DatabaseService
@@ -9,13 +10,13 @@ describe('shouldShowSessionInList', () => {
   })
 
   it('hides unconnected bridge seed sessions', () => {
-    const connection = database.getConnectionByType('claude')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'claude')!
     const session = database.getSessionByConnectionId(connection.id)!
     expect(shouldShowSessionInList(session, connection)).toBe(false)
   })
 
   it('shows sessions with real conversation preview', () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, '今天星期几啊')
     const updated = database.getSession(session.id)!
@@ -23,7 +24,7 @@ describe('shouldShowSessionInList', () => {
   })
 
   it('shows sessions bound to a desktop workspace', () => {
-    const connection = database.getConnectionByType('codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.updateSessionBridgeBinding(session.id, {
       projectPath: 'D:\\project\\demo',

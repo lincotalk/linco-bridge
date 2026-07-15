@@ -20,10 +20,14 @@ describe('visitor isolation', () => {
     let setupA!: ReturnType<typeof ctxA.bridgeService.getSetup>
     ctxA.visitorContext.run(visitorA, () => {
       setupA = ctxA.bridgeService.getSetup('codex')
-      ctxA.database.touchSession(
-        ctxA.database.getSessionByConnectionId(setupA.connectionId)!.id,
-        'visitor-a-message',
-      )
+      const session = ctxA.database.createSession({
+        ownerId: visitorA,
+        agentType: 'codex',
+        title: 'Codex',
+        bridgeConnectionId: setupA.connectionId,
+        lastMessage: 'visitor-a-message',
+      })
+      ctxA.database.linkConnectionSession(setupA.connectionId, session.id)
     })
 
     let setupB!: ReturnType<typeof ctxB.bridgeService.getSetup>
@@ -38,6 +42,7 @@ describe('visitor isolation', () => {
 
     ctxB.visitorContext.run(visitorB, () => {
       expect(ctxB.chatService.listSessions()).toHaveLength(0)
+      expect(ctxB.database.getSessionByConnectionId(setupB.connectionId)).toBeUndefined()
     })
   })
 
@@ -50,7 +55,14 @@ describe('visitor isolation', () => {
     let sessionId = ''
     ctx.visitorContext.run(owner, () => {
       const setup = ctx.bridgeService.getSetup('codex')
-      sessionId = ctx.database.getSessionByConnectionId(setup.connectionId)!.id
+      const session = ctx.database.createSession({
+        ownerId: owner,
+        agentType: 'codex',
+        title: 'Codex',
+        bridgeConnectionId: setup.connectionId,
+      })
+      ctx.database.linkConnectionSession(setup.connectionId, session.id)
+      sessionId = session.id
     })
 
     await ctx.visitorContext.run(other, async () => {
