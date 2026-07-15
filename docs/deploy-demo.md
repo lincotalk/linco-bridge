@@ -13,9 +13,9 @@ For the local full-stack path where each user clones the repository and starts `
 | **Local full-stack demo** | Each user | server + web + `linco-connect` + Agent | GitHub developers, forks, secondary development |
 | **Hosted demo** | Operator / maintainer | `linco-connect` + Agent only | Quick bridge validation and product showcase |
 
-The hosted demo is a **public evaluation environment**. It typically does not provide a formal login system. State is usually isolated by browser-local cache together with an anonymous visitor identity. If local browser data is cleared, the device is changed, or an incognito session is used, local demo history and state may be lost.
+The hosted demo is a **public evaluation environment** without a formal account system. The current implementation issues a signed anonymous visitor session and uses it to isolate bridge connections, sessions, and messages between visitors. Client-local storage retains that visitor session on the current client; clearing it, changing devices, or using private browsing can make previous demo state inaccessible.
 
-If you intentionally run a shared demo environment without per-user isolation, document that clearly as well. Do not ask users to input sensitive information or production data into the public demo.
+This visitor-level isolation is not a production-grade multi-tenant security or account-recovery model. Do not ask users to enter sensitive information or production data into the public demo.
 
 ## Architecture
 
@@ -206,7 +206,7 @@ Each public release should ideally include:
 - **Local demo path:** clone repository and quick-start links for `server + web`
 - **Hosted demo path:** hosted URL and mini program entry if available
 - **Supported Agents:** Codex, Claude Code, Hermes, OpenClaw
-- **Disclaimer:** public evaluation environment, not production SaaS, and not suitable for sensitive data
+- **Disclaimer:** anonymous visitor isolation, no formal account or cross-device recovery, not production SaaS, and not suitable for sensitive data
 
 ## 8. Demo-Grade Operations
 
@@ -231,11 +231,11 @@ Each public release should ideally include:
 - Confirm `VITE_API_BASE_URL` in `prod.env` matches the deployed environment.
 - Confirm the full `assets/` directory was uploaded.
 
-### Multiple users keep disconnecting each other
+### A previous connection or history is missing after switching clients
 
-- If your demo shares one connector slot per Agent type, that is expected behavior in a shared demo.
-- If you need isolation, use per-user browser-local state plus anonymous visitor IDs, or provide independent demo environments.
-- If you need true local isolation for each evaluator, use the **local full-stack demo** path instead.
+- The hosted demo scopes connections, sessions, and messages to a signed anonymous visitor session.
+- Clearing client-local storage, changing browsers, mini-program environments, or devices, or using private browsing creates a different visitor context, so previous demo state may no longer be accessible.
+- The hosted demo does not provide account recovery or cross-device synchronization. Use the **local full-stack demo** or integrate a formal account system when durable recovery is required.
 
 ### Assistant tab works locally but is missing online
 

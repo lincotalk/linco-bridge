@@ -112,7 +112,8 @@ npm run build:mp-weixin
 | --- | --- |
 | `npm run dev:h5` | H5 development server |
 | `npm run build:h5` | H5 production build |
-| `npm run dev:mp-weixin` | WeChat Mini Program development |
+| `npm run dev:mp-weixin` | WeChat Mini Program development (loads `local.env`) |
+| `npm run build:mp-weixin` | WeChat Mini Program production build (loads `prod.env`) |
 | `npm run typecheck` | Type check |
 | `npm run test` | Vitest |
 | `npm run lint` | ESLint |
@@ -136,6 +137,22 @@ Local dev does not load `prod.env`. Keep `VITE_API_BASE_URL` empty and use the d
 /api → http://127.0.0.1:3300
 ```
 
+Local WeChat Mini Program development uses [`local.env`](local.env), which defaults to `http://127.0.0.1:3300`:
+
+```bash
+# Terminal 1: start the local server
+cd linco-bridge-platform/server
+npm run start:dev
+
+# Terminal 2: compile the mini program with local.env
+cd linco-bridge-platform/web
+npm run dev:mp-weixin
+```
+
+In WeChat DevTools, open **Details → Local Settings** and enable **Do not verify valid domain names**. For physical-device preview, replace the address in `local.env` with a LAN address that the device can reach, such as `http://192.168.x.x:3300`.
+
+Published builds continue to use `prod.env` through `npm run build:mp-weixin`.
+
 Pure UI mode without the backend:
 
 ```bash
@@ -144,11 +161,12 @@ VITE_USE_REMOTE_API=false npm run dev:h5
 
 ## Main Pages
 
-Bottom tabs: `Messages` and `Bridge`
+Bottom tabs: `Messages`, `Assistants`, and `Bridge`
 
 | Route | Page | Description |
 | --- | --- | --- |
 | `pages/messages/index` | Message list | All bridge chat sessions |
+| `pages/agents/index` | Assistants | Connected Agent accounts and status |
 | `pages/bridge/index` | Bridge home | Codex, Claude, Hermes, OpenClaw entry cards |
 | `pages/bridge/import-local` | Import local Agent | Setup commands and connection checks |
 | `pages/bridge/import-openclaw` | OpenClaw import | Context binding flow |
@@ -273,3 +291,27 @@ npm test
 2. Restart the UniApp dev server after changing `pages.json` or adding pages.
 3. Streaming chat depends on backend SSE.
 4. If Agent capability behavior changes, update both this file and [`../server/README.md`](../server/README.md).
+
+## H5 And WeChat Mini Program Differences
+
+This project follows a **UniApp cross-platform approach**: shared business logic uses `uni.request` and `uni.storage`, while browser-only APIs are isolated in H5 branches or `platform-runtime`.
+
+| Capability | H5 | WeChat Mini Program |
+| --- | --- | --- |
+| HTTP | Vite proxy + cookie session | Absolute URL + `X-Linco-Visitor-Session` header |
+| Visitor ID / session | `localStorage` + cookie | `uni.setStorageSync` |
+| Streaming chat | `fetch` + SSE | Blocking HTTP; the complete Agent response is displayed at once |
+| Cancel generation | `AbortController` | Custom `CancelToken` |
+| Scroll to bottom | `requestAnimationFrame` | `setTimeout` through conditional compilation |
+| Open external links | `window.open` | Copy link or `uni.downloadFile` + `openDocument` |
+| Voice input | Web Speech API | Not currently supported; requires the WeChat recording API |
+
+**Important:** H5 and the mini program use **independent anonymous visitor sessions**, so bridge connections are not shared between them. Run the generated `linco-connect` commands and complete the connection check again in the mini program before its assistant and chat data become available.
+
+Chat messages do **not** use a client-side WebSocket. WebSocket is used only between the local `linco-connect` connector and the platform. The mini program calls HTTP APIs through `uni.request`; plain-text messages use a blocking request by default and display the complete response after the local Agent finishes.
+
+For local mini-program debugging:
+
+1. Enable **Do not verify valid domain names** in WeChat DevTools.
+2. Point `local.env` to a backend address that the mini program can reach.
+3. Clear the mini-program cache and rebuild after code changes.

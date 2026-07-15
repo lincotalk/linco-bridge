@@ -112,7 +112,8 @@ npm run build:mp-weixin
 | --- | --- |
 | `npm run dev:h5` | H5 开发服务器 |
 | `npm run build:h5` | H5 生产构建 |
-| `npm run dev:mp-weixin` | 微信小程序开发（自动加载 `prod.env`） |
+| `npm run dev:mp-weixin` | 微信小程序开发（自动加载 `local.env`） |
+| `npm run build:mp-weixin` | 微信小程序生产构建（自动加载 `prod.env`） |
 | `npm run typecheck` | 类型检查 |
 | `npm run test` | Vitest |
 | `npm run lint` | ESLint |
@@ -140,10 +141,12 @@ npm run build:mp-weixin
 
 ```bash
 # 终端 1：启动本地 server
-cd linco-bridge-platform/server && npm run start:dev
+cd linco-bridge-platform/server
+npm run start:dev
 
 # 终端 2：编译小程序（加载 local.env）
-cd linco-bridge-platform/web && npm run dev:mp-weixin
+cd linco-bridge-platform/web
+npm run dev:mp-weixin
 ```
 
 微信开发者工具 → 详情 → 本地设置 → 勾选 **「不校验合法域名」**。真机预览时把 `local.env` 里的地址改成本机局域网 IP（如 `http://192.168.x.x:3300`）。
@@ -158,11 +161,12 @@ VITE_USE_REMOTE_API=false npm run dev:h5
 
 ## 主要页面
 
-底部 Tab：`消息`、`桥接`
+底部 Tab：`消息`、`助手`、`桥接`
 
 | 路由 | 页面 | 说明 |
 | --- | --- | --- |
 | `pages/messages/index` | 消息列表 | 全部 bridge 聊天会话 |
+| `pages/agents/index` | 助手 | 已连接的 Agent 账号与状态 |
 | `pages/bridge/index` | 桥接首页 | Codex、Claude、Hermes、OpenClaw 入口卡片 |
 | `pages/bridge/import-local` | 导入本地 Agent | 展示 setup 命令与连接检测 |
 | `pages/bridge/import-openclaw` | OpenClaw 导入 | 上下文绑定流程 |
@@ -207,10 +211,63 @@ Session API  → /api/sessions/*
 | Hermes | 不支持 | 仅导入时绑定 | 不支持 | 支持 |
 | OpenClaw | 不支持 | 仅导入时绑定 | 不支持 | 支持 |
 
+### Hermes 与 OpenClaw 绑定规则
+
+- 仅在导入阶段选择上下文。
+- 一组 Demo 凭证绑定一个 Profile 或 Agent。
+- 聊天页不支持切换已绑定的 Profile 或 Agent。
+
+### Codex 与 Claude 的 Bridge 设置
+
+- Agent 落地页和聊天输入区可以预加载模型与推理设置。
+- 创建会话时，待应用设置会随首条消息一起提交。
+- 在聊天中更新设置后，前端会持久化设置并通过连接器应用。
+
+相关文件：
+
+- `composables/useBridgeSettings.ts`
+- `components/BridgeSettingsPickerSheet.vue`
+- `utils/bridge-settings.ts`
+
 ### Slash 命令（全部 Bridge Agent）
 
-- 落地页 / 会话页进入时：先读本地缓存，再调用 `POST /api/agent-chat/:type/bridge-command`（`/help`）刷新
-- 解析 `payload.items` 写入内存 + `localStorage`，输入 `/` 时从缓存数据联想补全
+- Agent 落地页和聊天页通过 `/help` 预加载命令。
+- 前端先读取缓存命令，再从连接器刷新。
+- 在输入框键入 `/` 时，会根据缓存命令显示补全建议。
+
+相关文件：
+
+- `composables/useSlashCommands.ts`
+- `composables/useSlashCommandInput.ts`
+- `components/SlashCommandSuggestionPanel.vue`
+- `bridge/slash-command.ts`
+- `utils/slash-command-cache.ts`
+
+## 核心 Composables
+
+| 模块 | 职责 |
+| --- | --- |
+| `useBridgeConnection` | 导入页连接检测、配置刷新和一次性上下文绑定 |
+| `useAgentLanding` | Agent 落地页数据和会话创建 |
+| `useChatSession` | 聊天加载、SSE 流式响应和停止生成 |
+| `useBridgeSettings` | 模型与推理选项预加载及选择器状态 |
+| `useSlashCommands` | `/help` 预加载、缓存和命令建议数据源 |
+| `useProjectPicker` | Codex 与 Claude 工作区选择 |
+| `useAttachmentPicker` | 文件和图片附件选择 |
+| `useVoiceInput` | 在支持的 H5 环境中提供语音输入 |
+
+## 核心组件
+
+| 组件 | 说明 |
+| --- | --- |
+| `AgentLandingInput` | 带精简 Bridge 工具栏的 Agent 落地页输入卡片 |
+| `ChatInputArea` | 聊天页输入区域 |
+| `ChatBubble` / `MessageContent` | 消息渲染，包括 Markdown、代码和附件 |
+| `BridgeSettingsPickerSheet` | 模型与推理设置底部选择器 |
+| `SlashCommandSuggestionPanel` | `/` 命令输入建议面板 |
+| `BridgeWorkspacePickerSheet` | 工作区与会话选择器 |
+| `BridgeContextPickerSheet` | Hermes 与 OpenClaw 导入页上下文列表 |
+| `AppOverlayHost` | Sheet 和 Overlay 的全局挂载容器 |
 
 ## 图标资源
 

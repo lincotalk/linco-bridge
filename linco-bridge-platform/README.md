@@ -11,7 +11,7 @@ Self-hosted reference platform for validating the Linco Bridge flow with local A
 | **Local full-stack demo** | Clone this repository and start `server` + `web` locally. Best for developers and secondary development. |
 | **Hosted demo** | Use the official hosted H5 or WeChat Mini Program with local `linco-connect`: [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). See [`../docs/deploy-demo.md`](../docs/deploy-demo.md). |
 
-The hosted demo is a public demo environment: no login, shared data, and only one connector online per Agent type at a time.
+The hosted demo is a public evaluation environment without a formal account system. The current implementation uses signed anonymous visitor sessions to isolate bridge connections, sessions, and messages between visitors. Client-local storage retains the visitor session on the current client; clearing it, changing devices, or using private browsing can make previous demo state inaccessible. This is not a production-grade multi-tenant security or account-recovery model, so do not submit sensitive or production data.
 
 **Third-party frontends:** After forking or modifying `web`, self-host the server. Do **not** point API calls at the official `bridge-demo.lincotalk.com` host (the official server only allows the official H5 / mini program origin via `CORS_ORIGINS`).
 

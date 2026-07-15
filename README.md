@@ -204,7 +204,7 @@ After entering either public entry:
 
 Note: the mini-program experience QR code may expire. Please use the latest image in this repository or search `agent桥接器` in WeChat.
 
-The hosted demo is intended for lightweight public evaluation and does not require a formal account system. Demo state is typically isolated through an anonymous visitor ID together with browser-local cache. If browser cache is cleared, the device is changed, or an incognito window is used, local demo history and state may be lost.
+The hosted demo is intended for lightweight public evaluation and does not provide a formal account system. The current implementation uses a signed anonymous visitor session to isolate bridge connections, sessions, and messages. Client-local storage retains that visitor session on the current client; clearing it, changing devices, or using private browsing can make previous demo state inaccessible.
 
 Do not use the hosted demo for sensitive information, long-term storage, or formal production data.
 

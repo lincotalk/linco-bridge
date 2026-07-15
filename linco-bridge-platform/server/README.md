@@ -15,7 +15,7 @@ NestJS backend for the self-hosted reference platform. It exposes REST APIs, emb
 | Bridge settings | Codex and Claude support model and reasoning settings |
 | Embedded WS gateway | `/bridge/ws` and subpaths for the `linco-demo` channel |
 | SQLite persistence | Stores bridge connections, sessions, messages, and bridge settings |
-| Demo single-tenant mode | Seeds four demo credential sets on first startup |
+| Anonymous visitor demo mode | Uses signed visitor sessions to scope demo data and seeds four credential sets per visitor on first access |
 
 ## Quick Start
 

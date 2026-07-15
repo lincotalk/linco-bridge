@@ -16,7 +16,7 @@ assignees: ""
 
 ## Environment / 运行环境
 
-- Linco Connect version / 版本：
+- linco-connect CLI version / 版本：
 - Operating system / 操作系统：
 - Agent and version / Agent 及版本：
 
@@ -27,4 +27,3 @@ assignees: ""
 ## Logs or screenshots / 日志或截图（可选）
 
 <!-- Remove App Secrets, tokens, local paths, and personal data. / 请删除 Secret、Token、私密路径和个人数据。 -->
-

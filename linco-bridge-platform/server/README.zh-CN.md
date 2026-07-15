@@ -15,7 +15,7 @@ Linco Bridge 参考平台的 NestJS 后端。它提供 REST API，内嵌 bridge 
 | Bridge 设置 | Codex 和 Claude 支持模型与推理强度设置 |
 | 内嵌 WS 网关 | 为 `linco-demo` 通道提供 `/bridge/ws` 及子路径 |
 | SQLite 持久化 | 存储 bridge 连接、会话、消息和 bridge 设置 |
-| Demo 单租户模式 | 首次启动自动 seed 四套 demo 凭证 |
+| 匿名访客 Demo 模式 | 使用签名访客 Session 隔离 Demo 数据，并在访客首次访问时生成四组凭证 |
 
 ## 快速开始
 

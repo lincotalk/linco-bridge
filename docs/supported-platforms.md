@@ -55,7 +55,7 @@ The repository does **not** ship a full production control plane for every front
 ## Known Scope Limits
 
 - The open-source reference platform is for evaluation, onboarding, and secondary-development reference rather than turnkey production hosting.
-- Hosted demo behavior may intentionally trade isolation or persistence for lower setup cost.
+- The hosted demo uses signed anonymous visitor isolation, but it does not provide formal accounts, durable cross-device recovery, or production-grade multi-tenant guarantees.
 - Compatibility should be treated as versioned, not eternal. If an Agent, OS, or Node.js major version changes, validation may need to be rerun.
 
 ## Publishing Rule
