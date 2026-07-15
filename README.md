@@ -180,13 +180,15 @@ For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform REA
 
 This is the hosted entry of the open reference-platform path. It is suitable for users who want to try the bridge flow quickly without deploying `server + web` locally.
 
-The official hosted experience has two public entries. Choose either entry first, then follow the shared bridge flow below.
+The official hosted experience has two public entries. Choose the entry that fits your device, then follow the same bridge flow below.
 
-| Hosted H5 | WeChat Mini Program |
-| --- | --- |
-| Open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) in a browser. | Scan the QR code, or search `agent桥接器` in WeChat. |
-| Browser-based public demo entry. | Mini-program entry; the current flow uses **QR-code sign-in**. |
-|  | <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" /> |
+**Hosted H5:** open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) in a browser.
+
+**WeChat Mini Program:** scan the QR code below, or search `agent桥接器` in WeChat. The current mini-program flow uses **QR-code sign-in**.
+
+<p align="center">
+  <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+</p>
 
 After entering either public entry:
 

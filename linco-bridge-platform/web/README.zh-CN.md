@@ -75,13 +75,15 @@ linco-connect start --daemon
 
 ### 5. 官方 H5 / 微信小程序体验流程
 
-如果你使用的是已经发布的 H5 或微信小程序入口，而不是本地开发环境，先任选一种公开入口：
+如果你使用的是已经发布的 H5 或微信小程序入口，而不是本地开发环境，先按当前设备选择入口：
 
-| 在线 H5 | 微信小程序 |
-| --- | --- |
-| 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)。 | 扫描体验码，或在微信直接搜索 `agent桥接器`。 |
-| 适合浏览器快速体验。 | 适合微信内体验；当前小程序版本默认使用**扫码登录**。 |
-|  | <img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" /> |
+**在线 H5：** 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)。
+
+**微信小程序：** 扫描下方体验码，或在微信直接搜索 `agent桥接器`。当前小程序版本默认使用**扫码登录**。
+
+<p align="center">
+  <img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" />
+</p>
 
 进入任一公开入口后：
 

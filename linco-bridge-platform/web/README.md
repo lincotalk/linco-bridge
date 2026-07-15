@@ -75,13 +75,15 @@ linco-connect start --daemon
 
 ### 5. Official H5 / WeChat Mini Program flow
 
-If you are using a published H5 or WeChat Mini Program entry instead of local development, choose one of the two public entries first:
+If you are using a published H5 or WeChat Mini Program entry instead of local development, choose the entry that fits your device first:
 
-| Hosted H5 | WeChat Mini Program |
-| --- | --- |
-| Open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). | Scan the QR code, or search `agent桥接器` in WeChat. |
-| Browser-based public demo entry. | Mini-program entry; the current flow uses **QR-code sign-in**. |
-|  | <img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" /> |
+**Hosted H5:** open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com).
+
+**WeChat Mini Program:** scan the QR code below, or search `agent桥接器` in WeChat. The current mini-program flow uses **QR-code sign-in**.
+
+<p align="center">
+  <img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+</p>
 
 After entering either public entry:
 

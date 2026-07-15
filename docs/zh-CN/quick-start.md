@@ -30,11 +30,13 @@ linco-connect start --daemon
 
 若要直接使用官方在线体验，先任选一种公开入口：
 
-| 在线 H5 | 微信小程序 |
-| --- | --- |
-| 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)。 | 扫描体验码，或在微信直接搜索 `agent桥接器`。 |
-| 适合浏览器快速体验。 | 适合微信内体验；当前小程序版本默认使用**扫码登录**。 |
-|  | <img src="../images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" /> |
+**在线 H5：** 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)。
+
+**微信小程序：** 扫描下方体验码，或在微信直接搜索 `agent桥接器`。当前小程序版本默认使用**扫码登录**。
+
+<p align="center">
+  <img src="../images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" />
+</p>
 
 进入任一入口后，同样按 **桥接 → 从 Codex 导入 → 复制 setupCommands → 本机执行 → 获取连接状态 → 进入聊天** 的顺序完成体验。
 

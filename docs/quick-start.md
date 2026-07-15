@@ -30,11 +30,13 @@ linco-connect start --daemon
 
 For the official hosted experience, choose one of the two public entries first:
 
-| Hosted H5 | WeChat Mini Program |
-| --- | --- |
-| Open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). | Scan the QR code, or search `agent桥接器` in WeChat. |
-| Browser-based public demo entry. | Mini-program entry; the current flow uses **QR-code sign-in**. |
-|  | <img src="images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" /> |
+**Hosted H5:** open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com).
+
+**WeChat Mini Program:** scan the QR code below, or search `agent桥接器` in WeChat. The current mini-program flow uses **QR-code sign-in**.
+
+<p align="center">
+  <img src="images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+</p>
 
 After entering either entry, follow **Bridge → Import from Codex → copy setupCommands → run them locally → get connection status → enter chat**.
 

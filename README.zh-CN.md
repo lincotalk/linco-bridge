@@ -180,13 +180,15 @@ linco-connect start --daemon
 
 这是开源参考平台路径下的托管体验入口，适合想快速试用桥接流程、但不想本地启动 `server + web` 的用户。
 
-官方托管体验提供两种公开入口。先任选一种入口进入，再按下方共用流程完成桥接。
+官方托管体验提供两种公开入口。先按当前设备选择入口，再按下方共用流程完成桥接。
 
-| 在线 H5 | 微信小程序 |
-| --- | --- |
-| 在浏览器打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)。 | 扫描体验码，或在微信直接搜索 `agent桥接器`。 |
-| 适合浏览器快速体验。 | 适合微信内体验；当前小程序版本默认使用**扫码登录**。 |
-|  | <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" /> |
+**在线 H5：** 在浏览器打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)。
+
+**微信小程序：** 扫描下方体验码，或在微信直接搜索 `agent桥接器`。当前小程序版本默认使用**扫码登录**。
+
+<p align="center">
+  <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" />
+</p>
 
 进入任一公开入口后：
 
