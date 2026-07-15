@@ -130,17 +130,33 @@ function parseBindArgs(rawArg) {
 
 function parseHistoryArgs(rawArg) {
   const trimmed = String(rawArg || '').trim();
-  if (!trimmed) return { ok: true, limit: DEFAULT_HISTORY_ROUNDS_LIMIT };
+  if (!trimmed) return { ok: true, limit: DEFAULT_HISTORY_ROUNDS_LIMIT, includeThinking: false };
   if (trimmed.includes('--chat')) return parseChatHistoryArgs(trimmed);
   if (trimmed.includes('--project') || trimmed.includes('--session')) return parseProjectHistoryArgs(trimmed);
-  if (!/^\d+$/.test(trimmed)) {
-    return { ok: false, message: '用法：/history [数量]，数量范围 1-50，例如 /history 10。' };
+  {
+    const parsed = splitCommandArgs(trimmed);
+    if (!parsed.ok) return parsed;
+
+    let limit = DEFAULT_HISTORY_ROUNDS_LIMIT;
+    let sawLimit = false;
+    let includeThinking = false;
+    for (const arg of parsed.args) {
+      if (isHistoryThinkingFlag(arg)) {
+        includeThinking = true;
+        continue;
+      }
+      if (/^\d+$/.test(arg) && !sawLimit) {
+        limit = Number(arg);
+        sawLimit = true;
+        continue;
+      }
+      return { ok: false, message: 'Usage: /history [--thinking] [limit].' };
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_HISTORY_ROUNDS_LIMIT) {
+      return { ok: false, message: `/history [--thinking] [limit], limit range is 1-${MAX_HISTORY_ROUNDS_LIMIT}.` };
+    }
+    return { ok: true, limit, includeThinking };
   }
-  const limit = Number(trimmed);
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_HISTORY_ROUNDS_LIMIT) {
-    return { ok: false, message: `用法：/history [数量]，数量范围 1-${MAX_HISTORY_ROUNDS_LIMIT}。` };
-  }
-  return { ok: true, limit };
 }
 
 function parseChatHistoryArgs(trimmed) {
@@ -150,8 +166,13 @@ function parseChatHistoryArgs(trimmed) {
   let chatId = '';
   let limit = DEFAULT_HISTORY_ROUNDS_LIMIT;
   let sawLimit = false;
+  let includeThinking = false;
   for (let i = 0; i < parsed.args.length; i++) {
     const arg = parsed.args[i];
+    if (isHistoryThinkingFlag(arg)) {
+      includeThinking = true;
+      continue;
+    }
     if (arg === '--chat') {
       const next = parsed.args[++i];
       if (!next) return { ok: false, message: 'Usage: /history --chat <chat-id> [limit].' };
@@ -174,7 +195,7 @@ function parseChatHistoryArgs(trimmed) {
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_HISTORY_ROUNDS_LIMIT) {
     return { ok: false, message: `/history --chat <chat-id> [limit], limit range is 1-${MAX_HISTORY_ROUNDS_LIMIT}.` };
   }
-  return { ok: true, chatId, limit };
+  return { ok: true, chatId, limit, includeThinking };
 }
 
 function parseProjectHistoryArgs(trimmed) {
@@ -185,8 +206,13 @@ function parseProjectHistoryArgs(trimmed) {
   let sessionId = '';
   let limit = DEFAULT_HISTORY_ROUNDS_LIMIT;
   let sawLimit = false;
+  let includeThinking = false;
   for (let i = 0; i < parsed.args.length; i++) {
     const arg = parsed.args[i];
+    if (isHistoryThinkingFlag(arg)) {
+      includeThinking = true;
+      continue;
+    }
     if (arg === '--project') {
       const next = parsed.args[++i];
       if (!next) return { ok: false, message: '用法：/history --project <项目路径> --session <session-id> [数量]。' };
@@ -222,7 +248,11 @@ function parseProjectHistoryArgs(trimmed) {
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_HISTORY_ROUNDS_LIMIT) {
     return { ok: false, message: `用法：/history --project <项目路径> --session <session-id> [数量]，数量范围 1-${MAX_HISTORY_ROUNDS_LIMIT}。` };
   }
-  return { ok: true, limit, projectPath, sessionId };
+  return { ok: true, limit, projectPath, sessionId, includeThinking };
+}
+
+function isHistoryThinkingFlag(arg) {
+  return arg === '--thinking' || arg === '--with-thinking';
 }
 
 function resolveSlashProjectWorkspace(projectPath, currentWorkspace) {

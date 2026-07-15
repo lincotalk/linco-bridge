@@ -212,9 +212,10 @@ function extractTextFromMessageContent(content) {
   return parts.join(' ').trim();
 }
 
-function parseClaudeHistoryRounds(filePath) {
+function parseClaudeHistoryRounds(filePath, options = {}) {
   const rounds = [];
   let current = null;
+  const includeThinking = options.includeThinking === true;
 
   for (const item of readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER)) {
     if (isClaudeActualUserRecord(item)) {
@@ -227,21 +228,33 @@ function parseClaudeHistoryRounds(filePath) {
         assistantFiles: [],
         userTimestamp: extractHistoryTimestamp(item),
       };
+      if (includeThinking) {
+        current.thinkingItems = [];
+        current._pendingThinkingText = '';
+      }
       if (userPayload.text || userPayload.files.length > 0) rounds.push(current);
       continue;
     }
 
     if (!current || !isClaudeAssistantRecord(item)) continue;
     const content = item?.message?.content;
+    if (includeThinking) {
+      collectClaudeHistoryThinking(current, content, extractHistoryTimestamp(item));
+    }
     const text = extractClaudeAssistantText(item);
     const files = extractClaudeContentFiles(content);
     if (text) {
       current.assistant = text;
       current.assistantTimestamp = extractHistoryTimestamp(item);
+      if (includeThinking) current._pendingThinkingText = text;
     }
     if (files.length > 0) {
       current.assistantFiles = files;
     }
+  }
+
+  if (includeThinking) {
+    for (const round of rounds) delete round._pendingThinkingText;
   }
 
   return rounds.filter(round => round.user || round.assistant || round.userFiles?.length || round.assistantFiles?.length);
@@ -327,6 +340,35 @@ function extractClaudeAssistantText(item) {
     .trim();
 }
 
+function collectClaudeHistoryThinking(round, content, timestamp) {
+  if (!round || !Array.isArray(content)) return;
+  for (const block of content) {
+    if (isClaudeThinkingBlock(block)) {
+      const text = extractClaudeThinkingBlockText(block);
+      appendHistoryThinking(round, text, 'summary', timestamp);
+      continue;
+    }
+    if (block?.type === 'text' && block.text) {
+      round._pendingThinkingText = block.text;
+      continue;
+    }
+    if (block?.type === 'tool_use') {
+      appendHistoryThinking(round, round._pendingThinkingText, 'progress', timestamp);
+      round._pendingThinkingText = '';
+    }
+  }
+}
+
+function isClaudeThinkingBlock(block) {
+  const type = stringOrEmpty(block?.type).toLowerCase();
+  return type.includes('thinking') || type.includes('reasoning');
+}
+
+function extractClaudeThinkingBlockText(block) {
+  if (!block || typeof block !== 'object') return '';
+  return stringOrEmpty(block.thinking || block.text || block.summary || block.content);
+}
+
 function readLocalHistoryFileAttachment(filePath, maxBytes = 4 * 1024 * 1024) {
   try {
     const resolved = path.resolve(String(filePath || '').trim());
@@ -374,12 +416,18 @@ function extractCodexAssistantFiles(text) {
   return files;
 }
 
-function parseCodexHistoryRounds(filePath) {
+function parseCodexHistoryRounds(filePath, options = {}) {
   const rounds = [];
   let current = null;
+  const includeThinking = options.includeThinking === true;
 
   for (const item of readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER)) {
     const payload = item?.payload || {};
+
+    if (includeThinking && current) {
+      collectCodexHistoryThinking(current, item, extractHistoryTimestamp(item));
+    }
+
     if (item?.type !== 'event_msg') continue;
 
     if (payload.type === 'user_message') {
@@ -394,6 +442,7 @@ function parseCodexHistoryRounds(filePath) {
         assistantFiles: [],
         userTimestamp: extractHistoryTimestamp(item),
       };
+      if (includeThinking) current.thinkingItems = [];
       rounds.push(current);
       continue;
     }
@@ -420,8 +469,80 @@ function parseCodexHistoryRounds(filePath) {
   );
 }
 
+function collectCodexHistoryThinking(round, item, timestamp) {
+  if (!round || !item || typeof item !== 'object') return;
+  const payload = item.payload || {};
+
+  if (item.type === 'event_msg') {
+    if (payload.type === 'agent_message') {
+      const phase = stringOrEmpty(payload.phase);
+      if (phase && phase !== 'final_answer') {
+        appendHistoryThinking(round, sanitizeCodexHistoryAssistantText(payload.message), 'progress', timestamp);
+      }
+      return;
+    }
+    if (isCodexHistoryReasoningPayload(payload)) {
+      appendHistoryThinking(round, extractCodexHistoryThinkingText(payload), 'summary', timestamp);
+    }
+    return;
+  }
+
+  if (item.type !== 'response_item') return;
+  if (isCodexHistoryReasoningPayload(payload)) {
+    appendHistoryThinking(round, extractCodexHistoryThinkingText(payload), 'summary', timestamp);
+    return;
+  }
+  if (payload.type === 'message' && payload.role === 'assistant') {
+    const phase = stringOrEmpty(payload.phase);
+    if (phase && phase !== 'final_answer') {
+      appendHistoryThinking(
+        round,
+        sanitizeCodexHistoryAssistantText(extractTextFromMessageContent(payload.content)),
+        'progress',
+        timestamp,
+      );
+    }
+  }
+}
+
+function isCodexHistoryReasoningPayload(payload) {
+  const type = stringOrEmpty(payload?.type).toLowerCase();
+  const itemType = stringOrEmpty(payload?.item?.type).toLowerCase();
+  return type.includes('reasoning') ||
+    type.includes('thinking') ||
+    itemType.includes('reasoning') ||
+    itemType.includes('thinking');
+}
+
+function extractCodexHistoryThinkingText(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  if (typeof payload.text === 'string') return payload.text;
+  if (typeof payload.delta === 'string') return payload.delta;
+  if (typeof payload.summary === 'string') return payload.summary;
+  if (typeof payload.message === 'string') return payload.message;
+  if (typeof payload.item?.text === 'string') return payload.item.text;
+  if (typeof payload.item?.summary === 'string') return payload.item.summary;
+  if (Array.isArray(payload.summary)) return extractTextFromMessageContent(payload.summary);
+  if (Array.isArray(payload.content)) return extractTextFromMessageContent(payload.content);
+  if (Array.isArray(payload.item?.content)) return extractTextFromMessageContent(payload.item.content);
+  if (Array.isArray(payload.item?.summary)) return extractTextFromMessageContent(payload.item.summary);
+  return '';
+}
+
 function sanitizeCodexHistoryAssistantText(value) {
   return sanitizeCodexHostDirectives(stringOrEmpty(value));
+}
+
+function appendHistoryThinking(round, value, mode, timestamp) {
+  const text = stringOrEmpty(value);
+  if (!text) return;
+  if (!Array.isArray(round.thinkingItems)) round.thinkingItems = [];
+  if (round.thinkingItems.some(item => item.text === text && item.mode === mode)) return;
+  round.thinkingItems.push({
+    text,
+    mode: mode || 'summary',
+    timestamp: timestamp || null,
+  });
 }
 
 function escapeRegExp(value) {

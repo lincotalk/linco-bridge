@@ -138,6 +138,10 @@
 持久化主键。Codex 历史继续只收录 `phase: "final_answer"`，不会把
 `commentary` 过程消息写入 Assistant 历史。
 
+`/history --thinking` 或 `/history-reload --thinking` 会在每轮额外返回
+`thinking` 字段，用于展示该回合模型过程输出；未带参数时历史 payload
+保持原结构。工具输出不会进入 `thinking`。
+
 ## 权限与危险操作
 
 Agent 适配器可能发送 `permission_request` 或 `danger_warning`。远端 IM 应让用户明确确认，然后回传：

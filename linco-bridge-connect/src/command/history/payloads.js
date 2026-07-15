@@ -95,6 +95,24 @@ function mapRoundFiles(files) {
   }));
 }
 
+function mapRoundThinking(items) {
+  if (!Array.isArray(items) || items.length === 0) return undefined;
+  const mapped = items
+    .map((item) => ({
+      text: String(item?.text || '').trim(),
+      mode: item?.mode || 'summary',
+      timestamp: item?.timestamp || null,
+      timestampMs: timestampToMs(item?.timestamp),
+    }))
+    .filter((item) => item.text);
+  if (mapped.length === 0) return undefined;
+  return {
+    text: mapped.map((item) => item.text).join('\n\n'),
+    missing: false,
+    items: mapped,
+  };
+}
+
 function stableHistoryRoundIdentity(agentType, sessionId, round, ordinal) {
   const normalizedUser = String(round.user || '').replace(/\s+/gu, ' ').trim();
   const userTimestampMs = timestampToMs(round.userTimestamp) || 0;
@@ -135,7 +153,7 @@ function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, optio
         round,
         ordinal,
       );
-      return {
+      const payloadRound = {
         index: index + 1,
         ordinal,
         roundId: identity.roundId,
@@ -159,6 +177,9 @@ function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, optio
           files: mapRoundFiles(round.assistantFiles),
         },
       };
+      const thinking = mapRoundThinking(round.thinkingItems);
+      if (thinking) payloadRound.thinking = thinking;
+      return payloadRound;
     }),
   };
 }

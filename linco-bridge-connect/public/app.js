@@ -451,9 +451,48 @@
       }
       for (const round of rounds) {
         addMessage('user', round.user?.text || '');
-        if (!round.assistant?.missing) addMessage('assistant', round.assistant?.text || '');
+        addHistoryAssistantMessage(round);
       }
       scrollToBottom({ force: true });
+    }
+
+    function addHistoryAssistantMessage(round) {
+      const thinking = historyThinkingText(round);
+      if (!thinking) {
+        if (!round.assistant?.missing) addMessage('assistant', round.assistant?.text || '');
+        return;
+      }
+
+      const container = document.createElement('div');
+      container.className = 'message assistant markdown assistant-turn';
+
+      const actionPanel = createActionPanel();
+      actionPanel.panel.classList.add('active');
+      actionPanel.panel.classList.remove('is-running');
+      actionPanel.details.open = false;
+      actionPanel.summaryText.textContent = 'Thinking summary';
+      actionPanel.list.appendChild(createActionItem({
+        id: `history-thinking-${round.roundId || round.index || ''}`,
+        type: 'thinking',
+        status: 'success',
+        label: 'Thinking summary',
+        detail: thinking,
+      }));
+      container.appendChild(actionPanel.panel);
+
+      if (!round.assistant?.missing) {
+        const content = document.createElement('div');
+        content.className = 'assistant-content';
+        content.dataset.role = 'final-answer';
+        renderAssistantMarkdown(content, round.assistant?.text || '');
+        container.appendChild(content);
+      }
+
+      messagesEl.appendChild(container);
+    }
+
+    function historyThinkingText(round) {
+      return String(round?.thinking?.text || '').trim();
     }
 
     function clearRenderedConversation() {
@@ -505,6 +544,8 @@
         const item = document.createElement('div');
         item.className = 'history-round';
         appendHistoryBlock(item, 'User', round.user?.text || '');
+        const thinking = historyThinkingText(round);
+        if (thinking) appendHistoryBlock(item, 'Thinking', thinking);
         appendHistoryBlock(item, 'Assistant', round.assistant?.missing ? '(no final output)' : (round.assistant?.text || ''));
         list.appendChild(item);
       }
@@ -1970,4 +2011,3 @@
       if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
       return `${(size / 1024).toFixed(1)} KB`;
     }
-

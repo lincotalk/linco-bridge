@@ -37,4 +37,9 @@ assert(presenceMatch, 'presence_event branch should exist');
 assert(presenceMatch[1].includes('addPresenceMessage(data)'), 'presence_event should render device presence details');
 assert(app.includes('function addPresenceMessage(data)'), 'presence renderer should exist');
 
+assert(app.includes("if (thinking) appendHistoryBlock(item, 'Thinking', thinking)"), 'history cards should render opt-in thinking');
+assert(app.includes('addHistoryAssistantMessage(round)'), 'history reload should use the thinking-aware assistant renderer');
+assert(app.includes("actionPanel.summaryText.textContent = 'Thinking summary'"), 'history reload should match the realtime thinking panel');
+assert(app.includes("return String(round?.thinking?.text || '').trim()"), 'history thinking should preserve payload text and line breaks');
+
 console.log('mock im structure ok');

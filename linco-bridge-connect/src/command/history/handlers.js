@@ -248,7 +248,9 @@ function handleHistory(rawArg, ws, session, options = {}) {
       sendError(ws, `Codex chat history not found: ${parsed.chatId}`);
       return;
     }
-    const rounds = parseCodexHistoryRounds(matched.transcriptPath);
+    const rounds = parseCodexHistoryRounds(matched.transcriptPath, {
+      includeThinking: parsed.includeThinking === true,
+    });
     const recent = rounds.slice(-parsed.limit);
     let bindResult = { ok: true, switched: false };
     if (options.bindExplicitHistorySession) {
@@ -310,9 +312,10 @@ function handleHistory(rawArg, ws, session, options = {}) {
     }
   }
 
+  const historyOptions = { includeThinking: parsed.includeThinking === true };
   const rounds = agentType === 'codex'
-    ? parseCodexHistoryRounds(resolved.transcriptPath)
-    : parseClaudeHistoryRounds(resolved.transcriptPath);
+    ? parseCodexHistoryRounds(resolved.transcriptPath, historyOptions)
+    : parseClaudeHistoryRounds(resolved.transcriptPath, historyOptions);
   const recent = rounds.slice(-parsed.limit);
 
   if (recent.length === 0) {

@@ -139,6 +139,10 @@ history window and must not be used as a persistence key. Codex history still
 accepts only `phase: "final_answer"`; commentary progress messages are not
 included in Assistant history.
 
+`/history --thinking` or `/history-reload --thinking` adds a per-round
+`thinking` field for model progress output. Without the flag, the history
+payload keeps the original shape. Tool output is not included in `thinking`.
+
 ## Permissions And Dangerous Operations
 
 Agent adapters may send `permission_request` or `danger_warning`. Remote IM should ask the user for explicit confirmation and send back:
