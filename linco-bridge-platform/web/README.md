@@ -77,7 +77,7 @@ linco-connect start --daemon
 
 If you are using a published H5 or WeChat Mini Program entry instead of local development:
 
-1. Open the public H5 page directly, or enter the WeChat Mini Program through the published search entry or QR code.
+1. Open the public H5 page directly, or enter the WeChat Mini Program by scanning the QR code below or searching `Agent桥接器` in WeChat.
 2. The current mini-program flow uses **QR-code sign-in**.
 3. Open **Bridge** after entering the page.
 4. Click **Import from Codex**.
@@ -93,7 +93,7 @@ Mini-program experience QR code:
 
 <img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
 
-Note: the experience QR code may expire. Please use the latest image in this repository or the official published entry.
+Note: the experience QR code may expire. Please use the latest image in this repository or search `Agent桥接器` in WeChat.
 
 ### 6. Mini Program build and local debugging
 

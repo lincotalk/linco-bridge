@@ -182,7 +182,7 @@ linco-connect start --daemon
 
 如果希望通过官方托管体验快速试用 Linco Bridge：
 
-1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)；如果使用小程序，可直接搜索入口或扫码进入。当前小程序版本默认使用**扫码登录**；
+1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)；如果使用小程序，可扫描下方体验码，或在微信直接搜索 `Agent桥接器` 进入。当前小程序版本默认使用**扫码登录**；
 2. 进入页面后打开 **桥接**；
 3. 点击 **从 Codex 导入**；
 4. 复制页面生成的 `setupCommands`；
@@ -197,7 +197,7 @@ linco-connect start --daemon
 
 <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge 微信小程序体验码" width="220" />
 
-说明：小程序体验码可能会过期，请以仓库中的最新图片或官方渠道发布的信息为准。
+说明：小程序体验码可能会过期，请以仓库中的最新图片为准，也可以在微信直接搜索 `Agent桥接器`。
 
 在线 Demo 主要用于轻量公开体验，不提供正式账号体系。Demo 状态通常通过匿名访客 ID 与浏览器本地缓存做隔离；如果清理浏览器缓存、更换设备或使用无痕模式，本地 Demo 历史记录和状态可能丢失。
 

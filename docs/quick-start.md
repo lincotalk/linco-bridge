@@ -28,13 +28,13 @@ linco-connect init --token "demo-codex-app:demo-codex-secret" --agent codex --ch
 linco-connect start --daemon
 ```
 
-For the official hosted experience, open the hosted H5 page at [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). If you use the WeChat Mini Program, enter through the published search entry or QR code; the current flow uses **QR-code sign-in**. After entering, follow **Bridge → Import from Codex → copy setupCommands → run them locally → get connection status → enter chat**.
+For the official hosted experience, open the hosted H5 page at [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). If you use the WeChat Mini Program, scan the QR code below or search `Agent桥接器` in WeChat; the current flow uses **QR-code sign-in**. After entering, follow **Bridge → Import from Codex → copy setupCommands → run them locally → get connection status → enter chat**.
 
 Mini-program experience QR code:
 
 <img src="images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
 
-Note: the experience QR code may expire. Please use the latest image in this repository or the official published entry.
+Note: the experience QR code may expire. Please use the latest image in this repository or search `Agent桥接器` in WeChat.
 
 To use the official hosted demo, open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). To deploy your own hosted demo, see [Hosted Demo Deployment](deploy-demo.md).
 

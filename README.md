@@ -182,7 +182,7 @@ This is the hosted entry of the open reference-platform path. It is suitable for
 
 If you want to try Linco Bridge through the official hosted experience:
 
-1. open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com); for the mini program, use the published search entry or QR code. The current mini-program flow uses **QR-code sign-in**;
+1. open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com); for the mini program, scan the QR code below or search `Agent桥接器` in WeChat. The current mini-program flow uses **QR-code sign-in**;
 2. open **Bridge** after entering the page;
 3. click **Import from Codex**;
 4. copy the generated `setupCommands`;
@@ -197,7 +197,7 @@ Mini-program experience QR code:
 
 <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
 
-Note: the mini-program experience QR code may expire. Please use the latest image in this repository or the official published entry.
+Note: the mini-program experience QR code may expire. Please use the latest image in this repository or search `Agent桥接器` in WeChat.
 
 The hosted demo is intended for lightweight public evaluation and does not require a formal account system. Demo state is typically isolated through an anonymous visitor ID together with browser-local cache. If browser cache is cleared, the device is changed, or an incognito window is used, local demo history and state may be lost.
 
