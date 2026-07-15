@@ -52,7 +52,11 @@ environment:
   PUBLIC_HTTP_SCHEME: 'https'
   PUBLIC_WS_SCHEME: 'wss'
   SQLITE_PATH: /app/data/linco-bridge.db
+  CORS_ORIGINS: 'https://bridge-demo.lincotalk.com'
+  VISITOR_SESSION_SECRET: '<random-32b-hex>'
 ```
+
+> **Third-party frontend policy:** The official hosted demo API (`bridge-demo.lincotalk.com`) accepts browser traffic **only** from the officially deployed H5 / mini program. If you fork or modify the `web` frontend, you must **self-host the server** and point `VITE_API_BASE_URL` at your own backend. Do **not** point third-party builds at the official demo server. The server enforces this with a `CORS_ORIGINS` whitelist for browser cross-origin requests.
 
 ### Environment Variables
 
@@ -63,6 +67,8 @@ environment:
 | `PUBLIC_HTTP_SCHEME` | local `http`, otherwise `https` | `https` | REST base URL scheme |
 | `PUBLIC_WS_SCHEME` | local `ws`, otherwise `wss` | `wss` | connector WebSocket scheme |
 | `SQLITE_PATH` | `./data/linco-bridge.db` | `/app/data/linco-bridge.db` | SQLite file path |
+| `CORS_ORIGINS` | dev unset → allow-all; **prod unset → deny cross-origin** | `https://bridge-demo.lincotalk.com` | Browser CORS whitelist; **required** for hosted demo |
+| `VISITOR_SESSION_SECRET` | dev fallback exists | random long string (required) | Production visitor session signing secret |
 
 When `PUBLIC_HOST` is not `127.0.0.1` or `localhost`, the generated `setupCommands` automatically include:
 

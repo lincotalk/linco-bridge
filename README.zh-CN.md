@@ -203,6 +203,8 @@ linco-connect start --daemon
 
 请不要在在线 Demo 中输入敏感信息、长期保存数据或正式业务数据。
 
+**第三方前端：** 若你修改或 fork 了 `linco-bridge-platform/web`，请自行部署 Server，并将 API 指向你的后端。**不得**将第三方构建的 `VITE_API_BASE_URL` 指向 `https://bridge-demo.lincotalk.com`；官方 Demo Server 仅服务官方 H5 / 小程序，并通过 CORS 白名单拦截浏览器跨域调用。
+
 部署说明见 [在线 Demo 部署指南](docs/zh-CN/deploy-demo.md)。
 
 ## 🤖 支持的 Agent

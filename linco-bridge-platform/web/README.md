@@ -118,6 +118,8 @@ npm run build:mp-weixin
 
 Production builds (`build:h5` / `build:mp-weixin`) automatically load [`prod.env`](prod.env). No inline `VITE_*` flags are required.
 
+> **Self-hosting:** `VITE_API_BASE_URL` in [`prod.env`](prod.env) is for the official hosted demo build only. Point it at your own server (or leave empty for same-origin `/api`). Do **not** use `https://bridge-demo.lincotalk.com` for third-party builds.
+
 | Variable | Default | Description |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | see `prod.env` | REST base URL; leave empty when API is same-origin |

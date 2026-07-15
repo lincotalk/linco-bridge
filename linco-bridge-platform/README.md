@@ -13,6 +13,8 @@ Self-hosted reference platform for validating the Linco Bridge flow with local A
 
 The hosted demo is a public demo environment: no login, shared data, and only one connector online per Agent type at a time.
 
+**Third-party frontends:** After forking or modifying `web`, self-host the server. Do **not** point API calls at the official `bridge-demo.lincotalk.com` host (the official server only allows the official H5 / mini program origin via `CORS_ORIGINS`).
+
 ## Structure
 
 ```text

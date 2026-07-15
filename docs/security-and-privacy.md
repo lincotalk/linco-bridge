@@ -35,7 +35,7 @@ Linco Bridge connects remote clients with Agents running on a user's own compute
 | --- | --- | --- |
 | Official channel (`linco`) | Follows the official product flow | Review official product policy and actual deployment behavior |
 | Local reference platform (`linco-demo`) | Mostly local evaluation on the user's machine and local server | Useful for validation, not a production security model |
-| Hosted demo | Public evaluation environment | Do not treat it as a private or durable workspace unless isolation is explicitly implemented |
+| Hosted demo | Public evaluation environment | Do not treat it as a private or durable workspace unless isolation is explicitly implemented; **third-party forked frontends must not call the official demo API—self-host the server instead** |
 | Custom channel | Depends on your own backend and client design | You own authentication, storage, audit, and deletion policy |
 
 ## File And Attachment Boundaries

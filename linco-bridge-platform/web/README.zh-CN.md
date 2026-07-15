@@ -118,6 +118,8 @@ npm run build:mp-weixin
 
 生产构建（`build:h5` / `build:mp-weixin`）会自动加载仓库根目录 [`prod.env`](prod.env)，无需在命令行手写 `VITE_*`。
 
+> **自托管注意：** [`prod.env`](prod.env) 中的 `VITE_API_BASE_URL` 仅用于官方在线 Demo 构建。二次开发请改为你的 Server 地址（或同域留空走 `/api`），**不要**指向 `https://bridge-demo.lincotalk.com`。
+
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | 见 `prod.env` | REST 根地址；与 API 同域时可留空 |

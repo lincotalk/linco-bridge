@@ -203,6 +203,8 @@ The hosted demo is intended for lightweight public evaluation and does not requi
 
 Do not use the hosted demo for sensitive information, long-term storage, or formal production data.
 
+**Third-party frontends:** If you fork or modify `linco-bridge-platform/web`, self-host the server and point the API at your own backend. Do **not** set `VITE_API_BASE_URL` to `https://bridge-demo.lincotalk.com`. The official demo server only serves the official H5 / mini program and blocks browser cross-origin calls via a `CORS_ORIGINS` whitelist.
+
 For deployment details, see [Hosted Demo Deployment](docs/deploy-demo.md).
 
 ## 🤖 Supported Agents

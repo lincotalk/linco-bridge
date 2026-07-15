@@ -11,6 +11,8 @@ services:
       # PUBLIC_HOST: 'bridge-demo.lincotalk.com'
       # PUBLIC_HTTP_SCHEME: 'https'
       # PUBLIC_WS_SCHEME: 'wss'
+      # CORS_ORIGINS: 'https://bridge-demo.lincotalk.com'
+      # VISITOR_SESSION_SECRET: '<random-32b-hex>'
       PUBLIC_HOST: '127.0.0.1'
       SQLITE_PATH: /app/data/linco-bridge.db
     volumes:

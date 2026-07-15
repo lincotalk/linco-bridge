@@ -50,7 +50,11 @@ environment:
   PUBLIC_HTTP_SCHEME: 'https'
   PUBLIC_WS_SCHEME: 'wss'
   SQLITE_PATH: /app/data/linco-bridge.db
+  CORS_ORIGINS: 'https://bridge-demo.lincotalk.com'
+  VISITOR_SESSION_SECRET: '<random-32b-hex>'
 ```
+
+> **第三方前端策略：** 官方在线 Demo API（`bridge-demo.lincotalk.com`）**仅允许**官方部署的 H5 / 小程序访问。若你 fork 或修改了 `web` 前端，请 **自托管 Server**，并将 `VITE_API_BASE_URL` 指向你自己的后端；**不得**将第三方构建指到官方 Demo Server。Server 通过 `CORS_ORIGINS` 白名单在浏览器侧拦截跨域调用。
 
 ### 环境变量
 
@@ -61,6 +65,8 @@ environment:
 | `PUBLIC_HTTP_SCHEME` | 本地 `http`，否则 `https` | `https` | REST 根地址 scheme |
 | `PUBLIC_WS_SCHEME` | 本地 `ws`，否则 `wss` | `wss` | connector WebSocket scheme |
 | `SQLITE_PATH` | `./data/linco-bridge.db` | `/app/data/...` | SQLite 文件路径 |
+| `CORS_ORIGINS` | 开发未设则放行；**生产未设则拒绝跨域** | `https://bridge-demo.lincotalk.com` | 浏览器跨域白名单；官方 Demo **必填** |
+| `VISITOR_SESSION_SECRET` | 开发有默认值 | 随机长串（必填） | 生产环境访客 Session 签名密钥 |
 
 当 `PUBLIC_HOST` 不是 `127.0.0.1` / `localhost` 时，导入页生成的 `setupCommands` 会自动带上：
 
