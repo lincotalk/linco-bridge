@@ -180,24 +180,27 @@ For the detailed flow, see [Quick Start](docs/quick-start.md), the [platform REA
 
 This is the hosted entry of the open reference-platform path. It is suitable for users who want to try the bridge flow quickly without deploying `server + web` locally.
 
-If you want to try Linco Bridge through the official hosted experience:
+The official hosted experience has two public entries. Choose either entry first, then follow the shared bridge flow below.
 
-1. open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com); for the mini program, scan the QR code below or search `Agent桥接器` in WeChat. The current mini-program flow uses **QR-code sign-in**;
-2. open **Bridge** after entering the page;
-3. click **Import from Codex**;
-4. copy the generated `setupCommands`;
-5. run those commands in a local terminal on your own computer;
-6. return to the page and click **I have copied it, get connection status**;
-7. wait until the page confirms the connector is online;
-8. click **Enter Codex** to enter the chat page;
-9. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new one;
-10. send a test message to confirm the full bridge flow is working.
+| Hosted H5 | WeChat Mini Program |
+| --- | --- |
+| Open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) in a browser. | Scan the QR code, or search `agent桥接器` in WeChat. |
+| Browser-based public demo entry. | Mini-program entry; the current flow uses **QR-code sign-in**. |
+|  | <img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" /> |
 
-Mini-program experience QR code:
+After entering either public entry:
 
-<img src="docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+1. open **Bridge**;
+2. click **Import from Codex**;
+3. copy the generated `setupCommands`;
+4. run those commands in a local terminal on your own computer;
+5. return to the page and click **I have copied it, get connection status**;
+6. wait until the page confirms the connector is online;
+7. click **Enter Codex** to enter the chat page;
+8. use the folder icon in the top-right corner if you want to choose a project, open an existing session, or create a new one;
+9. send a test message to confirm the full bridge flow is working.
 
-Note: the mini-program experience QR code may expire. Please use the latest image in this repository or search `Agent桥接器` in WeChat.
+Note: the mini-program experience QR code may expire. Please use the latest image in this repository or search `agent桥接器` in WeChat.
 
 The hosted demo is intended for lightweight public evaluation and does not require a formal account system. Demo state is typically isolated through an anonymous visitor ID together with browser-local cache. If browser cache is cleared, the device is changed, or an incognito window is used, local demo history and state may be lost.
 

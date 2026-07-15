@@ -75,25 +75,27 @@ linco-connect start --daemon
 
 ### 5. Official H5 / WeChat Mini Program flow
 
-If you are using a published H5 or WeChat Mini Program entry instead of local development:
+If you are using a published H5 or WeChat Mini Program entry instead of local development, choose one of the two public entries first:
 
-1. Open the public H5 page directly, or enter the WeChat Mini Program by scanning the QR code below or searching `Agent桥接器` in WeChat.
-2. The current mini-program flow uses **QR-code sign-in**.
-3. Open **Bridge** after entering the page.
-4. Click **Import from Codex**.
-5. Copy the generated `setupCommands`.
-6. Run those commands in a local terminal on your own computer.
-7. Return to the page and click `I have copied it, get connection status`.
-8. Wait until the page confirms the connector is online.
-9. Click `Enter Codex` to enter the chat page.
-10. Use the folder icon in the top-right corner to choose a project, open an existing session, or create a new one.
-11. Send a test message to confirm the full bridge flow is working.
+| Hosted H5 | WeChat Mini Program |
+| --- | --- |
+| Open [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com). | Scan the QR code, or search `agent桥接器` in WeChat. |
+| Browser-based public demo entry. | Mini-program entry; the current flow uses **QR-code sign-in**. |
+|  | <img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" /> |
 
-Mini-program experience QR code:
+After entering either public entry:
 
-<img src="../../docs/images/demo/mini-program-qr.png" alt="Linco Bridge WeChat Mini Program QR code" width="220" />
+1. Open **Bridge**.
+2. Click **Import from Codex**.
+3. Copy the generated `setupCommands`.
+4. Run those commands in a local terminal on your own computer.
+5. Return to the page and click `I have copied it, get connection status`.
+6. Wait until the page confirms the connector is online.
+7. Click `Enter Codex` to enter the chat page.
+8. Use the folder icon in the top-right corner to choose a project, open an existing session, or create a new one.
+9. Send a test message to confirm the full bridge flow is working.
 
-Note: the experience QR code may expire. Please use the latest image in this repository or search `Agent桥接器` in WeChat.
+Note: the experience QR code may expire. Please use the latest image in this repository or search `agent桥接器` in WeChat.
 
 ### 6. Mini Program build and local debugging
 
