@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type { ChatMessageAttachment } from '@/bridge/types'
 import { isImageAttachment } from '@/utils/chat-attachments'
 import { openChatAttachment } from '@/utils/attachment-open'
+import { resolveDisplayImageSrc, resolveDisplayImageSrcList } from '@/utils/resolve-image-src'
 
 const props = defineProps<{
   attachments: ChatMessageAttachment[]
@@ -12,14 +14,37 @@ const emit = defineEmits<{
   previewLoad: []
 }>()
 
-async function handleAttachmentTap(item: ChatMessageAttachment) {
-  if (isImageAttachment(item) && item.previewUrl) {
-    const urls = props.attachments
-      .filter((entry) => isImageAttachment(entry) && entry.previewUrl)
-      .map((entry) => entry.previewUrl as string)
+const displaySrcByIndex = ref<Record<number, string>>({})
+
+watch(
+  () => props.attachments,
+  (list) => {
+    void (async () => {
+      const next: Record<number, string> = {}
+      await Promise.all(
+        list.map(async (item, index) => {
+          if (!isImageAttachment(item) || !item.previewUrl) return
+          const src = await resolveDisplayImageSrc(item.previewUrl)
+          if (src) next[index] = src
+        }),
+      )
+      displaySrcByIndex.value = next
+    })()
+  },
+  { immediate: true, deep: true },
+)
+
+async function handleAttachmentTap(item: ChatMessageAttachment, index: number) {
+  const displaySrc = displaySrcByIndex.value[index] || item.previewUrl
+  if (isImageAttachment(item) && displaySrc) {
+    const urls = await resolveDisplayImageSrcList(
+      props.attachments
+        .filter((entry) => isImageAttachment(entry) && entry.previewUrl)
+        .map((entry) => entry.previewUrl),
+    )
     uni.previewImage({
-      current: item.previewUrl,
-      urls,
+      current: displaySrc,
+      urls: urls.length > 0 ? urls : [displaySrc],
     })
     return
   }
@@ -35,12 +60,12 @@ async function handleAttachmentTap(item: ChatMessageAttachment) {
       :key="`${item.name}-${index}`"
       class="attachment-list__item"
       :class="`attachment-list__item--${variant ?? 'assistant'}`"
-      @tap="handleAttachmentTap(item)"
+      @tap="handleAttachmentTap(item, index)"
     >
       <image
-        v-if="isImageAttachment(item) && item.previewUrl"
+        v-if="isImageAttachment(item) && displaySrcByIndex[index]"
         class="attachment-list__image"
-        :src="item.previewUrl"
+        :src="displaySrcByIndex[index]"
         mode="aspectFill"
         @load="emit('previewLoad')"
       />

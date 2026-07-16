@@ -247,6 +247,28 @@ describe('ChatService', () => {
     expect(messages).toEqual([])
   })
 
+  it('sendMessage with image file persists data-url preview for reload', async () => {
+    const result = await chatService.createConversation({
+      agentType: 'codex',
+      tempSession: true,
+      title: '附件会话',
+    })
+    const tinyPng =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const reply = await chatService.sendMessage(result.sessionId, '看图', [
+      { name: 'dot.png', mimeType: 'image/png', base64: tinyPng },
+    ])
+    expect(reply.role).toBe('assistant')
+
+    const stored = database.listMessages(result.sessionId)
+    const user = stored.find((item) => item.role === 'user')
+    expect(user?.content).toContain('看图')
+    const attachments = user?.attachments_json ? JSON.parse(user.attachments_json) : []
+    expect(attachments[0]?.name).toBe('dot.png')
+    expect(attachments[0]?.mimeType).toBe('image/png')
+    expect(String(attachments[0]?.previewUrl ?? '')).toMatch(/^data:image\/png;base64,/)
+  })
+
   it('creates temp session without relinking connection primary session', async () => {
     const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
     const original = database.getSessionByConnectionId(connection.id)!

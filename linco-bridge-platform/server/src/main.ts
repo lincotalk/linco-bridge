@@ -1,11 +1,18 @@
 import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
+import type { NestExpressApplication } from '@nestjs/platform-express'
+import { json, urlencoded } from 'express'
 import { AppModule } from './app.module'
 import { BRIDGE_WS_GATEWAY_PATH, BridgeWsAdapter } from './bridge/bridge-ws.adapter'
 import { resolveCorsOrigin } from './shared/cors.util'
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule)
+  // 关闭默认 100kb bodyParser，改为 25mb（图片 base64 入站；H5 / 小程序共用）
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  })
+  app.use(json({ limit: '25mb' }))
+  app.use(urlencoded({ extended: true, limit: '25mb' }))
   app.setGlobalPrefix('api')
   app.enableCors({
     origin: resolveCorsOrigin(),

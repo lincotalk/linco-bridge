@@ -170,10 +170,10 @@ async function handleAdd() {
 
 function handleSend() {
   scrollToBottom()
-  const files = pendingFiles.value
-  void sendMessage(undefined, files).finally(() => {
-    clearFiles()
-  })
+  // 对齐 Flutter：先快照附件并立刻清空输入区，再异步发送（勿等整轮回复结束）
+  const files = [...pendingFiles.value]
+  clearFiles()
+  void sendMessage(undefined, files)
 }
 
 function handleVoice() {

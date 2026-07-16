@@ -304,6 +304,10 @@ export class BridgeService {
         unmatchedAccountIds.push(accountId)
         continue
       }
+      // 插件 /accounts 也可能带回仅 setup 的账号，统一按「已连接」门槛过滤
+      if (!this.hasConnectedAssistantRecord(connection)) {
+        continue
+      }
 
       const session = connection.session_id
         ? this.database.getSession(connection.session_id)
@@ -886,12 +890,15 @@ export class BridgeService {
     return this.database.getConnectionByToken(appId, appSecret) ?? null
   }
 
-  /** 仅展示已真正连上过的助手；setup 预创建的凭证不算。 */
+  /**
+   * 仅展示已真正连上过的助手。
+   * setup 只会建 bridge_connections；旧版误建的「孤儿 session」
+   *（chat_sessions 有记录但 connection.session_id 未 link）不算已连接。
+   */
   private hasConnectedAssistantRecord(connection: BridgeConnectionRow): boolean {
     if (this.presence.isOnline(connection.id)) return true
-    if (connection.session_id?.trim()) return true
     if (connection.bound_context_id?.trim()) return true
-    return Boolean(this.database.getSessionByConnectionId(connection.id))
+    return Boolean(connection.session_id?.trim())
   }
 
   private async fetchProjectsFromConnector(connection: BridgeConnectionRow): Promise<BridgeProjectDto[]> {

@@ -281,83 +281,13 @@ export class ChatService {
     }
   }
 
-  async sendMessage(sessionId: string, content: string): Promise<ChatMessageDto> {
-    const trimmed = content.trim()
-    if (!trimmed) {
-      throw new BadRequestException('消息内容不能为空')
-    }
-
-    const session = this.resourceAccess.requireSession(sessionId)
-
-    const connection = session.bridge_connection_id
-      ? this.database.getConnectionById(session.bridge_connection_id)
-      : undefined
-
-    if (this.isTempSession(session)) {
-      this.maybeApplyTempSessionTitle(session, trimmed)
-    }
-    if (shouldPersistSessionMessages(session)) {
-      this.database.insertMessage({ sessionId, role: 'user', content: trimmed })
-    }
-
-    let assistantText = ''
-    let assistantAttachments: ChatMessageAttachmentDto[] = []
-
-    if (connection && this.presence.isOnline(connection.id)) {
-      try {
-        const { completed } = this.relay.forwardToConnector(
-          (payload) => this.presence.sendJson(connection.id, payload),
-          {
-            sessionId,
-            text: trimmed,
-            bridgeType: connection.bridge_type,
-            accountId: connection.account_id,
-            boundContextId: connection.bound_context_id,
-            userId: this.ownerId(),
-          },
-        )
-        const result = await completed
-        assistantText = result.text
-        if (result.file) {
-          assistantAttachments = [this.connectorFileToStreamAttachment(result.file)]
-        }
-        if (!assistantText.trim()) {
-          assistantText = '本机 Agent 暂未返回内容，请稍后重试。'
-        }
-      } catch {
-        assistantText = '本机 Agent 暂未返回实时回复，请确认 connector 正在运行。'
-      }
-    } else {
-      assistantText = '本机 Agent 未连接，请先完成 bridge 配置并保持在线。'
-    }
-
-    if (shouldPersistSessionMessages(session)) {
-      return this.mapStoredMessage(
-        this.database.insertMessage({
-          sessionId,
-          role: 'assistant',
-          content: sanitizeBridgeAssistantContent(assistantText, {
-            agentType: connection?.bridge_type ?? session.agent_type,
-          }),
-          attachments: assistantAttachments,
-        }),
-        session.agent_type,
-      )
-    }
-
-    this.database.touchSession(
-      sessionId,
-      normalizeSessionPreview(assistantText.trim() || trimmed),
-    )
-
-    return createEphemeralMessage(
-      sessionId,
-      'assistant',
-      sanitizeBridgeAssistantContent(assistantText, {
-        agentType: connection?.bridge_type ?? session.agent_type,
-      }),
-      assistantAttachments,
-    )
+  async sendMessage(
+    sessionId: string,
+    content: string,
+    files: ChatFileInput[] = [],
+  ): Promise<ChatMessageDto> {
+    // 与 stream 共用附件转发逻辑；小程序阻塞发送依赖此路径携带 files。
+    return this.sendMessageStream(sessionId, content, () => undefined, files)
   }
 
   async sendMessageStream(
@@ -886,7 +816,7 @@ export class ChatService {
 
   private connectorFileToStreamAttachment(file: ConnectorFileInput): ChatMessageAttachmentDto {
     const name = file.name?.trim() || 'attachment'
-    const mimeType = file.mimeType?.trim() || 'application/octet-stream'
+    const mimeType = this.normalizeMimeType(name, file.mimeType)
     const previewUrl =
       file.base64 && mimeType.startsWith('image/')
         ? `data:${mimeType};base64,${file.base64}`
@@ -903,23 +833,50 @@ export class ChatService {
 
   private normalizeFiles(files: ChatFileInput[]): ConnectorFileInput[] {
     return files
-      .map((file) => ({
-        name: file.name?.trim() || undefined,
-        mimeType: file.mimeType?.trim() || undefined,
-        base64: file.base64?.trim() || undefined,
-        url: file.url?.trim() || undefined,
-      }))
+      .map((file) => {
+        const name = file.name?.trim() || 'attachment'
+        return {
+          name,
+          mimeType: this.normalizeMimeType(name, file.mimeType),
+          base64: file.base64?.trim() || undefined,
+          url: file.url?.trim() || undefined,
+        }
+      })
       .filter((file) => file.base64 || file.url)
   }
 
+  /** 兼容微信 chooseMessageFile 返回的 type=image（非 MIME）。 */
+  private normalizeMimeType(name: string, typeHint?: string): string {
+    const hint = typeHint?.trim().toLowerCase() ?? ''
+    if (hint.includes('/')) return hint
+    const lower = name.toLowerCase()
+    if (hint === 'image' || lower.match(/\.(png|jpe?g|gif|webp|bmp|heic)$/)) {
+      if (lower.endsWith('.png')) return 'image/png'
+      if (lower.endsWith('.gif')) return 'image/gif'
+      if (lower.endsWith('.webp')) return 'image/webp'
+      if (lower.endsWith('.bmp')) return 'image/bmp'
+      if (lower.endsWith('.heic')) return 'image/heic'
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+      return hint === 'image' ? 'image/jpeg' : 'application/octet-stream'
+    }
+    if (hint === 'video') return 'video/mp4'
+    if (lower.endsWith('.pdf')) return 'application/pdf'
+    if (lower.endsWith('.txt')) return 'text/plain'
+    return hint || 'application/octet-stream'
+  }
+
+  /** 落库附件：图片把 base64 写成 data: previewUrl，重进会话才能回显缩略图。 */
   private filesToAttachments(files: ConnectorFileInput[]): ChatMessageAttachmentDto[] {
     return files.map((file) => {
       const name = file.name?.trim() || 'attachment'
-      const mimeType = file.mimeType?.trim() || 'application/octet-stream'
+      const mimeType = this.normalizeMimeType(name, file.mimeType)
+      const url = file.url?.trim()
       const previewUrl =
         file.base64 && mimeType.startsWith('image/')
           ? `data:${mimeType};base64,${file.base64}`
-          : file.url
+          : url && /^https?:\/\//i.test(url)
+            ? url
+            : undefined
       return {
         name,
         mimeType,

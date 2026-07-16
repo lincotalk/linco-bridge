@@ -13,6 +13,7 @@ import type { BridgeSdk } from '@/bridge/sdk/types'
 import type { AgentBridgeSetup, AgentBridgeType, BridgeStatusResult } from '@/bridge/types'
 import type { AgentTrace, ChatMessage, ChatMessageAttachment, ChatSessionItem } from '@/bridge/types'
 import { sanitizeBridgeAssistantContent } from '@/utils/bridge-message-sanitize'
+import { mapOutboundFilesToAttachments } from '@/utils/chat-attachments'
 
 const STREAMING_ASSISTANT_ID_PREFIX = 'stream-assistant-'
 
@@ -245,15 +246,18 @@ export const useSessionStore = defineStore('session', () => {
     const assistantPlaceholderId = `stream-assistant-${Date.now()}`
     const optimisticUserId = `optimistic-user-${Date.now()}`
     const trimmed = content.trim()
+    const outboundFiles = options?.files ?? []
+    const optimisticAttachments = mapOutboundFilesToAttachments(outboundFiles)
     let assistantStarted = false
     const reasoningStartedAt = Date.now()
 
-    if (trimmed) {
+    if (trimmed || optimisticAttachments.length > 0) {
       upsertMessage(sessionId, {
         id: optimisticUserId,
         sessionId,
         role: 'user',
-        content: trimmed,
+        content: trimmed || `[${optimisticAttachments.length} 个附件]`,
+        attachments: optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
         createdAt: Date.now(),
       })
     }
@@ -271,10 +275,33 @@ export const useSessionStore = defineStore('session', () => {
         },
         onUserMessage: (message) => {
           const current = messagesBySession.value[sessionId] ?? []
+          const optimistic = current.find((item) => item.id === optimisticUserId)
+          // 服务端不回传 data: 预览，保留乐观更新里的本地缩略图
+          const mergedMessage: ChatMessage = {
+            ...message,
+            attachments:
+              message.attachments?.map((att, index) => ({
+                ...att,
+                previewUrl:
+                  att.previewUrl || optimistic?.attachments?.[index]?.previewUrl || undefined,
+              })) ?? optimistic?.attachments,
+          }
           const withoutOptimistic = current.filter((item) => item.id !== optimisticUserId)
+          // 阻塞发送可能先 onStart 再 onUser：用户消息必须插在「输出中」占位之前
+          const streamingIdx = withoutOptimistic.findIndex(
+            (item) => item.id === assistantPlaceholderId,
+          )
+          const next =
+            streamingIdx >= 0
+              ? [
+                  ...withoutOptimistic.slice(0, streamingIdx),
+                  mergedMessage,
+                  ...withoutOptimistic.slice(streamingIdx),
+                ]
+              : [...withoutOptimistic, mergedMessage]
           messagesBySession.value = {
             ...messagesBySession.value,
-            [sessionId]: [...withoutOptimistic, message],
+            [sessionId]: next,
           }
         },
         onReasoning: ({ fullText }) => {

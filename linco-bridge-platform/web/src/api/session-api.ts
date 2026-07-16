@@ -14,6 +14,7 @@ import {
   throwIfCancelled,
   type CancelToken,
 } from '@/utils/platform-runtime'
+import { mapOutboundFilesToAttachments, toApiOutboundFiles } from '@/utils/chat-attachments'
 import { apiGet, apiPost, buildApiRequestHeaders, getApiBaseUrl } from './http-client'
 import { CHAT_REQUEST_TIMEOUT_MS } from './http-transport'
 import { ensureVisitorSession } from './visitor-bootstrap'
@@ -66,16 +67,32 @@ export async function fetchMessages(
   return res.data
 }
 
-export async function sendSessionMessage(sessionId: string, content: string): Promise<ChatMessage> {
-  const res = await apiPost<ChatMessage>(
-    `/api/sessions/${sessionId}/messages`,
-    { content },
-    { timeout: CHAT_REQUEST_TIMEOUT_MS },
-  )
-  if (!res.success || !res.data) {
-    throw new Error(res.message || '发送消息失败')
+export async function sendSessionMessage(
+  sessionId: string,
+  content: string,
+  files: OutboundChatFile[] = [],
+): Promise<ChatMessage> {
+  try {
+    const res = await apiPost<ChatMessage>(
+      `/api/sessions/${sessionId}/messages`,
+      { content, files: toApiOutboundFiles(files) },
+      { timeout: CHAT_REQUEST_TIMEOUT_MS },
+    )
+    if (!res.success || !res.data) {
+      throw new Error(res.message || '发送消息失败')
+    }
+    return res.data
+  } catch (err) {
+    const statusCode = (err as Error & { statusCode?: number }).statusCode
+    const message = err instanceof Error ? err.message : '发送消息失败'
+    if (statusCode === 413 || /附件过大|entity too large/i.test(message)) {
+      throw new Error('附件过大，请压缩后重试')
+    }
+    if (statusCode === 500 && /Internal server error/i.test(message)) {
+      throw new Error('发送失败，请确认服务端已重启（需支持大附件）')
+    }
+    throw err instanceof Error ? err : new Error(message)
   }
-  return res.data
 }
 
 export interface OutboundChatFile {
@@ -83,6 +100,8 @@ export interface OutboundChatFile {
   mimeType?: string
   base64?: string
   url?: string
+  /** 小程序本地临时路径，仅用于预览，不上报服务端 */
+  localPath?: string
 }
 
 export interface BridgeCommandResult {
@@ -126,7 +145,14 @@ async function streamSessionMessageViaFetch(
   })
 
   if (!response.ok || !response.body) {
-    throw new Error(`流式发送失败 (${response.status})`)
+    let detail = ''
+    try {
+      const errBody = (await response.json()) as { message?: string }
+      detail = errBody.message?.trim() || ''
+    } catch {
+      detail = ''
+    }
+    throw new Error(detail || `发送失败 (${response.status})`)
   }
 
   const reader = response.body.getReader()
@@ -164,12 +190,27 @@ async function streamSessionMessageViaBlocking(
   content: string,
   handlers: StreamMessageHandlers,
   cancel?: CancelToken,
+  files: OutboundChatFile[] = [],
 ): Promise<ChatMessage> {
   throwIfCancelled(cancel)
   const streamId = `block-${Date.now()}`
+
+  // 先落用户消息，再创建「输出中」占位，避免指示器插到用户气泡上方
+  const trimmed = content.trim()
+  const attachments = mapOutboundFilesToAttachments(files)
+  if (trimmed || attachments.length > 0) {
+    handlers.onUserMessage?.({
+      id: `block-user-${Date.now()}`,
+      sessionId,
+      role: 'user',
+      content: trimmed || `[${attachments.length} 个附件]`,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      createdAt: Date.now(),
+    })
+  }
   handlers.onStart?.({ streamId })
 
-  const assistantMessage = await sendSessionMessage(sessionId, content)
+  const assistantMessage = await sendSessionMessage(sessionId, content, files)
   throwIfCancelled(cancel)
 
   if (assistantMessage.content.trim()) {
@@ -237,7 +278,7 @@ async function streamSessionMessageViaUniRequest(
       header: buildApiRequestHeaders({
         Accept: 'text/event-stream',
       }),
-      data: { content, files },
+      data: { content, files: toApiOutboundFiles(files) },
       enableChunked: true,
       responseType: 'arraybuffer',
       timeout: CHAT_REQUEST_TIMEOUT_MS,
@@ -281,32 +322,31 @@ export async function streamSessionMessage(
   await ensureVisitorSession()
   throwIfCancelled(cancel)
 
+  // H5：始终走浏览器 fetch SSE（与改附件前一致），勿改此分支顺序
   if (supportsFetchStream()) {
-    return streamSessionMessageViaFetch(sessionId, content, handlers, cancel, files)
+    return streamSessionMessageViaFetch(
+      sessionId,
+      content,
+      handlers,
+      cancel,
+      toApiOutboundFiles(files),
+    )
   }
 
-  // 小程序不支持浏览器 fetch SSE；enableChunked 对 SSE 也不稳定，默认走阻塞 HTTP。
+  // 小程序：不支持 fetch SSE；统一走阻塞 HTTP，并携带 files（避免旧逻辑回退丢附件）
   if (isMiniProgramRuntime()) {
-    if (files.length === 0) {
-      return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
-    }
-    try {
-      return await streamSessionMessageViaUniRequest(sessionId, content, handlers, cancel, files)
-    } catch (err) {
-      if (cancel?.aborted) throw err
-      return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
-    }
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, files)
   }
 
   if (isH5Runtime()) {
-    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, files)
   }
 
   try {
     return await streamSessionMessageViaUniRequest(sessionId, content, handlers, cancel, files)
   } catch (err) {
     if (cancel?.aborted) throw err
-    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel)
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, files)
   }
 }
 

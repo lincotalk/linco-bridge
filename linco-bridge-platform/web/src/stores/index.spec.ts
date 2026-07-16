@@ -181,4 +181,58 @@ describe('useSessionStore', () => {
     )
     await pending
   })
+
+  it('keeps user message above streaming placeholder when start arrives first', async () => {
+    const { streamSessionMessage } = await import('@/api/session-api')
+    vi.mocked(streamSessionMessage).mockImplementationOnce(
+      async (_sessionId, _content, handlers) => {
+        handlers.onStart?.({ streamId: 's1' })
+        handlers.onUserMessage?.({
+          id: 'm-user-2',
+          sessionId: 'session-1',
+          role: 'user',
+          content: 'second',
+          createdAt: 3,
+        })
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        const reply = {
+          id: 'm-assistant-2',
+          sessionId: 'session-1',
+          role: 'assistant' as const,
+          content: 'ok',
+          createdAt: 4,
+        }
+        handlers.onDone?.(reply)
+        return reply
+      },
+    )
+
+    const store = useSessionStore()
+    store.setMessages('session-1', [
+      {
+        id: 'm-user-1',
+        sessionId: 'session-1',
+        role: 'user',
+        content: 'first',
+        createdAt: 1,
+      },
+      {
+        id: 'm-assistant-1',
+        sessionId: 'session-1',
+        role: 'assistant',
+        content: 'reply',
+        createdAt: 2,
+      },
+    ])
+
+    const pending = store.sendMessageStream('session-1', 'second')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const roles = store
+      .getMessages('session-1')
+      .map((item) => (item.streaming ? 'streaming' : item.role))
+    expect(roles).toEqual(['user', 'assistant', 'user', 'streaming'])
+
+    await pending
+  })
 })

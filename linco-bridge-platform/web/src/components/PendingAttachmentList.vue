@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { OutboundChatFile } from '@/api/session-api'
 import { isImageAttachment } from '@/utils/chat-attachments'
 import { mapOutboundFilesToAttachments } from '@/utils/chat-attachments'
@@ -11,13 +12,13 @@ const emit = defineEmits<{
   remove: [number]
 }>()
 
-const items = () => mapOutboundFilesToAttachments(props.files)
+const items = computed(() => mapOutboundFilesToAttachments(props.files))
 </script>
 
 <template>
   <view v-if="files.length > 0" class="pending-attachments">
     <view
-      v-for="(item, index) in items()"
+      v-for="(item, index) in items"
       :key="`${item.name}-${index}`"
       class="pending-attachments__item"
     >

@@ -597,5 +597,26 @@ describe('BridgeService', () => {
     const synced = service.syncAgent('codex', setup.connectionId)
     expect(synced.sessionId).toBeTruthy()
     expect(database.getSession(synced.sessionId)?.bridge_connection_id).toBe(setup.connectionId)
+    expect(database.getConnectionById(setup.connectionId)?.session_id).toBe(synced.sessionId)
+  })
+
+  it('hides legacy orphan sessions that were created at setup without linking', () => {
+    const visitorId = 'visitor-orphan-session'
+    resetTestVisitorContext()
+    VisitorContextService.setTestDefault(visitorId)
+
+    const setup = service.getSetup('claude')
+    database.createSession({
+      ownerId: visitorId,
+      agentType: 'claude',
+      title: 'Claude',
+      bridgeConnectionId: setup.connectionId,
+      lastMessage: 'Waiting for bridge connection.',
+    })
+    expect(database.getConnectionById(setup.connectionId)?.session_id).toBeFalsy()
+    expect(database.getSessionByConnectionId(setup.connectionId)).toBeDefined()
+
+    const payload = service.listAccountsFromDatabase()
+    expect(payload.items.some((item) => item.connectionId === setup.connectionId)).toBe(false)
   })
 })

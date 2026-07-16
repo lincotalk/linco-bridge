@@ -68,9 +68,16 @@ export class ChatController {
   }
 
   @Post('sessions/:sessionId/messages')
-  async sendMessage(@Param('sessionId') sessionId: string, @Body() body: { content?: string }) {
+  async sendMessage(
+    @Param('sessionId') sessionId: string,
+    @Body()
+    body: {
+      content?: string
+      files?: Array<{ name?: string; mimeType?: string; base64?: string; url?: string }>
+    },
+  ) {
     const content = body.content?.trim() ?? ''
-    return ok(await this.chatService.sendMessage(sessionId, content))
+    return ok(await this.chatService.sendMessage(sessionId, content, body.files ?? []))
   }
 
   @Post('sessions/:sessionId/messages/stream')

@@ -28,6 +28,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return
     }
 
+    const rawMessage =
+      exception instanceof Error ? exception.message : typeof exception === 'string' ? exception : ''
+    if (/request entity too large|PayloadTooLargeError/i.test(rawMessage)) {
+      response
+        .status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .json(fail(4130, '附件过大，请压缩后重试（单次请求上限约 25MB）'))
+      return
+    }
+
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json(fail(5000, 'Internal server error'))
   }
 }

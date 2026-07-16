@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { OutboundChatFile } from '@/api/session-api'
+import { normalizeAttachmentMimeType } from '@/utils/chat-attachments'
 import { showToast } from '@/utils/format'
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -29,15 +30,23 @@ function readUniFileAsBase64(path: string): Promise<string> {
   })
 }
 
-function guessMimeType(name: string, fallback = 'application/octet-stream'): string {
-  const lower = name.toLowerCase()
-  if (lower.endsWith('.png')) return 'image/png'
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
-  if (lower.endsWith('.gif')) return 'image/gif'
-  if (lower.endsWith('.webp')) return 'image/webp'
-  if (lower.endsWith('.pdf')) return 'application/pdf'
-  if (lower.endsWith('.txt')) return 'text/plain'
-  return fallback
+function fileNameFromPath(path: string, index: number): string {
+  return path.split('/').pop() || path.split('\\').pop() || `file-${index + 1}`
+}
+
+async function pathsToOutboundFiles(paths: string[]): Promise<OutboundChatFile[]> {
+  const files: OutboundChatFile[] = []
+  for (const [index, path] of paths.entries()) {
+    if (!path) continue
+    const name = fileNameFromPath(path, index)
+    files.push({
+      name,
+      mimeType: normalizeAttachmentMimeType(name),
+      base64: await readUniFileAsBase64(path),
+      localPath: path,
+    })
+  }
+  return files
 }
 
 async function pickViaDocument(): Promise<OutboundChatFile[]> {
@@ -59,7 +68,7 @@ async function pickViaDocument(): Promise<OutboundChatFile[]> {
           for (const file of selected) {
             files.push({
               name: file.name,
-              mimeType: file.type || guessMimeType(file.name),
+              mimeType: normalizeAttachmentMimeType(file.name, file.type),
               base64: await readFileAsBase64(file),
             })
           }
@@ -72,20 +81,6 @@ async function pickViaDocument(): Promise<OutboundChatFile[]> {
     }
     input.click()
   })
-}
-
-async function pathsToOutboundFiles(paths: string[]): Promise<OutboundChatFile[]> {
-  const files: OutboundChatFile[] = []
-  for (const [index, path] of paths.entries()) {
-    if (!path) continue
-    const name = path.split('/').pop() || path.split('\\').pop() || `file-${index + 1}`
-    files.push({
-      name,
-      mimeType: guessMimeType(name),
-      base64: await readUniFileAsBase64(path),
-    })
-  }
-  return files
 }
 
 async function pickViaUniImage(): Promise<OutboundChatFile[]> {
@@ -116,7 +111,9 @@ async function pickViaChooseMessageFile(): Promise<OutboundChatFile[]> {
       chooseMessageFile?: (options: {
         count?: number
         type?: 'all' | 'video' | 'image' | 'file'
-        success?: (res: { tempFiles: Array<{ name?: string; path: string; type?: string }> }) => void
+        success?: (res: {
+          tempFiles: Array<{ name?: string; path: string; type?: string }>
+        }) => void
         fail?: () => void
       }) => void
     }
@@ -133,11 +130,12 @@ async function pickViaChooseMessageFile(): Promise<OutboundChatFile[]> {
             const files: OutboundChatFile[] = []
             for (const item of res.tempFiles ?? []) {
               if (!item.path) continue
-              const name = item.name || item.path.split('/').pop() || 'attachment'
+              const name = item.name || fileNameFromPath(item.path, files.length)
               files.push({
                 name,
-                mimeType: item.type || guessMimeType(name),
+                mimeType: normalizeAttachmentMimeType(name, item.type),
                 base64: await readUniFileAsBase64(item.path),
+                localPath: item.path,
               })
             }
             resolve(files)
@@ -155,12 +153,7 @@ async function pickViaChooseMessageFile(): Promise<OutboundChatFile[]> {
 async function pickViaChooseFile(): Promise<OutboundChatFile[]> {
   const chooseFile = (
     uni as typeof uni & {
-      chooseFile?: (options: {
-        count?: number
-        extension?: string[]
-        success?: (res: { tempFilePaths: string[]; tempFiles?: Array<{ name?: string; path: string }> }) => void
-        fail?: () => void
-      }) => void
+      chooseFile?: (options: Record<string, unknown>) => void
     }
   ).chooseFile
   if (!chooseFile) return []
@@ -168,18 +161,23 @@ async function pickViaChooseFile(): Promise<OutboundChatFile[]> {
   return new Promise((resolve) => {
     chooseFile({
       count: 9,
-      success: (res) => {
+      success: (res: {
+        tempFilePaths?: string[]
+        tempFiles?: Array<{ name?: string; path?: string; tempFilePath?: string }>
+      }) => {
         void (async () => {
           try {
             if (Array.isArray(res.tempFiles) && res.tempFiles.length > 0) {
               const files: OutboundChatFile[] = []
               for (const item of res.tempFiles) {
-                if (!item.path) continue
-                const name = item.name || item.path.split('/').pop() || 'attachment'
+                const path = item.path || item.tempFilePath
+                if (!path) continue
+                const name = item.name || fileNameFromPath(path, files.length)
                 files.push({
                   name,
-                  mimeType: guessMimeType(name),
-                  base64: await readUniFileAsBase64(item.path),
+                  mimeType: normalizeAttachmentMimeType(name),
+                  base64: await readUniFileAsBase64(path),
+                  localPath: path,
                 })
               }
               resolve(files)
