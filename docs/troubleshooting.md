@@ -15,7 +15,7 @@
 
 - Confirm both the H5 frontend and server are running.
 - Confirm the connector was initialized with `--channel linco-demo`, not the default `linco`.
-- Confirm the selected Agent matches the credential, for example Codex uses `demo-codex-app:demo-codex-secret`.
+- Re-copy the current `setupCommands` from the Bridge page; visitor-scoped credentials may change after setup is refreshed.
 - Confirm a firewall or proxy is not blocking `127.0.0.1:3300`.
 
 ## Credential Already In Use

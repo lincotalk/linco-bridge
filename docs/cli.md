@@ -2,26 +2,15 @@
 
 [简体中文](zh-CN/cli.md)
 
-This page summarizes the most important `linco-connect` CLI entry points at the repository level. It is meant to be readable on its own while still linking to the full connector documentation.
-
-For complete command syntax, environment variables, slash-command behavior, and adapter-specific notes, see:
+This page covers the common `linco-connect` lifecycle. For complete syntax and adapter-specific behavior, see:
 
 - [Linco Bridge connector README](../linco-bridge-connect/README.en-US.md)
-- [Connector Architecture](../linco-bridge-connect/docs/architecture.en-US.md)
-- [Connector Protocol](../linco-bridge-connect/docs/protocol.en-US.md)
 - [Slash Commands](../linco-bridge-connect/docs/slash-commands.en-US.md)
 - [Connector Security](../linco-bridge-connect/docs/security.en-US.md)
 
 ## What The CLI Does
 
 `linco-connect` runs on the user's computer. It connects a local Agent CLI to a remote channel, relays messages and tool events, handles permission confirmations, and returns attachments or generated files when allowed.
-
-At a high level:
-
-1. initialize credentials and Agent type;
-2. start the local connector service;
-3. let a remote client detect the connector;
-4. bridge a remote session to the local Agent.
 
 ## Common Lifecycle Commands
 
@@ -48,20 +37,16 @@ Related lifecycle commands:
 
 ### Official Linco channel
 
-```bash
-linco-connect init --token "<appId>:<appSecret>" --agent codex
-```
-
-Use the default `linco` channel when you want the official product path and do not need to deploy the open reference platform yourself.
+Omit `--channel` during initialization, as shown in the common lifecycle example above, to use the default `linco` channel. Choose this path for the official product experience when you do not need to deploy the open reference platform.
 
 ### Open reference platform (`linco-demo`)
 
 ```bash
 linco-connect init \
-  --token "demo-codex-app:demo-codex-secret" \
+  --token "<appId>:<appSecret>" \
   --agent codex \
   --channel linco-demo \
-  --account codex_1 \
+  --account "<accountId>" \
   --allow-insecure-ws
 ```
 
@@ -71,14 +56,12 @@ Use this for local validation or self-hosted evaluation of `linco-bridge-platfor
 
 For hosted-demo users, the generated `setupCommands` on the Bridge page are the source of truth. In hosted deployments, the generated command usually includes `--ws-url wss://.../bridge/ws/<agent>`.
 
-## Agent And Session Operations
+## Session And Remote Commands
 
-The CLI is not only a bootstrap tool. It also supports ongoing local session management:
+After setup, remote sessions can use local connector commands for Agent context and version maintenance:
 
 | Area | Examples |
 | --- | --- |
-| Service lifecycle | `start`, `stop`, `reload`, `doctor` |
-| Account management | `init`, `remove-account`, `delete-account` |
 | Local slash commands in remote sessions | `/help`, `/status`, `/approve`, `/get`, `/project`, `/history`, `/profile`, `/agent` |
 | Version maintenance | `/update check`, `/update latest`, `/update <version>` |
 

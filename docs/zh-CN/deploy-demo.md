@@ -1,112 +1,97 @@
-# 在线 Demo 部署指南
+# 在线参考 Demo 部署
 
 [English](../deploy-demo.md)
 
-本文说明如何部署 **官方托管 Demo**：用户打开你们提供的 H5 / 微信小程序，在本机执行 `linco-connect` 连接自己的 Agent。
+本文档说明如何将开源参考平台部署到公网域名。用户打开 H5 或微信小程序，然后在自己的电脑上运行 `linco-connect` 连接本地 Agent。
 
-本地全栈体验（clone 后自己起 server + web）见 [`../../linco-bridge-platform/README.zh-CN.md`](../../linco-bridge-platform/README.zh-CN.md)。
+本地开发请使用 [参考平台 README](../../linco-bridge-platform/README.zh-CN.md)。
 
-## 两种体验方式
+## 适用范围
 
-| 方式 | 谁部署 server | 用户本机需要什么 | 适用场景 |
-| --- | --- | --- | --- |
-| **本地全栈 Demo** | 用户自己 | server + web + linco-connect + Agent | GitHub 开发者、二次开发 |
-| **在线 Demo** | 你们 | 仅 linco-connect + Agent | 快速体验桥接链路 |
+在线参考平台是体验环境，不是生产级账号或多租户系统。它使用签名匿名访客 Session 隔离连接、会话和消息。清理客户端存储、更换设备或使用无痕模式后，之前的 Demo 状态可能无法继续访问。
 
-在线 Demo 是不提供正式账号体系的 **公共体验环境**。当前实现签发匿名访客 Session，并以此隔离不同访客的桥接连接、会话和消息；当前客户端通过本地存储保留该 Session，清理存储、更换设备或使用无痕模式后，之前的 Demo 状态可能无法继续访问。
-
-这种访客级隔离不等同于生产级多租户安全或账号恢复机制，请勿让用户在公共 Demo 中输入敏感信息或正式业务数据。
-
-## 架构
+请勿在公共 Demo 中使用敏感或正式业务数据。自定义部署需自行负责鉴权、保留、删除、监控和滥用防护。
 
 ```text
-用户手机（H5 / 小程序）
+用户客户端（H5 / 小程序）
         │ HTTPS
         ▼
-   Nginx（TLS 终结）
+   Nginx（TLS）
    ├─ /           → H5 静态资源
    ├─ /api/*      → NestJS :3300
    └─ /bridge/ws  → NestJS WebSocket
 
 用户电脑
-   linco-connect ──WSS──► 同上 /bridge/ws
+   linco-connect ──WSS──► /bridge/ws
         │
-   本机 Agent（Codex / Claude / Hermes / OpenClaw）
+   本地 Agent CLI
 ```
 
-## 1. 部署 Server
+下文使用 `bridge.example.com` 作为示例，请替换为自己的域名。
 
-### Docker（推荐）
+## 1. 部署 Server
 
 ```bash
 cd linco-bridge-platform
 docker compose up --build -d
 ```
 
-`docker-compose.yml` 中设置环境变量（官方在线 Demo）：
+在 `docker-compose.yml` 中配置 Server 环境变量：
 
 ```yaml
 environment:
   PORT: '3300'
-  PUBLIC_HOST: 'bridge-demo.lincotalk.com'
+  PUBLIC_HOST: 'bridge.example.com'
   PUBLIC_HTTP_SCHEME: 'https'
   PUBLIC_WS_SCHEME: 'wss'
   SQLITE_PATH: /app/data/linco-bridge.db
-  CORS_ORIGINS: 'https://bridge-demo.lincotalk.com'
-  VISITOR_SESSION_SECRET: '<random-32b-hex>'
+  CORS_ORIGINS: 'https://bridge.example.com'
+  VISITOR_SESSION_SECRET: '<random-secret>'
 ```
 
-> **第三方前端策略：** 官方在线 Demo API（`bridge-demo.lincotalk.com`）**仅允许**官方部署的 H5 / 小程序访问。若你 fork 或修改了 `web` 前端，请 **自托管 Server**，并将 `VITE_API_BASE_URL` 指向你自己的后端；**不得**将第三方构建指到官方 Demo Server。Server 通过 `CORS_ORIGINS` 白名单在浏览器侧拦截跨域调用。
-
-### 环境变量
-
-| 变量 | 本地默认 | 在线 Demo 示例 | 说明 |
-| --- | --- | --- | --- |
-| `PORT` | `3300` | `3300` | 容器内 HTTP/WS 端口 |
-| `PUBLIC_HOST` | `127.0.0.1` | `bridge-demo.lincotalk.com` | 写入 demo-config 与 setup 命令 |
-| `PUBLIC_HTTP_SCHEME` | 本地 `http`，否则 `https` | `https` | REST 根地址 scheme |
-| `PUBLIC_WS_SCHEME` | 本地 `ws`，否则 `wss` | `wss` | connector WebSocket scheme |
-| `SQLITE_PATH` | `./data/linco-bridge.db` | `/app/data/...` | SQLite 文件路径 |
-| `CORS_ORIGINS` | 开发未设则放行；**生产未设则拒绝跨域** | `https://bridge-demo.lincotalk.com` | 浏览器跨域白名单；官方 Demo **必填** |
-| `VISITOR_SESSION_SECRET` | 开发有默认值 | 随机长串（必填） | 生产环境访客 Session 签名密钥 |
-
-当 `PUBLIC_HOST` 不是 `127.0.0.1` / `localhost` 时，导入页生成的 `setupCommands` 会自动带上：
+使用安全随机方式生成签名密钥，例如：
 
 ```bash
-linco-connect init ... --ws-url wss://bridge-demo.lincotalk.com/bridge/ws/codex
+openssl rand -hex 32
 ```
 
-本地开发保持原样（不含 `--ws-url`，使用 `--allow-insecure-ws`）。
+| 变量 | 公网值 | 作用 |
+| --- | --- | --- |
+| `PORT` | `3300` | HTTP 和 WebSocket 端口 |
+| `PUBLIC_HOST` | `bridge.example.com` | 写入页面生成的连接命令 |
+| `PUBLIC_HTTP_SCHEME` | `https` | 公网 REST scheme |
+| `PUBLIC_WS_SCHEME` | `wss` | 公网 connector WebSocket scheme |
+| `SQLITE_PATH` | `/app/data/linco-bridge.db` | 持久化 SQLite 路径 |
+| `CORS_ORIGINS` | H5 Origin | 浏览器 Origin 白名单，多个值用逗号分隔 |
+| `VISITOR_SESSION_SECRET` | 随机密钥 | 生产环境必填，用于签名访客 Session |
 
-### 健康检查
+`PUBLIC_HOST` 不是本地地址时，页面生成的连接命令会自动包含公网 WSS 地址。
+
+健康检查：
 
 ```bash
-curl https://bridge-demo.lincotalk.com/api/demo-config
+curl https://bridge.example.com/api/demo-config
 ```
 
-期望返回 `apiBaseUrl` 为 `https://bridge-demo.lincotalk.com`，`wsBaseUrl` 为 `wss://bridge-demo.lincotalk.com/bridge/ws`。
+确认 `apiBaseUrl` 使用 HTTPS，`wsBaseUrl` 使用 WSS。
 
-## 2. Nginx 反向代理
-
-官方在线 Demo 域名 `bridge-demo.lincotalk.com`：
+## 2. 配置 Nginx
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name bridge-demo.lincotalk.com;
+    server_name bridge.example.com;
 
-    ssl_certificate     /etc/letsencrypt/live/bridge-demo.lincotalk.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/bridge-demo.lincotalk.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/bridge.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bridge.example.com/privkey.pem;
 
     root /var/www/linco-bridge-h5;
     index index.html;
 
-    # H5 静态（UniApp hash 路由）
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # REST API
     location /api/ {
         proxy_pass http://127.0.0.1:3300;
         proxy_http_version 1.1;
@@ -114,11 +99,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;          # SSE 流式
+        proxy_buffering off;
         proxy_read_timeout 3600s;
     }
 
-    # Bridge WebSocket（connector 连这里）
     location /bridge/ws {
         proxy_pass http://127.0.0.1:3300;
         proxy_http_version 1.1;
@@ -130,9 +114,16 @@ server {
 }
 ```
 
+流式 API 请求需要关闭缓冲，`/bridge/ws` 需要保留 WebSocket 升级 Header。
+
 ## 3. 构建并发布 H5
 
-生产环境变量在 [`linco-bridge-platform/web/prod.env`](../../linco-bridge-platform/web/prod.env)，`npm run build:h5` 会自动加载，无需命令行传 `VITE_*`。
+构建前更新 [`../../linco-bridge-platform/web/prod.env`](../../linco-bridge-platform/web/prod.env)。使用自己的 API 域名，不要将自定义构建指向 Linco 官方 Demo API。
+
+```env
+VITE_API_BASE_URL=https://bridge.example.com
+VITE_USE_REMOTE_API=true
+```
 
 ```bash
 cd linco-bridge-platform/web
@@ -140,104 +131,69 @@ npm install
 npm run build:h5
 ```
 
-产物目录：`dist/build/h5` → **整目录**（含 `assets/`、`static/`）上传到 Nginx `root`。
+将完整的 `dist/build/h5` 目录发布到 Nginx root，包括 `assets`、`static` 和 `index.html`。
 
-若静态与 API 不同域，修改 `prod.env` 中的 `VITE_API_BASE_URL` 后重新构建。
-
-## 4. 发布微信小程序
+## 4. 构建微信小程序
 
 ```bash
 cd linco-bridge-platform/web
+npm install
 npm run build:mp-weixin
 ```
 
-1. 在 `web/src/manifest.json` 填写 `mp-weixin.appid`
-2. 微信开发者工具导入 `dist/build/mp-weixin`
-3. **开发管理 → 开发设置 → 服务器域名**：
-   - request 合法域名：`https://bridge-demo.lincotalk.com`
-   - socket 合法域名：`wss://bridge-demo.lincotalk.com`
-4. 提审前域名需 **ICP 备案**
+1. 在 `web/src/manifest.json` 中设置 `mp-weixin.appid`。
+2. 将 `dist/build/mp-weixin` 导入微信开发者工具。
+3. 将 `https://bridge.example.com` 配置为 request 合法域名。
+4. 将 `wss://bridge.example.com` 配置为 socket 合法域名。
+5. 正式发布前完成必要的备案和审核。
 
-开发阶段可临时设 `urlCheck: false`，正式版必须配置合法域名。
+`urlCheck: false` 仅用于本地开发，不应用于正式发布。
 
-## 5. 用户侧体验流程（文档可原文复制）
+## 5. 验证用户流程
 
-1. 打开 [https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com) 或微信小程序
-2. 进入 **桥接** → 选择 Agent（如 **从 Codex 导入**）
-3. 复制页面 `setupCommands`，在本机终端执行
-4. 回到页面点击 **我已复制，获取连接状态**
-5. 连接成功后进入 Agent 落地页并发测试消息
+1. 打开已部署的 H5 或小程序。
+2. 进入 **桥接**，选择 Agent 导入方式。
+3. 复制页面生成的 `setupCommands`，在已安装 Agent CLI 的电脑上执行。
+4. 返回客户端刷新连接状态。
+5. 进入 Agent 页并发送测试消息。
 
-本机需已安装对应 Agent CLI，并已全局安装 connector：
+生成的命令应使用 `wss://bridge.example.com/bridge/ws/...`。用户电脑上还需要安装目标 Agent CLI 和 `linco-connect`。
 
-```bash
-npm install -g linco-connect
-```
+## 运维
 
-## 6. 发布 npm 包 `linco-connect`
-
-GitHub 用户与在线 Demo 用户都依赖 npm 上的 connector：
-
-```bash
-cd linco-bridge-connect
-npm publish
-```
-
-建议在 Release Notes 中注明：在线 Demo 以导入页生成的 `--ws-url` 为准；本地全栈 Demo 可省略该参数。
-
-## 7. GitHub Release 建议
-
-Release 中至少包含：
-
-- **本地 Demo**：clone → `server` + `web` 快速开始链接
-- **在线 Demo**：[https://bridge-demo.lincotalk.com](https://bridge-demo.lincotalk.com)、小程序名称/码
-- **支持 Agent**：Codex、Claude Code、Hermes、OpenClaw
-- **免责声明**：匿名访客隔离、无正式账号或跨设备恢复、非生产环境、不适合敏感数据
-
-## 8. 运维（Demo 级）
-
-| 项 | 建议 |
+| 区域 | 最低建议 |
 | --- | --- |
-| 数据清理 | 定期删除或重置 SQLite volume（公共展台会积累脏数据） |
-| 监控 | 探测 `GET /api/demo-config` + 进程存活 |
-| 限流 | Nginx `limit_req` 防止接口被刷 |
-| 备份 | 拷贝 `linco-bridge.db` 即可 |
+| 数据 | 持久化 SQLite volume，并定义清理策略 |
+| 监控 | 检测 `/api/demo-config`、进程和 WebSocket 可用性 |
+| 滥用防护 | 增加限流和请求大小限制 |
+| 备份 | 升级前备份 SQLite volume |
+| 密钥 | 泄露后更换连接凭证和 `VISITOR_SESSION_SECRET` |
 
-## 9. 常见问题
+## 排障
 
-### 页面连上但 connector 一直离线
+### Connector 始终离线
 
-- 确认本机命令含 `--ws-url wss://你的域名/bridge/ws/...`
-- 确认 Nginx `/bridge/ws` 已配置 WebSocket 升级
-- 本机防火墙是否放行出站 WSS
+- 确认生成命令包含正确的公网 `--ws-url`。
+- 确认 Nginx 在 `/bridge/ws` 上转发 WebSocket 升级 Header。
+- 确认用户网络允许出站 WSS。
 
-### H5 能开、小程序不行
+### H5 正常，小程序失败
 
-- 检查小程序合法域名与备案
-- 确认 `prod.env` 中 `VITE_API_BASE_URL` 与线上一致，且 `assets/` 已完整上传
+- 检查 request 和 socket 合法域名。
+- 确认 `VITE_API_BASE_URL` 与部署一致。
+- 确认导入了完整的小程序构建产物。
 
-### 切换客户端后找不到之前的连接或历史
+### 无法访问之前的状态
 
-- 在线 Demo 按签名匿名访客 Session 隔离连接、会话和消息
-- 清理客户端本地存储、更换浏览器、小程序环境或设备、使用无痕模式会产生不同的访客上下文，因此可能无法继续访问之前的 Demo 状态
-- 在线 Demo 不提供账号恢复或跨设备同步；如需持久恢复，请使用 **本地全栈 Demo** 或接入正式账号体系
+Demo 按匿名访客 Session 隔离。清理存储、更换客户端或设备、使用无痕模式可能会创建新的访客上下文。持久恢复需要额外的账号系统。
 
-### 本地有「助手」Tab，线上中间空白或没有助手
+### 部署的 H5 缺少 Tab 或最新功能
 
-- **原因**：线上 H5 静态资源未随代码更新。旧 bundle 的 `tabBar.list` 只有「消息 / 桥接」两项，但路由仍预留了 `pages/agents/index`（`tabBarIndex: 1`），底部会留出空位。
-- **修复**：在 `linco-bridge-platform/web` 重新 `npm run build:h5`，将 `dist/build/h5` **整目录**（含 `assets/`、`static/`、`index.html`）覆盖上传到 Nginx `root`（如 `/var/www/linco-bridge-h5`）。不要只更新 server 或单个图标文件。
-- **验证**：`npm run build:h5` 末尾应输出 `[verify-h5-tabbar] OK`；浏览器硬刷新后底部应显示「消息 | 助手 | 桥接」。
-
-### 助手页 `/accounts` 列表为空
-
-- **定位**：本 Demo 平台**仅支持** `linco-demo` channel，不涉及官方 IM 的 `linco` 通道。
-- **原因**：本机 `linco-connect init` 未带 `--channel linco-demo`，账号写在错误的 channel 下；或 server 未部署最新版。
-- **修复**：从桥接页复制 setup 命令（固定含 `--channel linco-demo`）重新 init；部署最新 server。
-- **验证**：`GET /api/demo-config` 返回 `connectChannel: linco-demo`；`POST /api/bridge-command` 响应 `payload.channel` 为 `linco-demo`。
+重新执行 `npm run build:h5`，上传完整的 `dist/build/h5` 目录，然后强制刷新浏览器。构建应以 `[verify-h5-tabbar] OK` 结束。
 
 ## 相关文档
 
 - [快速开始](quick-start.md)
 - [Reference Web](reference-web.md)
-- [平台 README](../../linco-bridge-platform/README.zh-CN.md)
 - [Server README](../../linco-bridge-platform/server/README.zh-CN.md)
+- [安全与隐私](security-and-privacy.md)

@@ -2,14 +2,7 @@
 
 [简体中文](zh-CN/supported-platforms.md)
 
-This page summarizes the first-release compatibility scope of the repository. It is not a replacement for detailed subproject release notes, but it should help evaluators quickly understand what is officially in scope today.
-
-Detailed references:
-
-- [Connector README](../linco-bridge-connect/README.en-US.md)
-- [Platform README](../linco-bridge-platform/README.md)
-- [Troubleshooting](troubleshooting.md)
-- [CHANGELOG](../CHANGELOG.md)
+This page summarizes the current compatibility scope. Exact connector behavior follows the [Connector README](../linco-bridge-connect/README.en-US.md) and release notes.
 
 ## Runtime Requirements
 
@@ -17,7 +10,6 @@ Detailed references:
 | --- | --- |
 | Node.js | Node.js 20 or 22–26; Node.js 22 LTS recommended. Node.js 21 is not currently supported because the connector depends on native `better-sqlite3` builds |
 | Local connector package | `linco-connect` |
-| Supported local Agents | Codex CLI, Claude Code, Hermes, OpenClaw |
 | Reference platform backend | `linco-bridge-platform/server` |
 | Reference platform frontend | `linco-bridge-platform/web` |
 
@@ -57,9 +49,3 @@ The repository does **not** ship a full production control plane for every front
 - The open-source reference platform is for evaluation, onboarding, and secondary-development reference rather than turnkey production hosting.
 - The hosted demo uses signed anonymous visitor isolation, but it does not provide formal accounts, durable cross-device recovery, or production-grade multi-tenant guarantees.
 - Compatibility should be treated as versioned, not eternal. If an Agent, OS, or Node.js major version changes, validation may need to be rerun.
-
-## Publishing Rule
-
-- Keep the root README, subproject READMEs, release notes, and compatibility statements aligned.
-- Publish exact tested versions, operating systems, and known limitations in releases once validation is complete.
-- If a specific Agent, Node.js version, or operating system is shipped with limitations, list it in release notes and troubleshooting docs.

@@ -1,6 +1,6 @@
 # 💬 Community
 
-Linco Bridge is an open-source project, and we also maintain community channels for broader discussion around AI coding, frontier AI updates, Agent workflows, bridge integrations, and product-building practice.
+Use the channels below for Linco Bridge updates, integration questions, and broader Agent workflow discussion.
 
 For the Chinese version of this page, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.md).
 
@@ -8,11 +8,9 @@ For the Chinese version of this page, see [COMMUNITY.zh-CN.md](COMMUNITY.zh-CN.m
 
 Join the WeChat technical group to discuss:
 
-- AI coding skills, tools, and workflow practice
-- frontier AI updates and notable industry signals
-- open-source progress and release updates
-- integration questions and bridge implementation details
-- local Agent workflows, protocol design, and product ideas
+- integration questions, bridge implementation, and product feedback
+- local Agent workflows, protocol design, and AI coding practice
+- open-source releases and relevant AI ecosystem updates
 
 Current WeChat group QR code:
 
@@ -23,8 +21,6 @@ Note: WeChat group QR codes may expire. If the QR code is no longer valid, pleas
 ## 📰 Linco Lab
 
 Follow **Linco Lab** for open-source updates, AI coding notes, bridge integration examples, Agent workflow content, and broader frontier AI observations.
-
-You can follow Linco Lab through the channels below for project updates and ongoing practice notes:
 
 - Xiaohongshu: [Linco Lab](https://xhslink.com/m/7tdp7JOYViz)
 - WeChat Official Account: search `Linco Lab` in WeChat
@@ -42,6 +38,6 @@ For the full official product experience, see Linco App:
 
 ## 🤝 Community Support
 
-- The community group is a good place to ask integration questions, share usage feedback, and discuss AI coding, Agent workflows, and Linco-related practice.
-- If you run into issues while using Linco Bridge, you are welcome to raise them in the community first. We will continue turning common questions into clearer repository documentation.
+- Use the community group for integration questions, usage feedback, AI coding, and Agent workflow discussion.
+- Use GitHub Issues for reproducible repository bugs.
 - If you discover a security vulnerability or another sensitive issue, please follow [SECURITY.md](SECURITY.md) or email `369805210@qq.com` for a private report.

@@ -49,7 +49,7 @@ Generated files and inbound attachments are powerful, but they are also a securi
 
 ## Approval And Dangerous Operations
 
-Repository docs should continue to make the approval model visible:
+The connector supports three approval modes:
 
 | Mode | Meaning |
 | --- | --- |
@@ -59,24 +59,14 @@ Repository docs should continue to make the approval model visible:
 
 If a deployment path, UI flow, or doc example changes approval behavior, that change should be documented clearly.
 
-## Claims You Should Not Make Lightly
+## Security Guarantees
 
-Avoid claiming any of the following unless they are implemented and verified for the exact flow in use:
+The project does not claim the following unless a specific deployment implements and verifies them:
 
 - end-to-end encryption;
 - zero-knowledge storage;
 - fully local processing;
 - persistent privacy isolation in a public demo;
 - production-grade multi-tenant security guarantees.
-
-## Contributor Review Checklist
-
-When docs or code touch security-sensitive areas, review at least:
-
-- credential storage and log redaction;
-- file-delivery limits and hidden-path behavior;
-- approval flow changes;
-- public demo isolation or shared-state behavior;
-- backend validation of connector-originated frames.
 
 Security vulnerabilities should follow the private reporting path in [SECURITY.md](../SECURITY.md).

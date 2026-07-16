@@ -2,14 +2,7 @@
 
 [English](../supported-platforms.md)
 
-本页从仓库级别总结当前首发版本的兼容范围。它不替代子项目的详细 release notes，但应该让外部体验者先快速理解：现在到底支持哪些 Agent、需要哪些运行环境、哪些内容在首发范围内。
-
-详细参考：
-
-- [连接器 README](../../linco-bridge-connect/README.zh-CN.md)
-- [平台 README](../../linco-bridge-platform/README.zh-CN.md)
-- [排障文档](troubleshooting.md)
-- [CHANGELOG](../../CHANGELOG.md)
+本页总结当前兼容范围。精确的连接器行为以 [连接器 README](../../linco-bridge-connect/README.zh-CN.md) 和发布说明为准。
 
 ## 运行环境要求
 
@@ -17,7 +10,6 @@
 | --- | --- |
 | Node.js | Node.js 20 或 22–26；推荐 Node.js 22 LTS。连接器依赖原生模块 `better-sqlite3`，因此当前不支持 Node.js 21 |
 | 本地连接器包 | `linco-connect` |
-| 支持的本地 Agent | Codex CLI、Claude Code、Hermes、OpenClaw |
 | 参考平台后端 | `linco-bridge-platform/server` |
 | 参考平台前端 | `linco-bridge-platform/web` |
 
@@ -57,9 +49,3 @@
 - 开源参考平台主要用于体验、联调和二次开发参考，不是开箱即用的生产托管方案。
 - 在线 Demo 使用签名匿名访客 Session 做访客级隔离，但不提供正式账号、持久跨设备恢复或生产级多租户保证。
 - 兼容性应理解为“按版本验证”，不是永久不变。Agent、操作系统或 Node.js 大版本变化后，可能需要重新验证。
-
-## 发布规则
-
-- 保持根 README、子项目 README、Release Notes 和兼容性说明一致。
-- 完成实际验证后，在 Release 中公布精确测试版本、操作系统和已知限制。
-- 如果某个 Agent、Node.js 版本或操作系统存在限制，请在 Release Notes 和排障文档中明确写出。

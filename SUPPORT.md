@@ -3,7 +3,7 @@
 ## Community Support
 
 - Use GitHub Issues for reproducible bugs and clear feature requests.
-- Use GitHub Discussions for questions, proposals, and showcases.
+- Use the community channels for general questions and usage discussion.
 - Use the private security channel for vulnerabilities.
 - Include version, OS, installation method, agent type, reproduction steps, and redacted logs.
 
@@ -24,14 +24,12 @@
 ## How Issues May Be Triaged
 
 - Missing reproduction details may be routed back for clarification.
-- Questions that belong to product discussion may be redirected to Discussions or community channels.
+- General questions may be redirected to community channels.
 - Issues outside the published support boundary may be closed with explanation.
 
 Community support is best effort. The project does not guarantee fixed availability, response time, resolution time, compensation, or permanent compatibility with third-party tools.
 
-## Commercial Support
-
-Enterprise deployment, custom adapters, integration consulting, or contractual support are not included by default in the open-source repository workflow. If such offerings are introduced later, they will be announced separately through official Linco channels.
+Enterprise deployment, custom adapters, integration consulting, and contractual support are outside the community support scope.
 
 ---
 
@@ -40,7 +38,7 @@ Enterprise deployment, custom adapters, integration consulting, or contractual s
 ## 社区支持
 
 - 可稳定复现的缺陷和清晰的功能请求，请使用 GitHub Issues。
-- 问题咨询、方案讨论和使用展示，请使用 GitHub Discussions。
+- 一般问题和使用交流请使用社区入口。
 - 安全漏洞请使用私密安全反馈渠道。
 - 请提供版本、系统、安装方式、Agent 类型、复现步骤和脱敏日志。
 
@@ -61,11 +59,9 @@ Enterprise deployment, custom adapters, integration consulting, or contractual s
 ## 问题通常如何分流
 
 - 缺少复现信息的问题可能会被要求补充说明。
-- 更适合产品讨论的问题可能会被转到 Discussions 或社区渠道。
+- 一般问题可能会被引导到社区渠道。
 - 超出公开支持边界的问题可能会在说明原因后关闭。
 
 社区支持尽力而为。项目不承诺固定可用率、响应时间、修复时间、赔偿或对第三方工具的永久兼容。
 
-## 商业支持
-
-企业部署、定制 Adapter、集成咨询或合同支持不属于本开源仓库默认支持范围。如后续提供相关服务，会通过 Linco 官方渠道单独公布。
+企业部署、定制 Adapter、集成咨询和合同支持不属于社区支持范围。

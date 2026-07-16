@@ -15,7 +15,7 @@
 
 - 确认 H5 和 server 都已启动。
 - 确认连接器初始化时使用 `--channel linco-demo`，而不是默认 `linco`。
-- 确认所选 Agent 与凭证匹配，例如 Codex 使用 `demo-codex-app:demo-codex-secret`。
+- 从桥接页重新复制当前 `setupCommands`；刷新 setup 后，访客专属凭证可能已变化。
 - 确认本地防火墙或代理没有拦截 `127.0.0.1:3300`。
 
 ## 凭证已占用

@@ -2,26 +2,15 @@
 
 [English](../cli.md)
 
-本页从仓库级别总结 `linco-connect` 最常用的 CLI 入口，保证外部用户不跳转也能先看懂大致用法；完整语法和细节仍以连接器子项目文档为准。
-
-完整命令、环境变量、斜杠命令和 Agent 适配细节见：
+本页说明 `linco-connect` 的常用生命周期。完整语法和 Agent 适配细节见：
 
 - [Linco Bridge connector README](../../linco-bridge-connect/README.zh-CN.md)
-- [架构说明](../../linco-bridge-connect/docs/architecture.md)
-- [协议说明](../../linco-bridge-connect/docs/protocol.md)
 - [斜杠命令适配说明](../../linco-bridge-connect/docs/slash-commands.md)
 - [连接器安全说明](../../linco-bridge-connect/docs/security.md)
 
 ## CLI 在做什么
 
 `linco-connect` 运行在用户电脑上，用于把本地 Agent CLI 接到远端通道，转发消息、工具事件、权限确认、附件和生成文件引用。
-
-最小使用流程通常是：
-
-1. 初始化凭证和 Agent 类型；
-2. 启动本地连接器服务；
-3. 让远端页面检测到连接器；
-4. 把远端会话桥接到本地 Agent。
 
 ## 常用生命周期命令
 
@@ -48,20 +37,16 @@ linco-connect stop
 
 ### 官方 Linco 通道
 
-```bash
-linco-connect init --token "<appId>:<appSecret>" --agent codex
-```
-
-如果你走的是官方产品链路，通常直接使用默认 `linco` 通道，不需要部署开源参考平台。
+初始化时不传 `--channel`，即可像上方通用示例一样使用默认 `linco` 通道。希望体验官方产品、且不需要自行部署开源参考平台时，选择此路径。
 
 ### 开源参考平台（`linco-demo`）
 
 ```bash
 linco-connect init \
-  --token "demo-codex-app:demo-codex-secret" \
+  --token "<appId>:<appSecret>" \
   --agent codex \
   --channel linco-demo \
-  --account codex_1 \
+  --account "<accountId>" \
   --allow-insecure-ws
 ```
 
@@ -71,14 +56,12 @@ linco-connect init \
 
 如果用户走的是在线 Demo，应该以 Bridge 页面生成的 `setupCommands` 为准。在线部署场景下，生成命令通常会自动带上 `--ws-url wss://.../bridge/ws/<agent>`。
 
-## Agent 与会话能力
+## 会话与远程命令
 
-CLI 不只是安装入口，也承担运行期会话管理：
+完成连接后，可在远程会话中使用连接器本地命令管理 Agent 上下文和版本：
 
 | 类别 | 典型能力 |
 | --- | --- |
-| 服务生命周期 | `start`、`stop`、`reload`、`doctor` |
-| 账号管理 | `init`、`remove-account`、`delete-account` |
 | 远端会话内本地斜杠命令 | `/help`、`/status`、`/approve`、`/get`、`/project`、`/history`、`/profile`、`/agent` |
 | 版本维护 | `/update check`、`/update latest`、`/update <version>` |
 
