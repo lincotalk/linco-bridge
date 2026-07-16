@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common'
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common'
 import {
   DatabaseService,
   type BridgeConnectionRow,
@@ -17,7 +23,12 @@ import {
   formatSlashPayload,
   quoteBridgeCommandArg,
 } from '../bridge/bridge.commands.util'
-import { createEphemeralMessage, roundsToMessages, type ChatMessageAttachmentDto, type HistoryReloadPayload } from '../bridge/history.util'
+import {
+  createEphemeralMessage,
+  roundsToMessages,
+  type ChatMessageAttachmentDto,
+  type HistoryReloadPayload,
+} from '../bridge/history.util'
 import { normalizeSessionPreview } from './session-preview.util'
 import { importBridgeHistoryRounds } from './bridge-history-import.util'
 import { sanitizeBridgeAssistantContent } from './bridge-message-sanitize.util'
@@ -34,12 +45,14 @@ import {
   resolveAgentHistoryTitle,
   shouldShowSessionInAgentHistory,
 } from './agent-history-list.util'
-import {
-  resolveConnectionDeviceName,
-  resolveSessionDeviceName,
-} from './session-list-title.util'
+import { resolveConnectionDeviceName, resolveSessionDeviceName } from './session-list-title.util'
 import { groupSessionsForMessageList } from './session-list-group.util'
-import { type AgentBridgeType, agentDisplayName, isAgentBridgeType, resolveConnectionDisplayName } from '../shared/constants'
+import {
+  type AgentBridgeType,
+  agentDisplayName,
+  isAgentBridgeType,
+  resolveConnectionDisplayName,
+} from '../shared/constants'
 import { ResourceAccessService } from '../shared/resource-access.service'
 import type { ConnectorFileInput, ConnectorSendInput } from '../bridge/bridge-relay.service'
 
@@ -104,8 +117,16 @@ export interface ResumeSessionResultDto {
 export interface ChatFileInput {
   name?: string
   mimeType?: string
+  mime_type?: string
+  type?: string
+  mediaType?: string
+  media_type?: string
   base64?: string
+  mediaBase64?: string
+  media_base64?: string
   url?: string
+  mediaUrl?: string
+  media_url?: string
 }
 
 export interface BridgeCommandResult {
@@ -163,37 +184,38 @@ export class ChatService {
         return shouldShowSessionInList(row, connection)
       })
       .map((row) => {
-      const connection = row.bridge_connection_id
-        ? this.database.getConnectionById(row.bridge_connection_id)
-        : undefined
-      const deviceName = resolveSessionDeviceName(
-        row.bridge_device_name,
-        connection,
-        this.presence,
-      )
-      const agentName = connection
-        ? resolveConnectionDisplayName(connection)
-        : agentDisplayName(row.agent_type)
-      const lastAssistant = this.database.getLastAssistantMessage(row.id)
-      const preview = resolveAgentHistoryPreview(row, lastAssistant?.content)
-      const bridgeSettings = parseBridgeSessionSettings(row.bridge_settings_json ?? null) ?? undefined
-      return {
-        id: row.id,
-        agentType: row.agent_type,
-        connectionId: connection?.id,
-        title: agentName,
-        conversationTitle: row.title.trim() || agentName,
-        lastMessage: preview === '暂无消息' ? row.last_message : preview,
-        updatedAt: row.update_time,
-        online: connection ? this.presence.isOnline(connection.id) : false,
-        bridgeProjectPath: row.bridge_project_path?.trim() || undefined,
-        isTempSession: Number(row.is_temp_session ?? 0) === 1,
-        deviceName: deviceName || undefined,
-        boundContextName: connection?.bound_context_name?.trim() || undefined,
-        boundContextId: connection?.bound_context_id?.trim() || undefined,
-        bridgeSettings,
-      }
-    })
+        const connection = row.bridge_connection_id
+          ? this.database.getConnectionById(row.bridge_connection_id)
+          : undefined
+        const deviceName = resolveSessionDeviceName(
+          row.bridge_device_name,
+          connection,
+          this.presence,
+        )
+        const agentName = connection
+          ? resolveConnectionDisplayName(connection)
+          : agentDisplayName(row.agent_type)
+        const lastAssistant = this.database.getLastAssistantMessage(row.id)
+        const preview = resolveAgentHistoryPreview(row, lastAssistant?.content)
+        const bridgeSettings =
+          parseBridgeSessionSettings(row.bridge_settings_json ?? null) ?? undefined
+        return {
+          id: row.id,
+          agentType: row.agent_type,
+          connectionId: connection?.id,
+          title: agentName,
+          conversationTitle: row.title.trim() || agentName,
+          lastMessage: preview === '暂无消息' ? row.last_message : preview,
+          updatedAt: row.update_time,
+          online: connection ? this.presence.isOnline(connection.id) : false,
+          bridgeProjectPath: row.bridge_project_path?.trim() || undefined,
+          isTempSession: Number(row.is_temp_session ?? 0) === 1,
+          deviceName: deviceName || undefined,
+          boundContextName: connection?.bound_context_name?.trim() || undefined,
+          boundContextId: connection?.bound_context_id?.trim() || undefined,
+          bridgeSettings,
+        }
+      })
 
     return groupSessionsForMessageList(items)
   }
@@ -341,7 +363,7 @@ export class ChatService {
             accountId: connection.account_id,
             boundContextId: connection.bound_context_id,
             userId: this.ownerId(),
-            files: normalizedFiles,
+            files: this.filesForConnector(normalizedFiles),
           },
           {
             onChunk: ({ delta, fullText, phase, ephemeral, replacePrevious }) => {
@@ -435,9 +457,7 @@ export class ChatService {
       })
     }
 
-    const content =
-      partialText.trim() ||
-      '回复已中断，可重新发送消息继续。'
+    const content = partialText.trim() || '回复已中断，可重新发送消息继续。'
 
     if (shouldPersistSessionMessages(session)) {
       return this.mapStoredMessage(
@@ -531,8 +551,7 @@ export class ChatService {
       .listSessions(this.ownerId())
       .filter((row) => row.agent_type === agentType)
       .filter(
-        (row) =>
-          !normalizedConnectionId || row.bridge_connection_id === normalizedConnectionId,
+        (row) => !normalizedConnectionId || row.bridge_connection_id === normalizedConnectionId,
       )
       .filter((row) => {
         const connection = row.bridge_connection_id
@@ -542,28 +561,22 @@ export class ChatService {
       })
       .sort((a, b) => b.update_time - a.update_time)
     const deduped = deduplicateBridgeHistorySessions(filtered)
-    return deduped
-      .slice(offset, offset + limit)
-      .map((row) => {
-        const connection = row.bridge_connection_id
-          ? this.database.getConnectionById(row.bridge_connection_id)
-          : undefined
-        const deviceName = resolveSessionDeviceName(
-          row.bridge_device_name,
-          connection,
-          this.presence,
-        )
-        const firstUser = this.database.getFirstUserMessage(row.id)
-        const lastAssistant = this.database.getLastAssistantMessage(row.id)
-        return {
-          id: row.id,
-          title: resolveAgentHistoryTitle(row, deviceName, firstUser?.content),
-          preview: resolveAgentHistoryPreview(row, lastAssistant?.content),
-          updatedAt: row.update_time,
-          projectPath: row.bridge_project_path?.trim() || undefined,
-          agentSessionId: row.bridge_agent_session_id?.trim() || undefined,
-        }
-      })
+    return deduped.slice(offset, offset + limit).map((row) => {
+      const connection = row.bridge_connection_id
+        ? this.database.getConnectionById(row.bridge_connection_id)
+        : undefined
+      const deviceName = resolveSessionDeviceName(row.bridge_device_name, connection, this.presence)
+      const firstUser = this.database.getFirstUserMessage(row.id)
+      const lastAssistant = this.database.getLastAssistantMessage(row.id)
+      return {
+        id: row.id,
+        title: resolveAgentHistoryTitle(row, deviceName, firstUser?.content),
+        preview: resolveAgentHistoryPreview(row, lastAssistant?.content),
+        updatedAt: row.update_time,
+        projectPath: row.bridge_project_path?.trim() || undefined,
+        agentSessionId: row.bridge_agent_session_id?.trim() || undefined,
+      }
+    })
   }
 
   hideAgentHistorySessions(agentType: string, sessionIds: string[]): { hiddenCount: number } {
@@ -639,10 +652,7 @@ export class ChatService {
     const connection = normalizedConnectionId
       ? this.resourceAccess.requireConnection(normalizedConnectionId)
       : this.resourceAccess.resolvePrimaryConnection(input.agentType)
-    if (
-      normalizedConnectionId &&
-      (!connection || connection.bridge_type !== input.agentType)
-    ) {
+    if (normalizedConnectionId && (!connection || connection.bridge_type !== input.agentType)) {
       throw new NotFoundException('连接不存在')
     }
 
@@ -665,8 +675,7 @@ export class ChatService {
             ...(pendingSettings.modelId?.trim()
               ? {
                   modelId: pendingSettings.modelId.trim(),
-                  modelName:
-                    pendingSettings.modelName?.trim() || pendingSettings.modelId.trim(),
+                  modelName: pendingSettings.modelName?.trim() || pendingSettings.modelId.trim(),
                 }
               : {}),
             updatedAt: Date.now(),
@@ -790,7 +799,8 @@ export class ChatService {
       boundContextId: connection.bound_context_id,
       userId: this.ownerId(),
     }
-    const send = (payload: Record<string, unknown>) => this.presence.sendJson(connection.id, payload)
+    const send = (payload: Record<string, unknown>) =>
+      this.presence.sendJson(connection.id, payload)
     const normalized = trimmed.toLowerCase()
 
     if (normalized === '/help' || normalized.startsWith('/help ')) {
@@ -824,7 +834,9 @@ export class ChatService {
     return { name, mimeType, previewUrl }
   }
 
-  private connectorFileToAttachment(file: ConnectorFileInput): ChatMessageAttachmentDto & { base64?: string } {
+  private connectorFileToAttachment(
+    file: ConnectorFileInput,
+  ): ChatMessageAttachmentDto & { base64?: string } {
     return {
       ...this.connectorFileToStreamAttachment(file),
       base64: file.base64,
@@ -835,27 +847,87 @@ export class ChatService {
     return files
       .map((file) => {
         const name = file.name?.trim() || 'attachment'
-        return {
+        let mimeType = this.normalizeMimeType(
           name,
-          mimeType: this.normalizeMimeType(name, file.mimeType),
-          base64: file.base64?.trim() || undefined,
-          url: file.url?.trim() || undefined,
+          file.mimeType ?? file.mime_type ?? file.type ?? file.mediaType ?? file.media_type,
+        )
+        const base64 = this.sanitizeInboundBase64(
+          file.base64 ?? file.mediaBase64 ?? file.media_base64,
+        )
+        const sniffed = this.sniffImageMimeType(base64)
+        if (sniffed) {
+          mimeType = sniffed
+        }
+        const url = file.url?.trim() || file.mediaUrl?.trim() || file.media_url?.trim() || undefined
+        return {
+          name: this.ensureImageExtension(name, mimeType),
+          mimeType,
+          base64,
+          url,
         }
       })
       .filter((file) => file.base64 || file.url)
   }
 
-  /** 兼容微信 chooseMessageFile 返回的 type=image（非 MIME）。 */
+  /** 扩展名与 MIME 一致，便于 connector 按扩展名回退识别图片。 */
+  private ensureImageExtension(name: string, mimeType: string): string {
+    const lower = name.toLowerCase()
+    if (mimeType === 'image/jpeg' && !/\.jpe?g$/i.test(lower)) {
+      return `${name.replace(/\.[^.]+$/, '') || name}.jpg`
+    }
+    if (mimeType === 'image/png' && !lower.endsWith('.png')) {
+      return `${name.replace(/\.[^.]+$/, '') || name}.png`
+    }
+    if (mimeType === 'image/gif' && !lower.endsWith('.gif')) {
+      return `${name.replace(/\.[^.]+$/, '') || name}.gif`
+    }
+    if (mimeType === 'image/webp' && !lower.endsWith('.webp')) {
+      return `${name.replace(/\.[^.]+$/, '') || name}.webp`
+    }
+    return name
+  }
+
+  /** 转发 connector 时同时带 type/mediaBase64，兼容 linco-connect 协议解析。 */
+  private filesForConnector(files: ConnectorFileInput[]): ConnectorFileInput[] {
+    return files.map((file) => {
+      const name = file.name?.trim() || 'attachment'
+      const mimeType = this.normalizeMimeType(name, file.mimeType ?? file.type ?? file.mediaType)
+      const base64 = file.base64?.trim() || undefined
+      const url = file.url?.trim() || undefined
+      return {
+        name,
+        mimeType,
+        type: mimeType,
+        mediaType: mimeType,
+        base64,
+        mediaBase64: base64,
+        url,
+        mediaUrl: url,
+      }
+    })
+  }
+
+  private sanitizeInboundBase64(value?: string): string | undefined {
+    const raw = value?.trim() ?? ''
+    if (!raw) return undefined
+    const comma = raw.indexOf(',')
+    const payload = raw.startsWith('data:') && comma >= 0 ? raw.slice(comma + 1) : raw
+    const normalized = payload.replace(/\s+/g, '')
+    return normalized || undefined
+  }
+
+  /** 兼容微信 chooseMessageFile 返回的 type=image（非 MIME），以及 image/jpg 等别名。 */
   private normalizeMimeType(name: string, typeHint?: string): string {
     const hint = typeHint?.trim().toLowerCase() ?? ''
-    if (hint.includes('/')) return hint
+    const aliased = this.aliasMimeType(hint)
+    if (aliased.includes('/')) return aliased
     const lower = name.toLowerCase()
     if (hint === 'image' || lower.match(/\.(png|jpe?g|gif|webp|bmp|heic)$/)) {
       if (lower.endsWith('.png')) return 'image/png'
       if (lower.endsWith('.gif')) return 'image/gif'
       if (lower.endsWith('.webp')) return 'image/webp'
       if (lower.endsWith('.bmp')) return 'image/bmp'
-      if (lower.endsWith('.heic')) return 'image/heic'
+      if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic'
       if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
       return hint === 'image' ? 'image/jpeg' : 'application/octet-stream'
     }
@@ -863,6 +935,50 @@ export class ChatService {
     if (lower.endsWith('.pdf')) return 'application/pdf'
     if (lower.endsWith('.txt')) return 'text/plain'
     return hint || 'application/octet-stream'
+  }
+
+  private aliasMimeType(mime: string): string {
+    switch (mime) {
+      case 'image/jpg':
+      case 'image/pjpeg':
+        return 'image/jpeg'
+      case 'image/x-png':
+        return 'image/png'
+      default:
+        return mime
+    }
+  }
+
+  /**
+   * 用魔数校正 MIME：避免 HEIC/WebP 被误标为 jpeg 后 Claude 出现 [Unsupported Image]。
+   * linco-connect 仅把 png/jpeg/gif/webp 当作可内联图片。
+   */
+  private sniffImageMimeType(base64?: string): string | undefined {
+    if (!base64) return undefined
+    try {
+      const header = Buffer.from(base64.slice(0, 64), 'base64')
+      if (header.length < 12) return undefined
+      if (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e && header[3] === 0x47) {
+        return 'image/png'
+      }
+      if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
+        return 'image/jpeg'
+      }
+      if (header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46) {
+        return 'image/gif'
+      }
+      if (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') {
+        return 'image/webp'
+      }
+      const ftyp = header.toString('ascii', 4, 8)
+      const majorBrand = header.toString('ascii', 8, 12)
+      if (ftyp === 'ftyp' && /heic|heif|mif1|msf1/i.test(majorBrand)) {
+        return 'image/heic'
+      }
+      return undefined
+    } catch {
+      return undefined
+    }
   }
 
   /** 落库附件：图片把 base64 写成 data: previewUrl，重进会话才能回显缩略图。 */
@@ -900,9 +1016,7 @@ export class ChatService {
     if (!this.presence.isOnline(connection.id)) return null
 
     const projectPath =
-      session.bridge_project_path?.trim() ??
-      connection.bridge_project_path?.trim() ??
-      ''
+      session.bridge_project_path?.trim() ?? connection.bridge_project_path?.trim() ?? ''
     const command = options?.useHistoryReload
       ? buildHistoryReloadCommand({ limit, projectPath, agentSessionId })
       : buildHistoryCommand({
@@ -979,7 +1093,9 @@ export class ChatService {
     }
   }
 
-  private parseStoredAttachments(raw: string | null | undefined): ChatMessageAttachmentDto[] | undefined {
+  private parseStoredAttachments(
+    raw: string | null | undefined,
+  ): ChatMessageAttachmentDto[] | undefined {
     if (!raw?.trim()) return undefined
     try {
       const parsed = JSON.parse(raw) as unknown

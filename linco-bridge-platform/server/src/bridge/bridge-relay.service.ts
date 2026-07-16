@@ -12,10 +12,7 @@ import {
   isBridgeAttachmentOutboundNotice,
   sanitizeBridgeAssistantContent,
 } from '../chat/bridge-message-sanitize.util'
-import {
-  appendStreamingContent,
-  separateAfterOutbound,
-} from '../chat/stream-content.util'
+import { appendStreamingContent, separateAfterOutbound } from '../chat/stream-content.util'
 
 export type SlashCommandPayload = Record<string, unknown>
 
@@ -86,6 +83,9 @@ interface PendingTurn {
   outboundFile?: ConnectorFileInput
   bridgeType: string
   streamSanitizer: BridgeStreamContentSanitizer
+  /** 创建 turn 时的 requestId / messageId，用于 connector 污染 streamId 时回退匹配 */
+  requestId: string
+  sessionId: string
 }
 
 interface PendingSlashCommand {
@@ -98,8 +98,12 @@ interface PendingSlashCommand {
 export interface ConnectorFileInput {
   name?: string
   mimeType?: string
+  type?: string
+  mediaType?: string
   base64?: string
+  mediaBase64?: string
   url?: string
+  mediaUrl?: string
 }
 
 export interface ConnectorSendInput {
@@ -126,19 +130,24 @@ export class BridgeRelayService {
       return
     }
 
-    if (!streamId) return
+    // connector 可能因并发 slash 命令把 streamId 改成 linco-cmd-*；
+    // 对齐 aichat-service：用 requestId / sessionKey 回退定位 pending turn。
+    const resolved = this.resolvePendingTurn(frame)
+    if (!resolved) {
+      if (frame.type === 'system' && streamId) {
+        // 无 pending 的 system 帧直接忽略
+      }
+      return
+    }
+    const { key: pendingKey, pending } = resolved
 
     if (frame.type === 'system') {
-      const pending = this.pendingTurns.get(streamId)
-      if (pending?.collectSystem) {
+      if (pending.collectSystem) {
         const text = typeof frame.text === 'string' ? frame.text.trim() : ''
         if (text) pending.systemTexts.push(text)
       }
       return
     }
-
-    const pending = this.pendingTurns.get(streamId)
-    if (!pending) return
 
     if (frame.type === 'thinking') {
       const delta = typeof frame.delta === 'string' ? frame.delta : ''
@@ -261,7 +270,7 @@ export class BridgeRelayService {
     }
 
     if (frame.type === 'outbound_message' && !pending.allowEmptyTurnEnd) {
-      this.captureOutboundFile(streamId, frame, pending)
+      this.captureOutboundFile(pendingKey, frame, pending)
 
       const text =
         typeof frame.text === 'string'
@@ -293,7 +302,7 @@ export class BridgeRelayService {
     }
 
     if (frame.type === 'turn_end' || frame.type === 'outbound_message') {
-      this.captureOutboundFile(streamId, frame, pending)
+      this.captureOutboundFile(pendingKey, frame, pending)
 
       let text =
         typeof frame.text === 'string'
@@ -317,9 +326,9 @@ export class BridgeRelayService {
 
       clearTimeout(pending.timeout)
       const outboundFile = pending.outboundFile
-      this.pendingTurns.delete(streamId)
+      this.pendingTurns.delete(pendingKey)
       if (outboundFile) {
-        this.localCommandFiles.set(streamId, outboundFile)
+        this.localCommandFiles.set(pendingKey, outboundFile)
       }
       const trailing = pending.streamSanitizer.close()
       const resolvedText = `${text}${trailing}`
@@ -459,8 +468,7 @@ export class BridgeRelayService {
     this.pendingTurns.delete(streamId)
     const trailing = pending.streamSanitizer.close()
     const partialText = sanitizeBridgeAssistantContent(
-      `${pending.accumulatedText}${trailing}`.trim() ||
-        pending.accumulatedProgressText.trim(),
+      `${pending.accumulatedText}${trailing}`.trim() || pending.accumulatedProgressText.trim(),
       { agentType: pending.bridgeType },
     )
     pending.resolve(partialText)
@@ -524,10 +532,59 @@ export class BridgeRelayService {
         pendingOutboundBoundary: false,
         bridgeType: input.bridgeType,
         streamSanitizer: new BridgeStreamContentSanitizer(input.bridgeType),
+        requestId,
+        sessionId: input.sessionId,
       })
     })
 
     return { streamId, completed }
+  }
+
+  /**
+   * 对齐 aichat-service：connector 并发 slash 时可能把 streamId 改成 linco-cmd-*，
+   * 仍可用 requestId / messageId / sessionKey 找回 pending chat turn。
+   */
+  private resolvePendingTurn(
+    frame: Record<string, unknown>,
+  ): { key: string; pending: PendingTurn } | null {
+    const streamId = this.firstNonEmptyString(frame.streamId, frame.stream_id)
+    if (streamId) {
+      const byStream = this.pendingTurns.get(streamId)
+      if (byStream) return { key: streamId, pending: byStream }
+    }
+
+    const requestId = this.firstNonEmptyString(
+      frame.requestId,
+      frame.request_id,
+      frame.messageId,
+      frame.message_id,
+    )
+    if (requestId) {
+      for (const [key, pending] of this.pendingTurns.entries()) {
+        if (pending.requestId === requestId || key.endsWith(`-${requestId}`)) {
+          return { key, pending }
+        }
+      }
+    }
+
+    const sessionId = this.firstNonEmptyString(frame.sessionKey, frame.session_key)
+    if (sessionId) {
+      const matches = [...this.pendingTurns.entries()].filter(
+        ([, pending]) => pending.sessionId === sessionId && !pending.allowEmptyTurnEnd,
+      )
+      if (matches.length === 1) {
+        return { key: matches[0][0], pending: matches[0][1] }
+      }
+    }
+
+    return null
+  }
+
+  private firstNonEmptyString(...values: unknown[]): string {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+    return ''
   }
 
   private handleSlashCommandResult(streamId: string, frame: Record<string, unknown>): void {

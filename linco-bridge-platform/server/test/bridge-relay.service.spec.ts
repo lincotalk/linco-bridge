@@ -4,9 +4,11 @@ describe('BridgeRelayService', () => {
   it('resolves pending turn on turn_end', async () => {
     const relay = new BridgeRelayService()
     let capturedStreamId = ''
+    let capturedRequestId = ''
     const { completed } = relay.forwardToConnector(
       (payload) => {
         capturedStreamId = String(payload.streamId)
+        capturedRequestId = String(payload.requestId)
         return true
       },
       {
@@ -26,6 +28,62 @@ describe('BridgeRelayService', () => {
     })
 
     await expect(completed).resolves.toEqual({ text: 'world' })
+    expect(capturedRequestId).toBeTruthy()
+  })
+
+  it('resolves chat turn when connector returns polluted linco-cmd streamId', async () => {
+    const relay = new BridgeRelayService()
+    let capturedRequestId = ''
+    let capturedSessionKey = ''
+    const { completed } = relay.forwardToConnector(
+      (payload) => {
+        capturedRequestId = String(payload.requestId)
+        capturedSessionKey = String(payload.sessionKey)
+        return true
+      },
+      {
+        sessionId: 'session-polluted',
+        text: '你在吗',
+        bridgeType: 'claude',
+        accountId: 'claude_1',
+        boundContextId: null,
+        userId: 'demo',
+      },
+    )
+
+    // 模拟 connector 并发 slash 后把 streamId 写成 linco-cmd-*，但 requestId/sessionKey 仍正确
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: `linco-cmd-${capturedRequestId}`,
+      requestId: capturedRequestId,
+      messageId: capturedRequestId,
+      sessionKey: capturedSessionKey,
+      text: '在的！我随时在线',
+      reason: 'completed',
+    })
+
+    await expect(completed).resolves.toEqual({ text: '在的！我随时在线' })
+  })
+
+  it('resolves chat turn by sessionKey when streamId and requestId are missing', async () => {
+    const relay = new BridgeRelayService()
+    const { completed } = relay.forwardToConnector(() => true, {
+      sessionId: 'session-only-key',
+      text: 'hi',
+      bridgeType: 'claude',
+      accountId: 'claude_1',
+      boundContextId: null,
+      userId: 'demo',
+    })
+
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: 'linco-cmd-unknown',
+      sessionKey: 'session-only-key',
+      text: 'hello back',
+    })
+
+    await expect(completed).resolves.toEqual({ text: 'hello back' })
   })
 
   it('accumulates stream_chunk before turn_end', async () => {
@@ -430,9 +488,7 @@ describe('BridgeRelayService', () => {
     const relay = new BridgeRelayService()
     relay.forwardToConnector(
       (payload) => {
-        expect(payload.files).toEqual([
-          { name: 'a.txt', mimeType: 'text/plain', base64: 'abc' },
-        ])
+        expect(payload.files).toEqual([{ name: 'a.txt', mimeType: 'text/plain', base64: 'abc' }])
         return true
       },
       {

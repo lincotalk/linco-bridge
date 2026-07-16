@@ -1,11 +1,5 @@
-import type { ChatMessage, ChatMessageAttachment, ChatSessionItem, ResumeSessionResult } from '@/bridge/types'
-import {
-  consumeSseBuffer,
-  decodeChunkData,
-  type StreamChunkPayload,
-  type StreamMessageHandlers,
-  type StreamReasoningPayload,
-} from '@/api/sse-stream'
+import type { ChatMessage, ChatSessionItem, ResumeSessionResult } from '@/bridge/types'
+import { consumeSseBuffer, decodeChunkData, type StreamMessageHandlers } from '@/api/sse-stream'
 import { appendQueryToPath, createQueryParams, setQueryParam } from '@/utils/query-string'
 import {
   isH5Runtime,
@@ -140,7 +134,7 @@ async function streamSessionMessageViaFetch(
         Accept: 'text/event-stream',
       }),
     },
-    body: JSON.stringify({ content, files }),
+    body: JSON.stringify({ content, files: toApiOutboundFiles(files) }),
     signal: controller?.signal,
   })
 
@@ -272,7 +266,7 @@ async function streamSessionMessageViaUniRequest(
       finish(new Error('流式响应超时'))
     }, MP_STREAM_TIMEOUT_MS)
 
-    let task = uni.request({
+    const task = uni.request({
       url: `${getApiBaseUrl()}/api/sessions/${sessionId}/messages/stream`,
       method: 'POST',
       header: buildApiRequestHeaders({
@@ -322,31 +316,27 @@ export async function streamSessionMessage(
   await ensureVisitorSession()
   throwIfCancelled(cancel)
 
+  const apiFiles = toApiOutboundFiles(files)
+
   // H5：始终走浏览器 fetch SSE（与改附件前一致），勿改此分支顺序
   if (supportsFetchStream()) {
-    return streamSessionMessageViaFetch(
-      sessionId,
-      content,
-      handlers,
-      cancel,
-      toApiOutboundFiles(files),
-    )
+    return streamSessionMessageViaFetch(sessionId, content, handlers, cancel, apiFiles)
   }
 
   // 小程序：不支持 fetch SSE；统一走阻塞 HTTP，并携带 files（避免旧逻辑回退丢附件）
   if (isMiniProgramRuntime()) {
-    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, files)
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, apiFiles)
   }
 
   if (isH5Runtime()) {
-    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, files)
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, apiFiles)
   }
 
   try {
-    return await streamSessionMessageViaUniRequest(sessionId, content, handlers, cancel, files)
+    return await streamSessionMessageViaUniRequest(sessionId, content, handlers, cancel, apiFiles)
   } catch (err) {
     if (cancel?.aborted) throw err
-    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, files)
+    return streamSessionMessageViaBlocking(sessionId, content, handlers, cancel, apiFiles)
   }
 }
 

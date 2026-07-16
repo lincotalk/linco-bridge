@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import type { OutboundChatFile } from '@/api/session-api'
 import { normalizeAttachmentMimeType } from '@/utils/chat-attachments'
+import { prepareOutboundImages } from '@/utils/image-compress'
 import { showToast } from '@/utils/format'
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -8,7 +9,7 @@ function readFileAsBase64(file: File): Promise<string> {
     const reader = new FileReader()
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : ''
-      const base64 = result.includes(',') ? result.split(',')[1] ?? '' : result
+      const base64 = result.includes(',') ? (result.split(',')[1] ?? '') : result
       resolve(base64)
     }
     reader.onerror = () => reject(new Error('读取文件失败'))
@@ -242,9 +243,11 @@ export function useAttachmentPicker() {
 
     if (picked.length === 0) return []
 
-    pendingFiles.value = [...pendingFiles.value, ...picked]
-    showToast(`已选择 ${picked.length} 个附件`, 'success')
-    return picked
+    // 选图后立即压缩并归一 MIME，降低 Claude Code [Unsupported Image] 概率
+    const prepared = await prepareOutboundImages(picked)
+    pendingFiles.value = [...pendingFiles.value, ...prepared]
+    showToast(`已选择 ${prepared.length} 个附件`, 'success')
+    return prepared
   }
 
   function removeFile(index: number) {

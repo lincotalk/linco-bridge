@@ -9,6 +9,7 @@ import { useAgentLanding } from '@/composables/useAgentLanding'
 import { useAttachmentPicker } from '@/composables/useAttachmentPicker'
 import { useVoiceInput } from '@/composables/useVoiceInput'
 import { stashPendingFiles } from '@/composables/pendingAttachmentTransfer'
+import { cloneOutboundFiles } from '@/utils/chat-attachments'
 import { stashPendingLaunch } from '@/composables/pendingLaunchTransfer'
 import type { AgentBridgeType, AgentHistoryItem } from '@/bridge/types'
 import { appendAgentTypeQuery } from '@/bridge/sdk/agent-chat'
@@ -19,7 +20,11 @@ import { openBoundBridgeChat } from '@/utils/open-bound-chat'
 import { hasWorkspaceSessionPick } from '@/utils/pick-workspace'
 import { appendQueryToPath, createQueryParams } from '@/utils/query-string'
 import { buildAgentHistoryUrl, openHistorySession } from '@/utils/open-agent-landing'
-import { supportsBridgeSettingsSelector, supportsBridgeSlashCommands, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import {
+  supportsBridgeSettingsSelector,
+  supportsBridgeSlashCommands,
+  supportsBridgeWorkspaceSelector,
+} from '@/bridge/constants'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
 import { useSlashCommands } from '@/composables/useSlashCommands'
 
@@ -151,7 +156,7 @@ async function handlePickSettings() {
 
 async function handleSend() {
   const message = draft.value.trim()
-  const files = pendingFiles.value
+  const files = cloneOutboundFiles(pendingFiles.value)
   if ((!message && files.length === 0) || starting.value) return
 
   try {

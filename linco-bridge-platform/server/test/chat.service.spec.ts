@@ -21,7 +21,7 @@ describe('ChatService', () => {
   })
 
   it('hard-deletes all sessions for a connection when deleting grouped message row', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const first = database.getSessionByConnectionId(connection.id)!
     database.touchSession(first.id, '第一条')
     database.updateSessionTitle(first.id, '第一条')
@@ -52,7 +52,7 @@ describe('ChatService', () => {
   })
 
   it('hard-deletes sessions from message list', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, 'hello from codex')
 
@@ -70,7 +70,7 @@ describe('ChatService', () => {
   })
 
   it('prefers session-scoped device name over connection device name', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, '今天星期几啊')
     database.updateSessionTitle(session.id, '今天星期几啊')
@@ -84,7 +84,7 @@ describe('ChatService', () => {
   })
 
   it('uses connection display name in message list title', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     database.updateConnectionDisplayName(connection.id, '我的 Codex')
     database.updateConnectionDevice(connection.id, { name: 'HQ-TS-0182' })
     const session = database.getSessionByConnectionId(connection.id)!
@@ -95,7 +95,7 @@ describe('ChatService', () => {
   })
 
   it('scopes agent history by connection id', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, '今天星期几啊')
     database.updateSessionTitle(session.id, '今天星期几啊')
@@ -107,7 +107,7 @@ describe('ChatService', () => {
   })
 
   it('strips device suffix from landing history titles', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     database.updateConnectionDevice(connection.id, { name: 'HQ-TS-0182' })
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, '今天星期几啊')
@@ -118,7 +118,7 @@ describe('ChatService', () => {
   })
 
   it('hides agent history sessions without deleting messages', () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.touchSession(session.id, '今天星期几啊')
     database.updateSessionTitle(session.id, '今天星期几啊')
@@ -130,7 +130,7 @@ describe('ChatService', () => {
   })
 
   it('resumes an existing platform session by id', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     database.updateSessionBridgeBinding(session.id, {
       projectPath: 'D:\\project\\ddjf-aichat',
@@ -151,7 +151,7 @@ describe('ChatService', () => {
   })
 
   it('groups message list to one row per connection', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const first = database.getSessionByConnectionId(connection.id)!
     database.touchSession(first.id, '第一条')
     database.updateSessionTitle(first.id, '第一条')
@@ -178,14 +178,14 @@ describe('ChatService', () => {
   })
 
   it('returns empty messages when connector is offline', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     const messages = await chatService.listMessages(session.id)
     expect(messages).toEqual([])
   })
 
   it('loads messages from history-reload when connector is online', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const mockSocket = {
       readyState: WebSocket.OPEN,
       OPEN: WebSocket.OPEN,
@@ -237,7 +237,7 @@ describe('ChatService', () => {
   })
 
   it('sendMessage returns offline hint when connector is offline', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     const reply = await chatService.sendMessage(session.id, 'hello bridge')
     expect(reply.role).toBe('assistant')
@@ -269,8 +269,100 @@ describe('ChatService', () => {
     expect(String(attachments[0]?.previewUrl ?? '')).toMatch(/^data:image\/png;base64,/)
   })
 
+  it('forwards text+files to connector with mediaBase64 aliases when online', async () => {
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
+    const mockSocket = {
+      readyState: WebSocket.OPEN,
+      OPEN: WebSocket.OPEN,
+      send: jest.fn(),
+    } as unknown as WebSocket
+    presence.attach(connection.id, mockSocket)
+
+    const payloads: Array<Record<string, unknown>> = []
+    let capturedStreamId = ''
+    jest.spyOn(presence, 'sendJson').mockImplementation((_connectionId, payload) => {
+      payloads.push(payload as Record<string, unknown>)
+      if (!capturedStreamId && payload.streamId) {
+        capturedStreamId = String(payload.streamId)
+      }
+      return true
+    })
+
+    const session = database.getSessionByConnectionId(connection.id)!
+    const tinyPng =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const pending = chatService.sendMessage(session.id, '请结合图片回答', [
+      {
+        name: 'dot.png',
+        mime_type: 'image/png',
+        media_base64: `data:image/png;base64,${tinyPng}`,
+      },
+    ])
+
+    expect(capturedStreamId).toBeTruthy()
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: 'ok',
+    })
+    await pending
+
+    const inbound = payloads.find((item) => item.type === 'inbound_message')
+    expect(inbound?.text).toBe('请结合图片回答')
+    const files = inbound?.files as Array<Record<string, string>> | undefined
+    expect(files?.[0]?.name).toBe('dot.png')
+    expect(files?.[0]?.type).toBe('image/png')
+    expect(files?.[0]?.mediaBase64).toBe(tinyPng)
+  })
+
+  it('aliases image/jpg and sniffs real png bytes before forwarding', async () => {
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'claude')!
+    const mockSocket = {
+      readyState: WebSocket.OPEN,
+      OPEN: WebSocket.OPEN,
+      send: jest.fn(),
+    } as unknown as WebSocket
+    presence.attach(connection.id, mockSocket)
+
+    const payloads: Array<Record<string, unknown>> = []
+    let capturedStreamId = ''
+    jest.spyOn(presence, 'sendJson').mockImplementation((_connectionId, payload) => {
+      payloads.push(payload as Record<string, unknown>)
+      if (!capturedStreamId && payload.streamId) {
+        capturedStreamId = String(payload.streamId)
+      }
+      return true
+    })
+
+    const session = database.getSessionByConnectionId(connection.id)!
+    const tinyPng =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const pending = chatService.sendMessage(session.id, '看图', [
+      {
+        name: 'shot',
+        mimeType: 'image/jpg',
+        base64: tinyPng,
+      },
+    ])
+
+    expect(capturedStreamId).toBeTruthy()
+    relay.handleConnectorFrame({
+      type: 'turn_end',
+      streamId: capturedStreamId,
+      text: 'ok',
+    })
+    await pending
+
+    const inbound = payloads.find((item) => item.type === 'inbound_message')
+    const files = inbound?.files as Array<Record<string, string>> | undefined
+    expect(files?.[0]?.type).toBe('image/png')
+    expect(files?.[0]?.mimeType).toBe('image/png')
+    expect(files?.[0]?.name).toMatch(/\.png$/i)
+    expect(files?.[0]?.mediaBase64).toBe(tinyPng)
+  })
+
   it('creates temp session without relinking connection primary session', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const original = database.getSessionByConnectionId(connection.id)!
     database.linkConnectionSession(connection.id, original.id)
     const linkedSessionId = database.getConnectionById(connection.id)!.session_id
@@ -320,14 +412,14 @@ describe('ChatService', () => {
   })
 
   it('does not persist messages for bound codex sessions without project path', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.getSessionByConnectionId(connection.id)!
     await chatService.sendMessage(session.id, 'hello bound')
     expect(database.listMessages(session.id)).toEqual([])
   })
 
   it('persists messages for bound hermes sessions in sqlite', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'hermes')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'hermes')!
     const session = database.getSessionByConnectionId(connection.id)!
     await chatService.sendMessage(session.id, 'hello hermes')
 
@@ -339,19 +431,19 @@ describe('ChatService', () => {
   })
 
   it('persists messages for bound openclaw sessions in sqlite', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'openclaw')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'openclaw')!
     const session = database.getSessionByConnectionId(connection.id)!
     await chatService.sendMessage(session.id, 'hello openclaw')
 
     expect(database.listMessages(session.id).length).toBeGreaterThanOrEqual(2)
     const messages = await chatService.listMessages(session.id)
-    expect(
-      messages.some((item) => item.role === 'user' && item.content === 'hello openclaw'),
-    ).toBe(true)
+    expect(messages.some((item) => item.role === 'user' && item.content === 'hello openclaw')).toBe(
+      true,
+    )
   })
 
   it('persists project session messages in sqlite', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const session = database.createSession({
       ownerId: TEST_SEED_OWNER_ID,
       agentType: 'codex',
@@ -402,7 +494,7 @@ describe('ChatService', () => {
   })
 
   it('imports bridge history into sqlite for project sessions on first load', async () => {
-    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID,'codex')!
+    const connection = database.getConnectionByType(TEST_SEED_OWNER_ID, 'codex')!
     const mockSocket = {
       readyState: WebSocket.OPEN,
       OPEN: WebSocket.OPEN,

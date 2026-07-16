@@ -5,6 +5,8 @@ import type { OutboundChatFile } from '@/api/session-api'
 import { useBridgeStore, useSessionStore } from '@/stores'
 import { takePendingFiles } from '@/composables/pendingAttachmentTransfer'
 import { takePendingLaunch } from '@/composables/pendingLaunchTransfer'
+import { toApiOutboundFiles } from '@/utils/chat-attachments'
+import { prepareOutboundImages } from '@/utils/image-compress'
 import { resolveChatHeader, type ChatHeaderView } from '@/utils/chat-header'
 import { showToast } from '@/utils/format'
 import {
@@ -36,24 +38,15 @@ export function useChatSession() {
     const agentType = session?.agentType ?? parseAgentTypeFromSessionId(sessionId.value)
 
     if (agentType) {
-      await bridgeStore
-        .checkStatus(agentType, session?.connectionId)
-        .catch(() => undefined)
+      await bridgeStore.checkStatus(agentType, session?.connectionId).catch(() => undefined)
     }
 
     const status = agentType ? bridgeStore.statusByType[agentType] : undefined
     const online = session?.online ?? status?.connected ?? false
     const deviceName = status?.deviceName ?? session?.deviceName
-    const boundContextName =
-      status?.boundContextName ?? session?.boundContextName
+    const boundContextName = status?.boundContextName ?? session?.boundContextName
 
-    header.value = resolveChatHeader(
-      sessionId.value,
-      session,
-      online,
-      deviceName,
-      boundContextName,
-    )
+    header.value = resolveChatHeader(sessionId.value, session, online, deviceName, boundContextName)
   }
 
   async function loadSession(
@@ -81,15 +74,12 @@ export function useChatSession() {
       const session = sessionStore.getSession(id)
       const agentType = session?.agentType ?? parseAgentTypeFromSessionId(id)
       if (agentType) {
-        await bridgeStore
-          .checkStatus(agentType, session?.connectionId)
-          .catch(() => undefined)
+        await bridgeStore.checkStatus(agentType, session?.connectionId).catch(() => undefined)
       }
 
       const status = agentType ? bridgeStore.statusByType[agentType] : undefined
       const deviceName = status?.deviceName ?? session?.deviceName
-      const boundContextName =
-        status?.boundContextName ?? session?.boundContextName
+      const boundContextName = status?.boundContextName ?? session?.boundContextName
       header.value = resolveChatHeader(
         id,
         session,
@@ -147,7 +137,14 @@ export function useChatSession() {
   }
   async function sendMessage(contentOverride?: string, files: OutboundChatFile[] = []) {
     const content = (contentOverride ?? draft.value).trim()
-    if ((!content && files.length === 0) || !sessionId.value || sending.value) return
+    // 发送前再压一次：覆盖 landing stash / 未走 picker 压缩的路径
+    const preparedFiles = await prepareOutboundImages(files)
+    const apiFiles = toApiOutboundFiles(preparedFiles)
+    if ((!content && apiFiles.length === 0) || !sessionId.value || sending.value) return
+    if (files.length > 0 && apiFiles.length === 0) {
+      showToast('附件读取失败，请重新选择')
+      return
+    }
 
     sending.value = true
     activeStreamId.value = ''
@@ -163,7 +160,7 @@ export function useChatSession() {
         onStreamId: (streamId) => {
           activeStreamId.value = streamId
         },
-        files,
+        files: apiFiles,
       })
     } catch (err) {
       if (isAbortError(err) || cancel.aborted) {

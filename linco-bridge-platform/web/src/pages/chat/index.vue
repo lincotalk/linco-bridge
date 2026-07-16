@@ -16,7 +16,12 @@ import { showToast } from '@/utils/format'
 import { isBoundWorkspacePick } from '@/utils/pick-workspace'
 import { openBoundBridgeChat, reloadBoundChatSession } from '@/utils/open-bound-chat'
 import { resolveBridgeProjectLabel } from '@/utils/bridge-project-label'
-import { supportsBridgeSettingsSelector, supportsBridgeSlashCommands, supportsBridgeWorkspaceSelector } from '@/bridge/constants'
+import {
+  supportsBridgeSettingsSelector,
+  supportsBridgeSlashCommands,
+  supportsBridgeWorkspaceSelector,
+} from '@/bridge/constants'
+import { cloneOutboundFiles } from '@/utils/chat-attachments'
 import { useBridgeSettings } from '@/composables/useBridgeSettings'
 import { useSlashCommands } from '@/composables/useSlashCommands'
 
@@ -48,9 +53,7 @@ const agentType = computed<AgentBridgeType | null>(() =>
     queryAgentType: queryAgentType.value,
   }),
 )
-const connectionId = computed(
-  () => sessionStore.getSession(chat.sessionId.value)?.connectionId,
-)
+const connectionId = computed(() => sessionStore.getSession(chat.sessionId.value)?.connectionId)
 
 const bridgeProjectLabel = computed(() =>
   resolveBridgeProjectLabel(sessionStore.getSession(chat.sessionId.value)),
@@ -91,9 +94,7 @@ onLoad((query) => {
   const id = String(query?.sessionId ?? '')
   routeSessionId.value = id
   routeReloadHistory.value =
-    query?.reloadHistory === '1' ||
-    query?.reloadHistory === 'true' ||
-    query?.reloadHistory === true
+    query?.reloadHistory === '1' || query?.reloadHistory === 'true' || query?.reloadHistory === true
   const initialDraft = query?.draft ? decodeURIComponent(String(query.draft)) : undefined
   queryAgentType.value = parseAgentTypeFromQuery(String(query?.agentType ?? ''))
   if (id) {
@@ -103,13 +104,12 @@ onLoad((query) => {
 
 function readRouteQuery(): { sessionId: string; reloadHistory: boolean } {
   const pages = getCurrentPages()
-  const current = pages[pages.length - 1] as { options?: Record<string, string | boolean> } | undefined
+  const current = pages[pages.length - 1] as
+    { options?: Record<string, string | boolean> } | undefined
   const query = current?.options ?? {}
   const sessionId = String(query.sessionId ?? '')
   const reloadHistory =
-    query.reloadHistory === '1' ||
-    query.reloadHistory === 'true' ||
-    query.reloadHistory === true
+    query.reloadHistory === '1' || query.reloadHistory === 'true' || query.reloadHistory === true
   return { sessionId, reloadHistory }
 }
 
@@ -157,7 +157,9 @@ async function handleWorkspace() {
       return
     }
     await sessionStore.loadSessions().catch(() => undefined)
-    await chat.loadSession(chat.sessionId.value, { reloadHistory: Boolean(picked.agentSessionId?.trim()) })
+    await chat.loadSession(chat.sessionId.value, {
+      reloadHistory: Boolean(picked.agentSessionId?.trim()),
+    })
     showToast(`已选择 ${picked.name}`)
   } catch (error) {
     showToast(error instanceof Error ? error.message : '切换工作区失败')
@@ -171,7 +173,7 @@ async function handleAdd() {
 function handleSend() {
   scrollToBottom()
   // 对齐 Flutter：先快照附件并立刻清空输入区，再异步发送（勿等整轮回复结束）
-  const files = [...pendingFiles.value]
+  const files = cloneOutboundFiles(pendingFiles.value)
   clearFiles()
   void sendMessage(undefined, files)
 }
