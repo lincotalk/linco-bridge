@@ -15,7 +15,7 @@ Detailed references:
 
 | Item | Current guidance |
 | --- | --- |
-| Node.js | Node.js 20+; Node.js 22 LTS recommended |
+| Node.js | Node.js 20 or 22–26; Node.js 22 LTS recommended. Node.js 21 is not currently supported because the connector depends on native `better-sqlite3` builds |
 | Local connector package | `linco-connect` |
 | Supported local Agents | Codex CLI, Claude Code, Hermes, OpenClaw |
 | Reference platform backend | `linco-bridge-platform/server` |

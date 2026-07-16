@@ -15,7 +15,7 @@
 
 | 项 | 当前建议 |
 | --- | --- |
-| Node.js | Node.js 20+；推荐 Node.js 22 LTS |
+| Node.js | Node.js 20 或 22–26；推荐 Node.js 22 LTS。连接器依赖原生模块 `better-sqlite3`，因此当前不支持 Node.js 21 |
 | 本地连接器包 | `linco-connect` |
 | 支持的本地 Agent | Codex CLI、Claude Code、Hermes、OpenClaw |
 | 参考平台后端 | `linco-bridge-platform/server` |

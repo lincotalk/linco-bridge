@@ -17,14 +17,15 @@ Linco Bridge connector is open-sourced together with a reference platform projec
 - Supports Claude Code, Codex, Hermes, OpenClaw, and related Agent integrations.
 - Supports remote IM connections and a local test page for debugging.
 - Supports text, image, and common document attachments.
-- Supports generated file references. Agents return Markdown links with absolute local paths, and the IM can request the file on demand.
-- Supports tool and command permission confirmations, dangerous-operation confirmations, and manual/auto/yolo approval modes.
-- Supports session history viewing, binding, deletion, and token usage display.
+- Supports generated file references. Agents return Markdown links with absolute local paths so the remote IM can display clickable file references.
+- Supports validated on-demand file retrieval through `/get <path>` after the remote IM receives a local file reference.
+- Supports tool and command permission confirmations, dangerous-operation confirmations, and manual/auto/yolo approval modes; `auto` is the default.
+- Supports session history viewing, binding, switching, deletion, and token usage display.
 - Supports channel adapters. `linco` is the official Linco IM adapter, and `linco-demo` is the open-source H5 demo channel.
 
 ## Requirements
 
-- Node.js 20+. Node.js 22 LTS is recommended. `better-sqlite3` is used to speed up local Codex session lookup and currently supports Node.js 20/22/23/24/25/26.
+- Node.js 20 or 22–26. Node.js 22 LTS is recommended. Node.js 21 is not in the current supported runtime range because the connector depends on the native `better-sqlite3` module.
 - Install and sign in to the Agent CLI you plan to use:
   - `claude`
   - `codex`
@@ -45,7 +46,7 @@ Verified Agent versions:
 | OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | Supports Gateway agent sessions and `openclaw agents list --json` / `openclaw gateway call --json agents.list`. Use `/agent` in a Linco session to view or bind the default OpenClaw Agent for future sessions. |
 | Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | Supports Hermes Gateway `/v1/runs` and `hermes profile list`. Use `/profile` in a Linco session to view or bind the default Hermes Profile for future sessions. |
 
-Linco Bridge connector injects a unified bridge identity prompt into Agents: the Agent is connected to Linco IM through the Linco Bridge connector, and normal text replies are automatically sent back to the user. Claude and Hermes use system-level or `instructions` injection. Codex and OpenClaw keep their existing protocol field shape and append the bridge prompt in the input layer.
+Linco Bridge connector injects a unified bridge identity prompt into Agents: the Agent is connected to Linco IM through the Linco Bridge connector, and normal text replies are automatically sent back to the user. Claude and Hermes use system-level or `instructions` injection. Codex app-server injects the prompt through `developerInstructions` and merges it with the user's existing Codex instructions, falling back to the input layer when needed. OpenClaw keeps its existing protocol field shape and appends the prompt in the input layer.
 
 ## Installation
 
@@ -106,6 +107,8 @@ The same can be done from a running remote IM session:
 /remove-account
 /remove-account --agent claude --account default
 ```
+
+`/delete-account` is an alias of `/remove-account`. Without arguments, it removes the account associated with the current IM session.
 
 ## Start And Stop
 
@@ -250,7 +253,7 @@ Incoming `inbound_message` events are converted into local Agent input. The conn
 }
 ```
 
-This metadata is bridge-layer routing data. It is not user text, should not be shown to the Agent, and should not be echoed to the user. Agent adapters must filter `type: "meta"` blocks when building prompts.
+This metadata is bridge-layer routing data. It is not user text, should not be shown to the Agent, and should not be echoed to the user. Agent adapters must filter `type: "meta"` blocks when building prompts. If JSON such as `{"type":"meta",...}` appears in a Codex conversation, verify that the Codex adapter filters internal metadata and that the IM frontend sends user text only in the `text` field while keeping `agentId`, `messageId`, and `accountId` as message fields.
 
 ## Slash Commands
 
@@ -260,6 +263,7 @@ More contributor and frontend integration docs:
 - [Protocol](docs/protocol.en-US.md)
 - [Slash commands](docs/slash-commands.en-US.md)
 - [Security](docs/security.en-US.md)
+- [简体中文文档](README.zh-CN.md)
 
 Common commands:
 
@@ -269,31 +273,42 @@ Common commands:
 | `/status` | Shows the current session status. |
 | `/pwd` | Shows the current project directory. Claude/Codex only. |
 | `/cd <path>` | Binds the specified directory as the current project and starts a new Agent session. Claude/Codex only. |
-| `/project` | Lists known projects from local Claude/Codex records. |
+| `/project` | Lists known projects from local Claude/Codex records so the remote IM can render selection actions. Claude/Codex only. |
+| `/project --select <path>` | Selects a project and starts a new Agent session. Claude/Codex only. |
 | `/sessions [limit]` | Lists recent local Agent sessions for the current project. Claude/Codex only. |
 | `/chats [limit]` | Lists Codex Desktop sidebar chats. Codex only. |
 | `/bind <Session ID>` | Binds the current IM session to an existing local Agent session. Claude/Codex only. |
 | `/bind --chat <Chat ID>` | Binds to an existing Codex Desktop Chat. Codex only. |
-| `/history [limit]` | Shows recent conversation history for the bound Agent session. Claude/Codex only. |
+| `/history [limit]` | Shows recent conversation history for the bound Agent session; defaults to 10 rounds. Claude/Codex only. |
 | `/history --chat <Chat ID> [limit]` | Previews Codex Desktop Chat history without binding. Codex only. |
-| `/history-reload [limit]` | Refreshes local Agent memory, then reloads recent history. |
-| `/agent` | Shows OpenClaw Agents and allows binding the default Agent for future sessions. OpenClaw only. |
-| `/profile` | Shows Hermes Profiles and allows binding the default Profile for future sessions. Hermes only. |
+| `/history-reload [limit]` | Refreshes local Agent memory, then reloads recent history; exits silently while the current turn is busy. |
+| `/agent` | Shows OpenClaw Agents and allows binding the default Agent for future sessions without switching the current session. OpenClaw only. |
+| `/profile` | Shows Hermes Profiles and allows binding the default Profile for future sessions without switching the current session. Hermes only. |
 | `/stop` | Stops the current Agent process and keeps the resumable session ID. |
-| `/reload` | Refreshes current Agent memory and tries to prestart the process. |
-| `/pc` | Shows the command for opening the current Agent session on PC. |
+| `/reload` | Refreshes current Agent memory, reloads local history on the next message, and tries to prestart the process. |
+| `/pc` | Shows the command for opening the current Agent session on PC. Claude/Codex only. |
 | `/base` | Shows runtime and attachment directories. |
-| `/get <path>` | Reads an allowed non-hidden file from an allowed directory and returns it to the frontend. |
+| `/get <path>` | Reads a non-hidden file from the current workspace, runtime, or attachment directory after validation and returns it to the frontend. |
 | `/approve` | Shows the current approval mode. |
 | `/approve manual` | Requires manual confirmation for permission requests and dangerous operations. |
 | `/approve auto` | Automatically confirms permission requests and dangerous operations while keeping the default permission boundary. |
 | `/approve yolo` | Enables the Agent's native permission or sandbox bypass mode. |
-| `/model` | Shows or switches the current Agent model. |
-| `/usage` | Shows token usage if the Agent provides it. |
+| `/model` | Shows models available in the current mode. |
+| `/model status` | Shows the active model override and default model. |
+| `/model --list` | Lists models exposed by the Agent or provider when available; any model name supported by the Agent may also be entered directly. |
+| `/model <number>` / `/model switch <number>` | Switches by the index shown in the `/model` list. |
+| `/model <name>` | Switches the current Agent model without clearing the Agent session; Claude restarts its print process and resumes the same session. |
+| `/model --clear` | Clears the runtime model override when supported. |
+| `/usage` | Shows token usage; some Agents may not provide it yet. |
 | `/remove-account` | Removes the account configuration for the current IM session. |
+| `/remove-account --agent <agent> --account <account>` | Removes a specified Agent account; `--channel <channel>` may also be provided. |
 | `/delete-account` | Alias of `/remove-account`. |
 
-Frontend command lists should be filtered by `agentType`. Local list/history commands return structured `slash_command_result` events that the remote IM can render by `command` and `data`; command turns still end with `turn_end`.
+Frontend command lists should be filtered by `agentType`: Claude uses `/pwd`, `/cd`, `/project`, `/sessions`, `/bind`, `/history`, and `/pc`; Codex additionally uses `/chats`, `/bind --chat`, and `/history --chat`; OpenClaw uses `/agent`; Hermes uses `/profile`. Common commands such as `/model`, `/compact`, and `/remove-account` can be shown when supported. `/commands` and `/refresh` have been removed and should not be displayed. Commands not handled locally are passed through to the current Agent, although commands designed only for an interactive CLI or TUI may produce no output in bridge mode.
+
+List and history commands such as `/help`, `/project`, `/sessions`, `/chats`, `/history`, `/agent`, and `/profile` return structured `slash_command_result` events. The remote IM can render them by `command` and `data`, and each command turn still ends with `turn_end`.
+
+For example, `/help` returns `command: "help"` plus `data.items[].command` and `data.items[].description`; `/history` returns `command: "history"` plus `data.rounds`; `/sessions` returns `data.items[].bindCommand`; and `/chats` returns `data.items[].historyCommand` and `data.items[].bindCommand`.
 
 ## Security Notes
 

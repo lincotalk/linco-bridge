@@ -64,6 +64,17 @@ npm run start:prod
 | `PUBLIC_HTTP_SCHEME` | 本地 `http`，否则 `https` | REST 根地址 scheme |
 | `PUBLIC_WS_SCHEME` | 本地 `ws`，否则 `wss` | connector WebSocket scheme |
 | `SQLITE_PATH` | `./data/linco-bridge.db` | SQLite 文件路径 |
+| `CORS_ORIGINS` | 开发环境允许全部；生产环境禁止跨域 | 允许调用 API 的浏览器 Origin，多个值用逗号分隔；只有确实需要全部放行时才使用 `*` |
+| `VISITOR_SESSION_SECRET` | 开发环境有回退值；生产环境必填 | 用于签名匿名访客 Session token 的 HMAC 密钥 |
+
+公网部署时，请配置可以调用 API 的准确前端域名，并使用足够长的随机访客 Session 密钥：
+
+```env
+CORS_ORIGINS=https://bridge-demo.lincotalk.com
+VISITOR_SESSION_SECRET=<random-secret>
+```
+
+多个 CORS Origin 可用逗号分隔。`CORS_ORIGINS` 只约束浏览器 REST 请求，不是 connector 的 WebSocket token。可使用 `openssl rand -hex 32` 等安全随机方式生成密钥，不要将它提交到仓库或对外分享。更换密钥后，之前签发的访客 Session 将失效。
 
 在线 Demo 部署见 [`../../docs/zh-CN/deploy-demo.md`](../../docs/zh-CN/deploy-demo.md)。当 `PUBLIC_HOST` 为公网域名时，导入页 `setupCommands` 会自动包含 `--ws-url wss://...`。
 
@@ -78,6 +89,29 @@ npm run start:prod
 失败时返回 `success: false`。请求参数同时兼容 `camelCase` 与 `snake_case`。
 
 ## 主要接口
+
+### 访客 Session
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/visitor/bootstrap` | 创建或复用签名匿名访客 Session，写入 Session Cookie，并返回会话信息 |
+
+响应示例：
+
+```json
+{
+  "code": 0,
+  "success": true,
+  "data": {
+    "visitorId": "6e2f8d8c-...",
+    "reused": false,
+    "sessionToken": "<signed-session-token>"
+  },
+  "message": ""
+}
+```
+
+除公开的 bootstrap 和配置接口外，REST 请求需要携带 `linco-bridge-session` HttpOnly Cookie，或在 `X-Linco-Visitor-Session` Header 中携带返回的 token。Cookie 使用 `SameSite=Lax`，并会在生产环境自动标记为 `Secure`。Token 有效期为 365 天；已有有效 Session 再次 bootstrap 时会获得新 token。参考 H5 和小程序客户端会自动处理。该 Session 用于按匿名访客隔离 Bridge 连接、会话和消息；它不是正式账号，也不提供持久的跨设备恢复能力。
 
 ### Demo 与会话
 
@@ -128,7 +162,7 @@ npm run start:prod
 ## 架构
 
 ```text
-UniApp H5
+UniApp H5 / 微信小程序
   ├─ REST /api/agent-bridges/*
   ├─ REST /api/agent-chat/*
   └─ REST /api/sessions/*
@@ -156,14 +190,11 @@ ws://127.0.0.1:3300/bridge/ws?token=demo-codex-app:demo-codex-secret
 
 `linco-demo` 通道也支持 `/bridge/ws/{agent}` 子路径。
 
-## Demo 凭证
+## Demo 连接凭证
 
-| Agent | appId | appSecret |
-| --- | --- | --- |
-| codex | `demo-codex-app` | `demo-codex-secret` |
-| claude | `demo-claude-app` | `demo-claude-secret` |
-| hermes | `demo-hermes-app` | `demo-hermes-secret` |
-| openclaw | `demo-openclaw-app` | `demo-openclaw-secret` |
+匿名访客首次访问时，后端会分别创建 Codex、Claude、Hermes 和 OpenClaw 连接记录。`GET /api/agent-bridges/:type/setup` 会将初始 seed secret 更换为随机的访客专属 secret，并返回当前 `appId`、`appSecret`、`accountId`、WebSocket URL 和 `setupCommands`。
+
+请始终复制并执行 Bridge 页面实际生成的 `setupCommands`，不要硬编码 Demo 凭证，也不要复用其他访客的连接信息。
 
 ## 流式事件
 
