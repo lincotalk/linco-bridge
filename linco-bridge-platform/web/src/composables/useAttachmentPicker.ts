@@ -84,12 +84,14 @@ async function pickViaDocument(): Promise<OutboundChatFile[]> {
   })
 }
 
-async function pickViaUniImage(): Promise<OutboundChatFile[]> {
+type ImageSourceType = 'album' | 'camera'
+
+async function pickViaUniImage(sourceType: ImageSourceType): Promise<OutboundChatFile[]> {
   return new Promise((resolve) => {
     uni.chooseImage({
       count: 9,
       sizeType: ['compressed'],
-      sourceType: ['album', 'camera'],
+      sourceType: [sourceType],
       success: (res) => {
         void (async () => {
           try {
@@ -106,7 +108,7 @@ async function pickViaUniImage(): Promise<OutboundChatFile[]> {
   })
 }
 
-async function pickViaChooseMessageFile(): Promise<OutboundChatFile[]> {
+async function pickViaChooseMessageFile(): Promise<OutboundChatFile[] | null> {
   const chooseMessageFile = (
     uni as typeof uni & {
       chooseMessageFile?: (options: {
@@ -119,7 +121,7 @@ async function pickViaChooseMessageFile(): Promise<OutboundChatFile[]> {
       }) => void
     }
   ).chooseMessageFile
-  if (!chooseMessageFile) return []
+  if (!chooseMessageFile) return null
 
   return new Promise((resolve) => {
     chooseMessageFile({
@@ -151,13 +153,13 @@ async function pickViaChooseMessageFile(): Promise<OutboundChatFile[]> {
   })
 }
 
-async function pickViaChooseFile(): Promise<OutboundChatFile[]> {
+async function pickViaChooseFile(): Promise<OutboundChatFile[] | null> {
   const chooseFile = (
     uni as typeof uni & {
       chooseFile?: (options: Record<string, unknown>) => void
     }
   ).chooseFile
-  if (!chooseFile) return []
+  if (!chooseFile) return null
 
   return new Promise((resolve) => {
     chooseFile({
@@ -197,28 +199,36 @@ async function pickViaChooseFile(): Promise<OutboundChatFile[]> {
   })
 }
 
-async function pickViaUniPlatform(): Promise<OutboundChatFile[]> {
+async function pickViaUniFile(): Promise<OutboundChatFile[]> {
   const messageFiles = await pickViaChooseMessageFile()
-  if (messageFiles.length > 0) return messageFiles
+  if (messageFiles !== null) return messageFiles
 
   const genericFiles = await pickViaChooseFile()
-  if (genericFiles.length > 0) return genericFiles
+  if (genericFiles !== null) return genericFiles
 
+  showToast('当前平台不支持选择文件')
+  return []
+}
+
+async function pickViaUniPlatform(): Promise<OutboundChatFile[]> {
   return new Promise((resolve) => {
     uni.showActionSheet({
-      itemList: ['相册/拍照', '选择文件'],
+      itemList: ['拍摄', '选择图片', '选择文件'],
       success: (res) => {
         void (async () => {
           if (res.tapIndex === 0) {
-            resolve(await pickViaUniImage())
+            resolve(await pickViaUniImage('camera'))
             return
           }
-          const retryFiles = await pickViaChooseFile()
-          if (retryFiles.length > 0) {
-            resolve(retryFiles)
+          if (res.tapIndex === 1) {
+            resolve(await pickViaUniImage('album'))
             return
           }
-          resolve(await pickViaUniImage())
+          if (res.tapIndex === 2) {
+            resolve(await pickViaUniFile())
+            return
+          }
+          resolve([])
         })()
       },
       fail: () => resolve([]),
