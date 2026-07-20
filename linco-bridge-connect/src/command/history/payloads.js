@@ -116,13 +116,16 @@ function mapRoundThinking(items) {
 function stableHistoryRoundIdentity(agentType, sessionId, round, ordinal) {
   const normalizedUser = String(round.user || '').replace(/\s+/gu, ' ').trim();
   const userTimestampMs = timestampToMs(round.userTimestamp) || 0;
+  const sourceOffset = Number.isInteger(round.sourceOffset) && round.sourceOffset >= 0
+    ? round.sourceOffset
+    : 0;
   const digest = createHash('sha256')
     .update(JSON.stringify([
       String(agentType || ''),
       String(sessionId || ''),
       userTimestampMs,
       normalizedUser,
-      ordinal,
+      sourceOffset || (userTimestampMs ? 0 : ordinal),
     ]))
     .digest('hex')
     .slice(0, 24);
@@ -134,7 +137,7 @@ function stableHistoryRoundIdentity(agentType, sessionId, round, ordinal) {
 }
 
 function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, options = {}) {
-  return {
+  const payload = {
     version: 2,
     agentType,
     agentSessionId: sessionId,
@@ -182,6 +185,11 @@ function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, optio
       return payloadRound;
     }),
   };
+  if (options.syncMeta && typeof options.syncMeta === 'object') {
+    payload.syncMeta = { ...options.syncMeta };
+    payload.syncMeta.payloadBytes = Buffer.byteLength(JSON.stringify(payload));
+  }
+  return payload;
 }
 
 function buildBindActions(sessions, workspace = '') {

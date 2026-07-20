@@ -20,8 +20,7 @@ const {
   buildSessionsPayload,
 } = require('./payloads');
 const {
-  parseClaudeHistoryRounds,
-  parseCodexHistoryRounds,
+  parseRecentHistoryRounds,
 } = require('./readers');
 const {
   collectCodexProjectlessChats,
@@ -225,6 +224,15 @@ function bindExplicitHistorySession(ws, session, input) {
   return { ok: true, switched: Boolean(currentAgentSessionId && currentAgentSessionId !== agentSessionId) };
 }
 
+function readRecentHistory(ws, transcriptPath, options) {
+  try {
+    return parseRecentHistoryRounds(transcriptPath, options);
+  } catch (error) {
+    sendError(ws, `读取本地历史失败: ${error?.message || 'unknown error'}`);
+    return null;
+  }
+}
+
 function handleHistory(rawArg, ws, session, options = {}) {
   const agentType = session.agentType || 'claude';
   if (!['claude', 'codex'].includes(agentType)) {
@@ -248,10 +256,13 @@ function handleHistory(rawArg, ws, session, options = {}) {
       sendError(ws, `Codex chat history not found: ${parsed.chatId}`);
       return;
     }
-    const rounds = parseCodexHistoryRounds(matched.transcriptPath, {
+    const history = readRecentHistory(ws, matched.transcriptPath, {
+      agentType,
+      limit: parsed.limit,
       includeThinking: parsed.includeThinking === true,
     });
-    const recent = rounds.slice(-parsed.limit);
+    if (!history) return;
+    const recent = history.rounds;
     let bindResult = { ok: true, switched: false };
     if (options.bindExplicitHistorySession) {
       bindResult = bindExplicitHistorySession(ws, session, {
@@ -270,6 +281,7 @@ function handleHistory(rawArg, ws, session, options = {}) {
       workspace: matched.workspace,
       replaceConversation: options.historyReload === true,
       switchedSession: bindResult.switched,
+      syncMeta: history.syncMeta,
     }));
     return;
   }
@@ -312,17 +324,20 @@ function handleHistory(rawArg, ws, session, options = {}) {
     }
   }
 
-  const historyOptions = { includeThinking: parsed.includeThinking === true };
-  const rounds = agentType === 'codex'
-    ? parseCodexHistoryRounds(resolved.transcriptPath, historyOptions)
-    : parseClaudeHistoryRounds(resolved.transcriptPath, historyOptions);
-  const recent = rounds.slice(-parsed.limit);
+  const history = readRecentHistory(ws, resolved.transcriptPath, {
+    agentType,
+    limit: parsed.limit,
+    includeThinking: parsed.includeThinking === true,
+  });
+  if (!history) return;
+  const recent = history.rounds;
 
   if (recent.length === 0) {
     sendSlashCommandResult(ws, 'history', buildHistoryPayload(agentType, agentSessionId, parsed.limit, [], {
       workspace,
       replaceConversation: options.historyReload === true,
       switchedSession: bindResult.switched,
+      syncMeta: history.syncMeta,
     }));
     return;
   }
@@ -331,6 +346,7 @@ function handleHistory(rawArg, ws, session, options = {}) {
     workspace,
     replaceConversation: options.historyReload === true,
     switchedSession: bindResult.switched,
+    syncMeta: history.syncMeta,
   }));
 }
 

@@ -10,6 +10,7 @@ const {
   extractCodexMentionedUserFiles,
   parseClaudeHistoryRounds,
   parseCodexHistoryRounds,
+  parseRecentHistoryRounds,
 } = require('../../src/command/history/readers');
 
 test('buildHistoryPayload includes user and assistant files', () => {
@@ -103,6 +104,133 @@ test('buildHistoryPayload keeps stable identities across rolling windows', () =>
     second.rounds[9].user.messageId,
   );
   assert.match(second.rounds[9].assistant.messageId, /:assistant$/);
+});
+
+test('stable history identity does not depend on rolling-window ordinal when timestamp exists', () => {
+  const base = {
+    user: 'same prompt',
+    userTimestamp: '2026-07-20T01:02:03.000Z',
+    assistant: 'same answer',
+  };
+  const first = buildHistoryPayload('codex', 'desktop-session', 5, [
+    { ...base, ordinal: 19 },
+  ]);
+  const second = buildHistoryPayload('codex', 'desktop-session', 5, [
+    { ...base, ordinal: 1 },
+  ]);
+
+  assert.equal(first.rounds[0].roundId, second.rounds[0].roundId);
+  assert.equal(
+    first.rounds[0].user.messageId,
+    second.rounds[0].user.messageId,
+  );
+});
+
+test('parseRecentHistoryRounds scans only the suffix and preserves chronological order', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-recent-history-'));
+  const transcriptPath = path.join(tempDir, 'history.jsonl');
+  const records = [];
+  for (let index = 1; index <= 8; index++) {
+    records.push({
+      type: 'event_msg',
+      timestamp: `2026-07-20T00:0${index}:00.000Z`,
+      payload: { type: 'user_message', message: `question ${index}` },
+    });
+    records.push({
+      type: 'response_item',
+      timestamp: `2026-07-20T00:0${index}:01.000Z`,
+      payload: { type: 'context_snapshot', text: 'x'.repeat(420000) },
+    });
+    records.push({
+      type: 'event_msg',
+      timestamp: `2026-07-20T00:0${index}:02.000Z`,
+      payload: {
+        type: 'agent_message',
+        phase: 'final_answer',
+        message: `answer ${index}`,
+      },
+    });
+  }
+  fs.writeFileSync(
+    transcriptPath,
+    `${records.map((record) => JSON.stringify(record)).join('\n')}\n{incomplete`,
+  );
+
+  const result = await parseRecentHistoryRounds(transcriptPath, {
+    agentType: 'codex',
+    limit: 2,
+    includeThinking: true,
+  });
+
+  assert.deepEqual(result.rounds.map((round) => round.user), [
+    'question 7',
+    'question 8',
+  ]);
+  assert.deepEqual(result.rounds.map((round) => round.assistant), [
+    'answer 7',
+    'answer 8',
+  ]);
+  assert.equal(result.syncMeta.strategy, 'reverse_tail');
+  assert.equal(result.syncMeta.storageOrder, 'ascending');
+  assert.ok(result.syncMeta.scannedBytes < result.syncMeta.sourceBytes);
+  assert.equal(result.syncMeta.returnedRounds, 2);
+
+  const cached = await parseRecentHistoryRounds(transcriptPath, {
+    agentType: 'codex',
+    limit: 2,
+    includeThinking: true,
+  });
+  assert.equal(cached.syncMeta.strategy, 'memory_cache');
+  assert.equal(cached.syncMeta.cacheHit, true);
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test('parseRecentHistoryRounds detects descending storage and normalizes output order', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-desc-history-'));
+  const transcriptPath = path.join(tempDir, 'history.jsonl');
+  const chronological = [];
+  for (let index = 1; index <= 5; index++) {
+    chronological.push({
+      type: 'event_msg',
+      timestamp: `2026-07-20T00:0${index}:00.000Z`,
+      payload: { type: 'user_message', message: `question ${index}` },
+    });
+    chronological.push({
+      type: 'response_item',
+      timestamp: `2026-07-20T00:0${index}:01.000Z`,
+      payload: { type: 'context_snapshot', text: 'x'.repeat(300000) },
+    });
+    chronological.push({
+      type: 'event_msg',
+      timestamp: `2026-07-20T00:0${index}:02.000Z`,
+      payload: {
+        type: 'agent_message',
+        phase: 'final_answer',
+        message: `answer ${index}`,
+      },
+    });
+  }
+  fs.writeFileSync(
+    transcriptPath,
+    chronological.reverse().map((record) => JSON.stringify(record)).join('\n'),
+  );
+
+  const result = await parseRecentHistoryRounds(transcriptPath, {
+    agentType: 'codex',
+    limit: 2,
+  });
+
+  assert.equal(result.syncMeta.storageOrder, 'descending');
+  assert.equal(result.syncMeta.strategy, 'forward_head');
+  assert.deepEqual(result.rounds.map((round) => round.user), [
+    'question 4',
+    'question 5',
+  ]);
+  assert.deepEqual(result.rounds.map((round) => round.assistant), [
+    'answer 4',
+    'answer 5',
+  ]);
+  fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
 test('extractClaudeContentFiles reads image blocks', () => {

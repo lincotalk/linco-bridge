@@ -9,7 +9,16 @@ const { sanitizeCodexHostDirectives } = require('../../agent/codex/hostDirective
 const {
   extractHistoryTimestamp,
   stringOrEmpty,
+  timestampToMs,
 } = require('./utils');
+
+// Codex JSONL records can contain multi-megabyte context snapshots. A larger
+// block avoids repeatedly copying the same partial line while staying bounded.
+const HISTORY_READ_BLOCK_SIZE = 1024 * 1024;
+const HISTORY_ORDER_SAMPLE_BYTES = 128 * 1024;
+const MAX_RECENT_HISTORY_CACHE_SIZE = 24;
+const recentHistoryCache = new Map();
+const HISTORY_THINKING_KEYS = Symbol('historyThinkingKeys');
 
 const INTERNAL_HINT_PATTERN = new RegExp(
   `\\s*(?:${escapeRegExp(agentPromptInternals.BRIDGE_INPUT_HINT_MARKER)}|System note: The user is asking to send or deliver a file\\/image\\.|系统提示：用户正在要求发送或获取文件\\/图片。)`,
@@ -149,6 +158,348 @@ function visitJsonlLines(lines, visitor, countRecord, shouldStop) {
   return true;
 }
 
+function parseRecentHistoryRounds(filePath, options = {}) {
+  const agentType = stringOrEmpty(options.agentType).toLowerCase();
+  const limit = Number(options.limit);
+  if (!['claude', 'codex'].includes(agentType)) {
+    throw new Error(`Unsupported history agent type: ${agentType || '(empty)'}`);
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error(`Invalid history limit: ${options.limit}`);
+  }
+
+  const startedAt = Date.now();
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const stat = fs.fstatSync(fd);
+    const snapshotSize = stat.size;
+    const sourceVersion = `${stat.ino || 0}:${snapshotSize}:${Math.trunc(stat.mtimeMs || 0)}`;
+    const cacheKey = [
+      agentType,
+      path.resolve(filePath),
+      sourceVersion,
+      limit,
+      options.includeThinking === true ? 'thinking' : 'plain',
+    ].join('|');
+    const cached = recentHistoryCache.get(cacheKey);
+    if (cached) {
+      recentHistoryCache.delete(cacheKey);
+      recentHistoryCache.set(cacheKey, cached);
+      return {
+        rounds: cached.rounds,
+        syncMeta: {
+          ...cached.syncMeta,
+          strategy: 'memory_cache',
+          cacheHit: true,
+          parseMs: Date.now() - startedAt,
+        },
+      };
+    }
+
+    const order = detectHistoryStorageOrder(fd, snapshotSize, agentType);
+    let selected;
+    if (order.storageOrder === 'descending') {
+      selected = readRecentDescendingRecords(
+        fd,
+        snapshotSize,
+        limit,
+        agentType,
+      );
+    } else {
+      selected = readRecentAscendingRecords(
+        fd,
+        snapshotSize,
+        limit,
+        agentType,
+      );
+    }
+
+    const parsed = agentType === 'codex'
+      ? parseCodexHistoryRecords(selected.records, options)
+      : parseClaudeHistoryRecords(selected.records, options);
+    const rounds = parsed.slice(-limit);
+    const syncMeta = {
+      strategy: selected.strategy,
+      storageOrder: order.storageOrder,
+      orderSource: order.source,
+      sourceVersion,
+      sourceBytes: snapshotSize,
+      scannedBytes: selected.scannedBytes,
+      parsedRecords: selected.records.length,
+      returnedRounds: rounds.length,
+      thinkingItems: rounds.reduce(
+        (total, round) => total + (round.thinkingItems?.length || 0),
+        0,
+      ),
+      cacheHit: false,
+      parseMs: Date.now() - startedAt,
+    };
+    putRecentHistoryCache(cacheKey, { rounds, syncMeta });
+    return { rounds, syncMeta };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function putRecentHistoryCache(key, value) {
+  recentHistoryCache.set(key, value);
+  while (recentHistoryCache.size > MAX_RECENT_HISTORY_CACHE_SIZE) {
+    recentHistoryCache.delete(recentHistoryCache.keys().next().value);
+  }
+}
+
+function detectHistoryStorageOrder(fd, snapshotSize, agentType) {
+  if (snapshotSize <= 0) {
+    return { storageOrder: 'ascending', source: 'format_default' };
+  }
+  const sampleBytes = Math.min(HISTORY_ORDER_SAMPLE_BYTES, snapshotSize);
+  const head = readJsonlRangeRecords(fd, 0, sampleBytes, {
+    includePartialStart: true,
+    includePartialEnd: false,
+  });
+  const tailStart = Math.max(0, snapshotSize - sampleBytes);
+  const tail = readJsonlRangeRecords(fd, tailStart, snapshotSize, {
+    includePartialStart: tailStart === 0,
+    includePartialEnd: true,
+  });
+  const headTimes = historyOrderTimestamps(head.records, agentType);
+  const tailTimes = historyOrderTimestamps(tail.records, agentType);
+  if (headTimes.length > 0 && tailTimes.length > 0) {
+    const headMedian = median(headTimes);
+    const tailMedian = median(tailTimes);
+    if (headMedian !== tailMedian) {
+      return {
+        storageOrder: headMedian < tailMedian ? 'ascending' : 'descending',
+        source: 'timestamp_sample',
+      };
+    }
+  }
+  return { storageOrder: 'ascending', source: 'format_default' };
+}
+
+function historyOrderTimestamps(records, agentType) {
+  const values = [];
+  for (const item of records) {
+    if (!isHistoryConversationRecord(item, agentType)) continue;
+    const value = timestampToMs(extractHistoryTimestamp(item));
+    if (Number.isFinite(value) && value > 0) values.push(value);
+  }
+  return values;
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function isHistoryConversationRecord(item, agentType) {
+  if (agentType === 'claude') {
+    return item?.type === 'user' || item?.type === 'assistant';
+  }
+  if (item?.type === 'event_msg') {
+    return item.payload?.type === 'user_message' ||
+      item.payload?.type === 'agent_message';
+  }
+  return item?.type === 'response_item' &&
+    item.payload?.type === 'message' &&
+    ['user', 'assistant'].includes(item.payload?.role);
+}
+
+function isActualHistoryUserRecord(item, agentType) {
+  if (agentType === 'claude') return isClaudeActualUserRecord(item);
+  if (item?.type !== 'event_msg' || item.payload?.type !== 'user_message') {
+    return false;
+  }
+  const raw = stringOrEmpty(item.payload.message);
+  return normalizeCodexUserText(raw).length > 0 ||
+    raw.includes('# Files mentioned by the user:');
+}
+
+function readRecentAscendingRecords(
+  fd,
+  snapshotSize,
+  limit,
+  agentType,
+) {
+  const located = locateRecentAscendingStart(
+    fd,
+    snapshotSize,
+    limit,
+    agentType,
+  );
+  const range = readJsonlRangeRecords(
+    fd,
+    located.startOffset,
+    snapshotSize,
+    { includePartialStart: true, includePartialEnd: true },
+  );
+  return {
+    records: range.records,
+    scannedBytes: Math.max(located.scannedBytes, range.scannedBytes),
+    strategy: located.found ? 'reverse_tail' : 'full_stream_fallback',
+  };
+}
+
+function locateRecentAscendingStart(
+  fd,
+  snapshotSize,
+  limit,
+  agentType,
+) {
+  let position = snapshotSize;
+  let carry = Buffer.alloc(0);
+  let userCount = 0;
+  let scannedBytes = 0;
+
+  while (position > 0) {
+    const start = Math.max(0, position - HISTORY_READ_BLOCK_SIZE);
+    const chunk = Buffer.allocUnsafe(position - start);
+    const bytesRead = fs.readSync(fd, chunk, 0, chunk.length, start);
+    const data = Buffer.concat([chunk.subarray(0, bytesRead), carry]);
+    scannedBytes += bytesRead;
+    let lineEnd = data.length;
+    let earliestNewline = -1;
+
+    for (let index = data.length - 1; index >= 0; index--) {
+      if (data[index] !== 0x0a) continue;
+      earliestNewline = index;
+      const lineStart = index + 1;
+      const item = parseJsonlBuffer(
+        data.subarray(lineStart, lineEnd),
+        start + lineStart,
+      );
+      if (item && isActualHistoryUserRecord(item, agentType)) {
+        userCount += 1;
+        if (userCount >= limit) {
+          return {
+            startOffset: start + lineStart,
+            scannedBytes,
+            found: true,
+          };
+        }
+      }
+      lineEnd = index;
+    }
+
+    if (start === 0) {
+      const item = parseJsonlBuffer(data.subarray(0, lineEnd), 0);
+      if (item && isActualHistoryUserRecord(item, agentType)) {
+        userCount += 1;
+      }
+      return { startOffset: 0, scannedBytes, found: userCount >= limit };
+    }
+    carry = earliestNewline >= 0
+      ? data.subarray(0, earliestNewline)
+      : data;
+    position = start;
+  }
+  return { startOffset: 0, scannedBytes, found: false };
+}
+
+function readRecentDescendingRecords(
+  fd,
+  snapshotSize,
+  limit,
+  agentType,
+) {
+  const records = [];
+  let userCount = 0;
+  const range = readJsonlRangeRecords(fd, 0, snapshotSize, {
+    includePartialStart: true,
+    includePartialEnd: true,
+    visitor(item) {
+      records.push(item);
+      if (isActualHistoryUserRecord(item, agentType)) userCount += 1;
+      return userCount < limit;
+    },
+  });
+  records.reverse();
+  return {
+    records,
+    scannedBytes: range.scannedBytes,
+    strategy: 'forward_head',
+  };
+}
+
+function readJsonlRangeRecords(fd, start, end, options = {}) {
+  const records = [];
+  const visitor = options.visitor || (() => true);
+  let position = start;
+  let pending = Buffer.alloc(0);
+  let pendingOffset = start;
+  let scannedBytes = 0;
+  let firstChunk = true;
+  let shouldContinue = true;
+
+  while (position < end && shouldContinue) {
+    const length = Math.min(HISTORY_READ_BLOCK_SIZE, end - position);
+    const chunk = Buffer.allocUnsafe(length);
+    const chunkStart = position;
+    const bytesRead = fs.readSync(fd, chunk, 0, length, chunkStart);
+    if (bytesRead <= 0) break;
+    scannedBytes += bytesRead;
+    position += bytesRead;
+    let data = Buffer.concat([pending, chunk.subarray(0, bytesRead)]);
+    let dataOffset = pending.length > 0 ? pendingOffset : chunkStart;
+    if (firstChunk && start > 0 && options.includePartialStart !== true) {
+      const newline = data.indexOf(0x0a);
+      if (newline < 0) {
+        data = Buffer.alloc(0);
+        dataOffset = position;
+      } else {
+        data = data.subarray(newline + 1);
+        dataOffset += newline + 1;
+      }
+    }
+    firstChunk = false;
+    let lineStart = 0;
+    for (let index = 0; index < data.length; index++) {
+      if (data[index] !== 0x0a) continue;
+      const item = parseJsonlBuffer(
+        data.subarray(lineStart, index),
+        dataOffset + lineStart,
+      );
+      if (item) {
+        records.push(item);
+        if (options.visitor && visitor(item) === false) {
+          shouldContinue = false;
+          break;
+        }
+      }
+      lineStart = index + 1;
+    }
+    pending = shouldContinue ? data.subarray(lineStart) : Buffer.alloc(0);
+    pendingOffset = dataOffset + lineStart;
+  }
+
+  if (shouldContinue && pending.length > 0 && options.includePartialEnd === true) {
+    const item = parseJsonlBuffer(pending, pendingOffset);
+    if (item) {
+      records.push(item);
+      if (options.visitor) visitor(item);
+    }
+  }
+  return { records, scannedBytes };
+}
+
+function parseJsonlBuffer(buffer, byteOffset) {
+  const value = buffer.toString('utf8').replace(/\r$/u, '').trim();
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+        Number.isInteger(byteOffset) && byteOffset >= 0) {
+      Object.defineProperty(parsed, '__historyByteOffset', {
+        value: byteOffset,
+        enumerable: false,
+      });
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function extractCodexUserText(item) {
   if (item?.type === 'response_item' && item.payload?.type === 'message' && item.payload?.role === 'user') {
     return normalizeCodexUserText(extractTextFromMessageContent(item.payload.content));
@@ -213,11 +564,18 @@ function extractTextFromMessageContent(content) {
 }
 
 function parseClaudeHistoryRounds(filePath, options = {}) {
+  return parseClaudeHistoryRecords(
+    readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER),
+    options,
+  );
+}
+
+function parseClaudeHistoryRecords(records, options = {}) {
   const rounds = [];
   let current = null;
   const includeThinking = options.includeThinking === true;
 
-  for (const item of readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER)) {
+  for (const item of records) {
     if (isClaudeActualUserRecord(item)) {
       const userPayload = extractClaudeUserPayload(item);
       current = {
@@ -227,6 +585,7 @@ function parseClaudeHistoryRounds(filePath, options = {}) {
         assistant: '',
         assistantFiles: [],
         userTimestamp: extractHistoryTimestamp(item),
+        sourceOffset: item.__historyByteOffset,
       };
       if (includeThinking) {
         current.thinkingItems = [];
@@ -417,11 +776,18 @@ function extractCodexAssistantFiles(text) {
 }
 
 function parseCodexHistoryRounds(filePath, options = {}) {
+  return parseCodexHistoryRecords(
+    readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER),
+    options,
+  );
+}
+
+function parseCodexHistoryRecords(records, options = {}) {
   const rounds = [];
   let current = null;
   const includeThinking = options.includeThinking === true;
 
-  for (const item of readJsonlRecords(filePath, Number.MAX_SAFE_INTEGER)) {
+  for (const item of records) {
     const payload = item?.payload || {};
 
     if (includeThinking && current) {
@@ -441,6 +807,7 @@ function parseCodexHistoryRounds(filePath, options = {}) {
         assistant: '',
         assistantFiles: [],
         userTimestamp: extractHistoryTimestamp(item),
+        sourceOffset: item.__historyByteOffset,
       };
       if (includeThinking) current.thinkingItems = [];
       rounds.push(current);
@@ -537,10 +904,18 @@ function appendHistoryThinking(round, value, mode, timestamp) {
   const text = stringOrEmpty(value);
   if (!text) return;
   if (!Array.isArray(round.thinkingItems)) round.thinkingItems = [];
-  if (round.thinkingItems.some(item => item.text === text && item.mode === mode)) return;
+  if (!(round[HISTORY_THINKING_KEYS] instanceof Set)) {
+    round[HISTORY_THINKING_KEYS] = new Set(
+      round.thinkingItems.map(item => `${item.mode || 'summary'}\u0000${item.text}`),
+    );
+  }
+  const normalizedMode = mode || 'summary';
+  const key = `${normalizedMode}\u0000${text}`;
+  if (round[HISTORY_THINKING_KEYS].has(key)) return;
+  round[HISTORY_THINKING_KEYS].add(key);
   round.thinkingItems.push({
     text,
-    mode: mode || 'summary',
+    mode: normalizedMode,
     timestamp: timestamp || null,
   });
 }
@@ -558,6 +933,7 @@ module.exports = {
   normalizeCodexTitle,
   parseClaudeHistoryRounds,
   parseCodexHistoryRounds,
+  parseRecentHistoryRounds,
   readClaudeSessionSummary,
   readCodexSessionIndex,
   readCodexSessionMeta,
