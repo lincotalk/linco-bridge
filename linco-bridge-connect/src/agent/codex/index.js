@@ -103,7 +103,7 @@ function runAppServerTurn(input, ws, session, config) {
   session.sawPartialAssistantText = false;
   session.codexAssistantEnded = false;
   session.codexUseProgressiveAnswer = true;
-  session.codexEmittedAgentMessageIds = new Set();
+  session.codexAgentMessageEmissionPhases = new Map();
   session.codexToolStates = new Map();
   resetCodexAssistantText(session);
   session._lastWs = ws;
@@ -701,7 +701,7 @@ function sendCodexCompactCommand(ws, session, config, options = {}) {
   session.sawPartialAssistantText = false;
   session.codexAssistantEnded = false;
   session.codexUseProgressiveAnswer = false;
-  session.codexEmittedAgentMessageIds = new Set();
+  session.codexAgentMessageEmissionPhases = new Map();
   session.codexToolStates = new Map();
   resetCodexAssistantText(session);
   session._lastWs = ws;
@@ -1232,18 +1232,39 @@ function codexAgentMessageId(params) {
   return String(params.item?.id || params.itemId || params.id || '').trim();
 }
 
-function markCodexAgentMessageEmitted(session, itemId) {
+function ensureCodexAgentMessageEmissionPhases(session) {
+  if (session.codexAgentMessageEmissionPhases instanceof Map) {
+    return session.codexAgentMessageEmissionPhases;
+  }
+  const phases = new Map();
+  if (session.codexEmittedAgentMessageIds instanceof Set) {
+    for (const itemId of session.codexEmittedAgentMessageIds) {
+      phases.set(itemId, 'unknown');
+    }
+  }
+  session.codexAgentMessageEmissionPhases = phases;
+  return phases;
+}
+
+function codexAgentMessageEmissionPhase(session, itemId) {
+  const id = String(itemId || '').trim();
+  if (!id) return '';
+  return ensureCodexAgentMessageEmissionPhases(session).get(id) || '';
+}
+
+function markCodexAgentMessageEmitted(session, itemId, phase = '') {
   const id = String(itemId || '').trim();
   if (!id) return;
-  if (!(session.codexEmittedAgentMessageIds instanceof Set)) {
-    session.codexEmittedAgentMessageIds = new Set();
-  }
-  session.codexEmittedAgentMessageIds.add(id);
+  const phases = ensureCodexAgentMessageEmissionPhases(session);
+  const nextPhase = String(phase || '').trim() === 'final_answer'
+    ? 'final_answer'
+    : 'progress';
+  if (phases.get(id) === 'final_answer') return;
+  phases.set(id, nextPhase);
 }
 
 function hasCodexAgentMessageEmitted(session, itemId) {
-  const id = String(itemId || '').trim();
-  return Boolean(id && session.codexEmittedAgentMessageIds?.has(id));
+  return Boolean(codexAgentMessageEmissionPhase(session, itemId));
 }
 
 function ensureCodexToolStates(session) {
@@ -1338,7 +1359,12 @@ function codexToolOutputFromParams(params = {}) {
 
 function shouldAppendCompletedAgentMessage(session, params) {
   const itemId = codexAgentMessageId(params);
-  if (itemId) return !hasCodexAgentMessageEmitted(session, itemId);
+  if (itemId) {
+    const emittedPhase = codexAgentMessageEmissionPhase(session, itemId);
+    if (!emittedPhase) return true;
+    const completedPhase = String(params.item?.phase || params.phase || '').trim();
+    return completedPhase === 'final_answer' && emittedPhase === 'progress';
+  }
   if (!session.sawPartialAssistantText) return true;
   return params.item?.phase === 'final_answer';
 }
@@ -1783,6 +1809,7 @@ function handleAppServerMessage(message, session) {
           appendCodexProgressAssistantText(delta, ws, session);
           send(ws, 'thinking', { text: delta, mode: 'progress' });
         }
+        markCodexAgentMessageEmitted(session, codexAgentMessageId(params), phase);
         return;
       }
       if (isCodexProgressAssistantItem(params)) {
@@ -1790,11 +1817,11 @@ function handleAppServerMessage(message, session) {
           appendCodexProgressAssistantText(delta, ws, session);
           send(ws, 'thinking', { text: delta, mode: 'progress' });
         }
-        markCodexAgentMessageEmitted(session, codexAgentMessageId(params));
+        markCodexAgentMessageEmitted(session, codexAgentMessageId(params), phase);
         return;
       }
       appendCodexAssistantText(delta, ws, session, () => send(ws, 'assistant_start', {}), phase);
-      markCodexAgentMessageEmitted(session, codexAgentMessageId(params));
+      markCodexAgentMessageEmitted(session, codexAgentMessageId(params), phase);
     }
     return;
   }
@@ -1823,7 +1850,7 @@ function handleAppServerMessage(message, session) {
           appendCodexProgressAssistantText(text, ws, session);
           send(ws, 'thinking', { text, mode: 'progress' });
         }
-        markCodexAgentMessageEmitted(session, agentMessageId);
+        markCodexAgentMessageEmitted(session, agentMessageId, params.item?.phase || params.phase || '');
       }
       return;
     }
@@ -1869,7 +1896,7 @@ function handleAppServerMessage(message, session) {
         appendCodexAssistantText('\n\n', ws, session, () => send(ws, 'assistant_start', {}), phase);
       }
       appendCodexAssistantText(text, ws, session, () => send(ws, 'assistant_start', {}), phase);
-      markCodexAgentMessageEmitted(session, agentMessageId);
+      markCodexAgentMessageEmitted(session, agentMessageId, phase);
     }
     // Safety fallback: some app-server builds emit task completion without a turn/completed notification.
     // Arm it only after the final assistant message, not after user/tool/reasoning items.
