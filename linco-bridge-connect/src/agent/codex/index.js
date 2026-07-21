@@ -1838,6 +1838,19 @@ function handleAppServerMessage(message, session) {
           ? (params.item?.query || params.item?.input || params.item?.arguments || {})
           : (params.item?.input || params.item?.arguments || {});
       const output = codexToolOutputFromParams(params);
+      const generatedImages = isCommand ? extractSelfDefinedImageGeneration(params) : [];
+      if (generatedImages.length > 0) {
+        emitCodexToolResult(ws, session, {
+          id: itemId,
+          name: toolName,
+          input: typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput).slice(0, 300),
+          output: summarizeSelfDefinedImageGeneration(generatedImages),
+        });
+        for (const image of generatedImages) {
+          emitCodexImageGeneration(ws, session, image);
+        }
+        return;
+      }
       emitCodexToolResult(ws, session, {
         id: itemId,
         name: toolName,
@@ -2061,6 +2074,66 @@ function extractCodexImageBase64(item = {}) {
     return normalizeMaybeDataUrlBase64(result.b64_json || result.base64 || result.data || result.image || '');
   }
   return '';
+}
+
+function extractSelfDefinedImageGeneration(params = {}) {
+  const command = String(params.item?.command || params.command || '');
+  if (!/self-define-imagegen[\\/]+scripts[\\/]+generate_image\.py/i.test(command)) return [];
+
+  const output = codexToolOutputFromParams(params);
+  const payload = parseSelfDefinedImageGenerationOutput(output);
+  if (!payload) return [];
+
+  const entries = Array.isArray(payload.data) ? payload.data : [];
+  return entries.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') return null;
+    const savedPath = typeof entry.savedPath === 'string'
+      ? entry.savedPath
+      : (typeof entry.path === 'string' ? entry.path : '');
+    const base64 = normalizeMaybeDataUrlBase64(
+      entry.b64_json || entry.base64 || entry.data || entry.image || '',
+    );
+    if (!savedPath && !base64) return null;
+    return {
+      type: 'imageGeneration',
+      id: `${params.item?.id || params.itemId || 'self-image'}-${index + 1}`,
+      status: 'completed',
+      savedPath,
+      result: base64 ? { b64_json: base64 } : {},
+    };
+  }).filter(Boolean);
+}
+
+function parseSelfDefinedImageGenerationOutput(output) {
+  const text = String(output || '').trim();
+  if (!text) return null;
+
+  const candidates = [text, ...text.split(/\r?\n/).reverse()];
+  for (const candidate of candidates) {
+    if (!candidate.trim().startsWith('{')) continue;
+    try {
+      const payload = JSON.parse(candidate);
+      if (
+        payload?.type === 'imageGeneration'
+        && payload?.source === 'self-define-imagegen'
+        && payload?.version === 1
+      ) {
+        return payload;
+      }
+    } catch {
+      // Try the next candidate line when command output contains surrounding text.
+    }
+  }
+  return null;
+}
+
+function summarizeSelfDefinedImageGeneration(images) {
+  return JSON.stringify({
+    type: 'imageGeneration',
+    source: 'self-define-imagegen',
+    count: images.length,
+    savedPaths: images.map(image => image.savedPath).filter(Boolean),
+  });
 }
 
 function normalizeMaybeDataUrlBase64(value) {

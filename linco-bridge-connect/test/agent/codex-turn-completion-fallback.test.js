@@ -339,6 +339,58 @@ withCapturedTimers((timers) => {
 });
 
 withCapturedTimers((timers) => {
+  const { session, sent } = createSession();
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-self-image-workspace-'));
+  const imagePath = path.join(workspace, 'generated cat.png');
+  const imageBase64 = Buffer.from('self-defined image').toString('base64');
+  fs.writeFileSync(imagePath, Buffer.from('self-defined image'));
+  session.workspace = workspace;
+
+  handleAppServerMessage({
+    method: 'item/completed',
+    params: {
+      item: {
+        type: 'commandExecution',
+        id: 'self-image-1',
+        command: 'python C:\\Users\\tester\\.codex\\skills\\self-define-imagegen\\scripts\\generate_image.py --prompt "a cat"',
+        output: JSON.stringify({
+          type: 'imageGeneration',
+          source: 'self-define-imagegen',
+          version: 1,
+          model: 'gpt-image-2',
+          data: [{
+            type: 'imageGeneration',
+            savedPath: imagePath,
+            path: imagePath,
+            mime_type: 'image/png',
+            bytes: Buffer.from('self-defined image').length,
+            b64_json: imageBase64,
+          }],
+        }),
+      },
+    },
+  }, session);
+
+  assert.strictEqual(timers.length, 0);
+  const toolResult = sent.find(message => message.type === 'tool_result');
+  assert(toolResult);
+  assert.deepStrictEqual(JSON.parse(toolResult.output), {
+    type: 'imageGeneration',
+    source: 'self-define-imagegen',
+    count: 1,
+    savedPaths: [imagePath],
+  });
+  assert(!toolResult.output.includes(imageBase64));
+
+  const imageMessage = sent.find(message => message.type === 'outbound_message');
+  assert(imageMessage);
+  assert.strictEqual(imageMessage.mediaName, 'generated cat.png');
+  assert.strictEqual(imageMessage.mediaType, 'image/png');
+  assert.strictEqual(imageMessage.mediaBase64, imageBase64);
+  assert.strictEqual(imageMessage.size, Buffer.from('self-defined image').length);
+});
+
+withCapturedTimers((timers) => {
   const { session, sent } = createRemoteSession();
   handleAppServerMessage({
     method: 'item/completed',
