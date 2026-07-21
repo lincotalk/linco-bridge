@@ -332,6 +332,64 @@ test('parseCodexHistoryRounds strips Linco Connect system note even when attache
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
+test('Codex history hides attachment context without changing raw stable identity', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-attachment-context-'));
+  const transcriptPath = path.join(tempDir, 'history.jsonl');
+  const userTimestamp = '2026-07-21T01:43:00.000Z';
+  const visibleUserText = [
+    '文件里面有什么内容',
+    '',
+    '【文件：电子发票.pdf】(url: https://files.example.com/invoice.pdf)',
+  ].join('\n');
+  const rawUserText = [
+    visibleUserText,
+    '',
+    '【附件：电子发票.pdf】',
+    '发票解析字段：TEST-CONTEXT',
+    '购买方：模型解析正文不应展示',
+  ].join('\n');
+  const records = [
+    {
+      type: 'event_msg',
+      timestamp: userTimestamp,
+      payload: { type: 'user_message', message: rawUserText },
+    },
+    {
+      type: 'event_msg',
+      timestamp: '2026-07-21T01:43:05.000Z',
+      payload: {
+        type: 'agent_message',
+        phase: 'final_answer',
+        message: '这是一张电子发票。',
+      },
+    },
+  ];
+  fs.writeFileSync(transcriptPath, records.map((record) => JSON.stringify(record)).join('\n'));
+
+  try {
+    const rounds = parseCodexHistoryRounds(transcriptPath);
+    const payload = buildHistoryPayload('codex', 'desktop-session', 1, rounds);
+    const rawIdentityPayload = buildHistoryPayload('codex', 'desktop-session', 1, [{
+      ordinal: 1,
+      user: rawUserText,
+      userTimestamp,
+      assistant: '这是一张电子发票。',
+      assistantTimestamp: '2026-07-21T01:43:05.000Z',
+    }]);
+
+    assert.equal(payload.rounds[0].user.text, visibleUserText);
+    assert.doesNotMatch(payload.rounds[0].user.text, /【附件：/u);
+    assert.doesNotMatch(payload.rounds[0].user.text, /模型解析正文不应展示/u);
+    assert.equal(payload.rounds[0].roundId, rawIdentityPayload.rounds[0].roundId);
+    assert.equal(
+      payload.rounds[0].user.messageId,
+      rawIdentityPayload.rounds[0].user.messageId,
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('parseCodexHistoryRounds includes thinking only when requested', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-history-thinking-'));
   const transcriptPath = path.join(tempDir, 'history.jsonl');

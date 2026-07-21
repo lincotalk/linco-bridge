@@ -8,6 +8,53 @@ const {
   truncateText,
 } = require('./utils');
 
+const CODEX_PUBLIC_ATTACHMENT_MARKER =
+  /^\s*【(?:文件|图片)：([^】]+)】(?:\s*\([^\r\n]*\))?\s*$/u;
+const CODEX_PARSED_ATTACHMENT_MARKER = /^\s*【附件：([^】]+)】\s*$/u;
+
+function normalizeAttachmentName(value) {
+  return String(value || '').trim().normalize('NFC');
+}
+
+function sanitizeCodexHistoryUserText(value) {
+  const raw = String(value || '');
+  if (!raw.includes('【附件：')) return raw;
+
+  const visibleLines = [];
+  const publicAttachmentNames = new Set();
+  let skippingParsedContext = false;
+  let removedParsedContext = false;
+
+  for (const line of raw.split(/\r\n|\n|\r/u)) {
+    const publicMarker = line.match(CODEX_PUBLIC_ATTACHMENT_MARKER);
+    if (publicMarker) {
+      publicAttachmentNames.add(normalizeAttachmentName(publicMarker[1]));
+      if (skippingParsedContext &&
+          visibleLines.length > 0 &&
+          visibleLines[visibleLines.length - 1].trim()) {
+        visibleLines.push('');
+      }
+      skippingParsedContext = false;
+      visibleLines.push(line);
+      continue;
+    }
+
+    const parsedMarker = line.match(CODEX_PARSED_ATTACHMENT_MARKER);
+    if (!skippingParsedContext && parsedMarker) {
+      const attachmentName = normalizeAttachmentName(parsedMarker[1]);
+      if (publicAttachmentNames.has(attachmentName)) {
+        skippingParsedContext = true;
+        removedParsedContext = true;
+        continue;
+      }
+    }
+
+    if (!skippingParsedContext) visibleLines.push(line);
+  }
+
+  return removedParsedContext ? visibleLines.join('\n').trim() : raw;
+}
+
 function formatLocalProjectSessions(agentType, workspace, sessions, requestedLimit) {
   const lines = sessions.map((item, index) => {
     const command = buildPcResumeCommand(agentType, workspace, item.id);
@@ -164,7 +211,9 @@ function buildHistoryPayload(agentType, sessionId, requestedLimit, rounds, optio
         timestampMs: timestampToMs(round.userTimestamp || round.assistantTimestamp),
         user: {
           messageId: `${identity.messageIdPrefix}:user`,
-          text: round.user || '',
+          text: agentType === 'codex'
+            ? sanitizeCodexHistoryUserText(round.user)
+            : round.user || '',
           timestamp: round.userTimestamp || null,
           timestampMs: timestampToMs(round.userTimestamp),
           files: mapRoundFiles(round.userFiles),
@@ -224,4 +273,5 @@ module.exports = {
   buildSessionsPayload,
   formatHistoryRounds,
   formatLocalProjectSessions,
+  sanitizeCodexHistoryUserText,
 };
