@@ -220,7 +220,7 @@ function collectCodexProjectSessionsFromState(codexDir, workspace, options = {})
     }
 
     const validSessions = mergeCodexWorkspaceSessions(matchedSessions, limit);
-    return validSessions.length > 0 ? validSessions : null;
+    return validSessions;
   } catch {
     return null;
   } finally {

@@ -183,6 +183,41 @@ test('Codex SQLite listing supports legacy threads schema', () => {
   assert.deepEqual(sessions.map(item => item.id), ['codex-legacy-session']);
 });
 
+test('Codex SQLite empty result does not fall back to scanning JSONL sessions', () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-sqlite-empty-'));
+  const project = path.join(homeDir, 'code', 'empty-project');
+  const otherProject = path.join(homeDir, 'code', 'indexed-project');
+  const codexDir = path.join(homeDir, '.codex');
+  const sessionsDir = path.join(codexDir, 'sessions', '2026', '07', '24');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(otherProject, { recursive: true });
+  fs.mkdirSync(sessionsDir, { recursive: true });
+
+  createCodexStateDb(codexDir, FULL_THREADS_SCHEMA, {
+    columns: [
+      'id', 'rollout_path', 'cwd', 'title', 'first_user_message', 'preview',
+      'archived', 'updated_at', 'updated_at_ms', 'recency_at_ms', 'thread_source', 'source',
+    ],
+    values: [
+      ['codex-indexed', path.join(codexDir, 'indexed.jsonl'), otherProject, 'indexed', 'indexed prompt', '', 0, 0, 1778050000000, 1778050000000, 'user', 'appServer'],
+    ],
+  });
+
+  fs.writeFileSync(path.join(sessionsDir, 'stale-empty-project.jsonl'), [
+    JSON.stringify({
+      type: 'session_meta',
+      payload: { id: 'codex-stale-fallback', cwd: project, source: 'appServer' },
+    }),
+    JSON.stringify({
+      type: 'event_msg',
+      payload: { type: 'user_message', message: 'stale fallback prompt' },
+    }),
+  ].join('\n'));
+
+  const sessions = collectCodexProjectSessions(homeDir, project, { limit: 10 });
+  assert.deepEqual(sessions, []);
+});
+
 test('Codex SQLite listing merges symlink and realpath workspace sessions before limit', (t) => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-sqlite-workspace-aliases-'));
   const realProject = path.join(homeDir, 'real', 'aichat');
