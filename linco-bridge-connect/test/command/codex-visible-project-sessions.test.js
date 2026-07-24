@@ -183,6 +183,112 @@ test('Codex SQLite listing supports legacy threads schema', () => {
   assert.deepEqual(sessions.map(item => item.id), ['codex-legacy-session']);
 });
 
+test('Codex SQLite listing merges symlink and realpath workspace sessions before limit', (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-sqlite-workspace-aliases-'));
+  const realProject = path.join(homeDir, 'real', 'aichat');
+  const linkProject = path.join(homeDir, 'link', 'aichat');
+  const codexDir = path.join(homeDir, '.codex');
+  fs.mkdirSync(realProject, { recursive: true });
+  fs.mkdirSync(path.dirname(linkProject), { recursive: true });
+  try {
+    fs.symlinkSync(realProject, linkProject, 'dir');
+  } catch (error) {
+    if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+      t.skip('directory symlinks are not available');
+      return;
+    }
+    throw error;
+  }
+  const realProjectCwd = fs.realpathSync.native(realProject);
+
+  createCodexStateDb(codexDir, FULL_THREADS_SCHEMA, {
+    columns: [
+      'id', 'rollout_path', 'cwd', 'title', 'first_user_message', 'preview',
+      'archived', 'updated_at', 'updated_at_ms', 'recency_at_ms', 'thread_source', 'source',
+    ],
+    values: [
+      ['codex-link-older', path.join(codexDir, 'link-older.jsonl'), linkProject, 'link older', 'link older prompt', '', 0, 0, 1778050000000, 1778050000000, 'user', 'appServer'],
+      ['codex-real-newer', path.join(codexDir, 'real-newer.jsonl'), realProjectCwd, 'real newer', 'real newer prompt', '', 0, 0, 1778060000000, 1778060000000, 'user', 'appServer'],
+    ],
+  });
+
+  const linkedSessions = collectCodexProjectSessions(homeDir, linkProject, { limit: 2 });
+  assert.deepEqual(
+    linkedSessions.map(item => item.id),
+    ['codex-real-newer', 'codex-link-older'],
+  );
+  const latestLinkedSession = collectCodexProjectSessions(homeDir, linkProject, { limit: 1 });
+  assert.deepEqual(latestLinkedSession.map(item => item.id), ['codex-real-newer']);
+
+  const realSessions = collectCodexProjectSessions(homeDir, realProjectCwd, { limit: 2 });
+  assert.deepEqual(realSessions.map(item => item.id), ['codex-real-newer']);
+});
+
+test('Codex JSONL listing merges symlink and realpath workspace sessions before limit', (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-jsonl-workspace-aliases-'));
+  const realProject = path.join(homeDir, 'real', 'aichat');
+  const linkProject = path.join(homeDir, 'link', 'aichat');
+  const sessionsDir = path.join(homeDir, '.codex', 'sessions', '2026', '07', '24');
+  fs.mkdirSync(realProject, { recursive: true });
+  fs.mkdirSync(path.dirname(linkProject), { recursive: true });
+  try {
+    fs.symlinkSync(realProject, linkProject, 'dir');
+  } catch (error) {
+    if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+      t.skip('directory symlinks are not available');
+      return;
+    }
+    throw error;
+  }
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const realProjectCwd = fs.realpathSync.native(realProject);
+  const linkSessionPath = path.join(sessionsDir, 'link-older.jsonl');
+  const realSessionPath = path.join(sessionsDir, 'real-newer.jsonl');
+
+  fs.writeFileSync(linkSessionPath, [
+    JSON.stringify({
+      type: 'session_meta',
+      payload: { id: 'codex-jsonl-link-older', cwd: linkProject, source: 'appServer' },
+    }),
+    JSON.stringify({
+      type: 'event_msg',
+      payload: { type: 'user_message', message: 'link older prompt' },
+    }),
+  ].join('\n'));
+  fs.writeFileSync(realSessionPath, [
+    JSON.stringify({
+      type: 'session_meta',
+      payload: { id: 'codex-jsonl-real-newer', cwd: realProjectCwd, source: 'appServer' },
+    }),
+    JSON.stringify({
+      type: 'event_msg',
+      payload: { type: 'user_message', message: 'real newer prompt' },
+    }),
+  ].join('\n'));
+  fs.utimesSync(linkSessionPath, new Date(1778050000000), new Date(1778050000000));
+  fs.utimesSync(realSessionPath, new Date(1778060000000), new Date(1778060000000));
+
+  const linkedSessions = collectCodexProjectSessions(homeDir, linkProject, {
+    limit: 2,
+    scanLimit: 10,
+  });
+  assert.deepEqual(
+    linkedSessions.map(item => item.id),
+    ['codex-jsonl-real-newer', 'codex-jsonl-link-older'],
+  );
+  const latestLinkedSession = collectCodexProjectSessions(homeDir, linkProject, {
+    limit: 1,
+    scanLimit: 10,
+  });
+  assert.deepEqual(latestLinkedSession.map(item => item.id), ['codex-jsonl-real-newer']);
+
+  const realSessions = collectCodexProjectSessions(homeDir, realProjectCwd, {
+    limit: 2,
+    scanLimit: 10,
+  });
+  assert.deepEqual(realSessions.map(item => item.id), ['codex-jsonl-real-newer']);
+});
+
 test('Claude top-level project session listing remains unchanged', () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-claude-visible-sessions-'));
   const project = path.join(homeDir, 'code', 'claude-visible-project');

@@ -132,14 +132,12 @@ function collectCodexProjectSessions(homeDir, workspace, options = {}) {
     ? Math.max(1, Math.min(options.limit, MAX_LOCAL_SESSIONS_LIMIT))
     : 0;
   const workspaceKeys = workspaceMatchKeys(workspace);
-  const exactSessions = [];
-  const aliasSessions = [];
+  const matchedSessions = [];
 
   for (const file of safeReadFilesRecursive(path.join(codexDir, 'sessions'), { extension: '.jsonl', limit: scanLimit })) {
     const meta = readCodexSessionMeta(file.fullPath);
     if (isCodexSubagentSource('', meta.source)) continue;
-    const matchTier = codexWorkspaceMatchTier(meta.cwd, workspaceKeys);
-    if (!meta.id || !matchTier) continue;
+    if (!meta.id || !codexWorkspaceMatchesListingPath(meta.cwd, workspaceKeys)) continue;
     const indexed = index.get(meta.id) || {};
     const item = {
       id: meta.id,
@@ -148,15 +146,26 @@ function collectCodexProjectSessions(homeDir, workspace, options = {}) {
       updatedAt: parseTimeMs(indexed.updatedAt) || file.updatedAt,
       transcriptPath: file.fullPath,
     };
-    if (matchTier === 'exact') {
-      exactSessions.push(item);
-      if (resultLimit && exactSessions.length >= resultLimit) break;
-    } else if (!resultLimit || aliasSessions.length < resultLimit) {
-      aliasSessions.push(item);
+    matchedSessions.push(item);
+    if (resultLimit && matchedSessions.length >= resultLimit) break;
+  }
+
+  return mergeCodexWorkspaceSessions(matchedSessions, resultLimit);
+}
+
+function mergeCodexWorkspaceSessions(sessions, limit = 0) {
+  const sessionsById = new Map();
+  for (const item of sessions) {
+    const id = stringOrEmpty(item?.id);
+    if (!id) continue;
+    const existing = sessionsById.get(id);
+    if (!existing || (item.updatedAt || 0) > (existing.updatedAt || 0)) {
+      sessionsById.set(id, item);
     }
   }
 
-  return exactSessions.length > 0 ? exactSessions : aliasSessions;
+  const merged = Array.from(sessionsById.values()).sort(compareLocalSessions);
+  return limit > 0 ? merged.slice(0, limit) : merged;
 }
 
 function collectCodexProjectSessionsFromState(codexDir, workspace, options = {}) {
@@ -195,8 +204,7 @@ function collectCodexProjectSessionsFromState(codexDir, workspace, options = {})
       LIMIT ?
     `).all(...cwdCandidates, queryLimit);
     const workspaceKeys = workspaceMatchKeys(workspace);
-    const exactSessions = [];
-    const aliasSessions = [];
+    const matchedSessions = [];
 
     for (const row of rows) {
       const matchTier = codexWorkspaceMatchTier(row.cwd, workspaceKeys);
@@ -208,16 +216,10 @@ function collectCodexProjectSessionsFromState(codexDir, workspace, options = {})
         updatedAt: sqliteTimeMs(row.recency_at_ms) || sqliteTimeMs(row.updated_at_ms) || sqliteTimeMs(row.updated_at),
         transcriptPath: stringOrEmpty(row.rollout_path),
       };
-      if (matchTier === 'exact') {
-        exactSessions.push(item);
-        if (exactSessions.length >= limit) break;
-      } else if (aliasSessions.length < limit) {
-        aliasSessions.push(item);
-      }
+      matchedSessions.push(item);
     }
 
-    const sessions = exactSessions.length > 0 ? exactSessions : aliasSessions;
-    const validSessions = sessions.filter(item => item.id).slice(0, limit);
+    const validSessions = mergeCodexWorkspaceSessions(matchedSessions, limit);
     return validSessions.length > 0 ? validSessions : null;
   } catch {
     return null;
@@ -421,6 +423,12 @@ function workspaceMatchKeys(workspace) {
     raw: rawPathKey(workspace),
     canonical: normalizePathKey(workspace),
   };
+}
+
+function codexWorkspaceMatchesListingPath(candidateWorkspace, workspaceKeys) {
+  const candidateKey = rawPathKey(candidateWorkspace);
+  return !!candidateKey &&
+    (candidateKey === workspaceKeys.raw || candidateKey === workspaceKeys.canonical);
 }
 
 function codexWorkspaceMatchTier(candidateWorkspace, workspaceKeys) {

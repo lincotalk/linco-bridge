@@ -1389,7 +1389,10 @@ if (directorySymlinkSupported) {
   db.close();
 
   const linkSessions = slashCommandInternals.collectCodexProjectSessions(homeDir, linkProject, { limit: 10 });
-  assert.deepStrictEqual(linkSessions.map(item => item.id), ['codex-state-link-aichat']);
+  assert.deepStrictEqual(
+    linkSessions.map(item => item.id),
+    ['codex-state-link-aichat', 'codex-state-real-aichat'],
+  );
 
   const realSessions = slashCommandInternals.collectCodexProjectSessions(homeDir, realProjectCwd, { limit: 10 });
   assert.deepStrictEqual(realSessions.map(item => item.id), ['codex-state-real-aichat']);
@@ -1451,7 +1454,10 @@ if (directorySymlinkSupported) {
   ].join('\n'));
 
   const linkSessions = slashCommandInternals.collectCodexProjectSessions(homeDir, linkProject, { scanLimit: 10 });
-  assert.deepStrictEqual(linkSessions.map(item => item.id), ['codex-jsonl-link-aichat']);
+  assert.deepStrictEqual(
+    linkSessions.map(item => item.id),
+    ['codex-jsonl-link-aichat', 'codex-jsonl-real-aichat'],
+  );
 
   const realSessions = slashCommandInternals.collectCodexProjectSessions(homeDir, realProjectCwd, { scanLimit: 10 });
   assert.deepStrictEqual(realSessions.map(item => item.id), ['codex-jsonl-real-aichat']);
