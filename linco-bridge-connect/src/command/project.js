@@ -223,17 +223,72 @@ function collectCodexStateProjects(homeDir) {
   const stateFile = path.join(codexDir, '.codex-global-state.json');
   const state = readJsonFile(stateFile);
   const labels = collectCodexWorkspaceRootLabels(state);
-  const preferredKeys = new Set(['project-order', 'active-workspace-roots', 'electron-saved-workspace-roots']);
-  for (const projectPath of collectStringArraysByKeys(state, preferredKeys)) {
+  const updatedAt = safeMtimeMs(stateFile);
+  const localProjects = collectCodexLocalProjects(state);
+  const projectOrder = collectStringArraysByKeys(state, new Set(['project-order']));
+
+  for (const [order, value] of projectOrder.entries()) {
+    if (path.isAbsolute(value)) {
+      candidates.push({
+        path: value,
+        label: workspaceRootLabel(labels, value),
+        source: 'codex-state',
+        priority: 30,
+        order,
+        updatedAt,
+      });
+      continue;
+    }
+
+    const project = localProjects.get(value);
+    if (!project) continue;
+    for (const rootPath of project.rootPaths) {
+      candidates.push({
+        path: rootPath,
+        label: project.name || workspaceRootLabel(labels, rootPath),
+        projectId: project.id,
+        source: 'codex-state',
+        priority: 30,
+        order,
+        updatedAt: project.updatedAt || updatedAt,
+      });
+    }
+  }
+
+  const fallbackKeys = new Set(['active-workspace-roots', 'electron-saved-workspace-roots']);
+  for (const projectPath of collectStringArraysByKeys(state, fallbackKeys)) {
     candidates.push({
       path: projectPath,
       label: workspaceRootLabel(labels, projectPath),
       source: 'codex-state',
       priority: 20,
-      updatedAt: safeMtimeMs(stateFile),
+      updatedAt,
     });
   }
   return candidates.sort(compareKnownProjectCandidates);
+}
+
+function collectCodexLocalProjects(state) {
+  const projects = new Map();
+  for (const records of collectObjectsByKeys(state, new Set(['local-projects']))) {
+    for (const [fallbackId, value] of Object.entries(records)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const id = stringOrEmpty(value.id) || stringOrEmpty(fallbackId);
+      if (!id) continue;
+      const rootPaths = Array.isArray(value.rootPaths)
+        ? value.rootPaths
+          .filter(rootPath => typeof rootPath === 'string' && rootPath.trim())
+          .map(rootPath => rootPath.trim())
+        : [];
+      projects.set(id, {
+        id,
+        name: stringOrEmpty(value.name),
+        rootPaths,
+        updatedAt: Number.isFinite(Number(value.updatedAt)) ? Number(value.updatedAt) : 0,
+      });
+    }
+  }
+  return projects;
 }
 
 function collectCodexWorkspaceRootLabels(state) {
@@ -304,6 +359,8 @@ function normalizeKnownProjectCandidates(candidates, homeDir, agentType = 'agent
 function compareKnownProjectCandidates(a, b) {
   const priorityDelta = (b.priority || 0) - (a.priority || 0);
   if (priorityDelta) return priorityDelta;
+  const orderDelta = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+  if (orderDelta) return orderDelta;
   return (b.updatedAt || 0) - (a.updatedAt || 0);
 }
 

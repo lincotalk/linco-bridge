@@ -2154,6 +2154,47 @@ test('history-reload silently ends when the current turn is active', () => {
   assert(ws.sent[0].data.items[1].sessionsCommand.includes(projectB));
 }
 
+{
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-known-codex-project-ids-home-'));
+  const serviceProject = path.join(homeDir, 'code', 'linkflow-service');
+  const adminProject = path.join(homeDir, 'code', 'AIChat-Admin');
+  const savedProject = path.join(homeDir, 'legacy', 'aichat');
+  const serviceProjectId = 'codex-project-service';
+  const adminProjectId = 'codex-project-admin';
+  fs.mkdirSync(serviceProject, { recursive: true });
+  fs.mkdirSync(adminProject, { recursive: true });
+  fs.mkdirSync(savedProject, { recursive: true });
+  fs.mkdirSync(path.join(homeDir, '.codex'), { recursive: true });
+
+  fs.writeFileSync(path.join(homeDir, '.codex', '.codex-global-state.json'), JSON.stringify({
+    'project-order': [serviceProjectId, adminProjectId],
+    'local-projects': {
+      [serviceProjectId]: {
+        id: serviceProjectId,
+        name: 'Linkflow Service',
+        rootPaths: [serviceProject],
+        updatedAt: 200,
+      },
+      [adminProjectId]: {
+        id: adminProjectId,
+        name: 'AIChat Admin',
+        rootPaths: [adminProject],
+        updatedAt: 100,
+      },
+    },
+    'active-workspace-roots': [serviceProject],
+    'electron-saved-workspace-roots': [savedProject],
+  }));
+
+  const candidates = slashCommandInternals.knownProjectCandidates({ agentType: 'codex' }, { homeDir });
+  assert.deepStrictEqual(candidates.map(item => ({ path: item.path, label: item.label })), [
+    { path: serviceProject, label: 'Linkflow Service' },
+    { path: adminProject, label: 'AIChat Admin' },
+    { path: savedProject, label: path.basename(savedProject) },
+  ]);
+  assert.deepStrictEqual(candidates.slice(0, 2).map(item => item.projectId), [serviceProjectId, adminProjectId]);
+}
+
 if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-known-codex-realpath-home-'));
   const realProject = path.join(homeDir, 'real', 'known-codex-project');
