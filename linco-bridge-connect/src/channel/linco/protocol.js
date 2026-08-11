@@ -199,8 +199,11 @@ function mapLocalEventToLinco(event, session, config, linco) {
       return {
         ...base,
         type: "thinking",
-        messageId: `linco-thinking-${Date.now()}`,
-        streamId: linco.streamId,
+        // Keep the turn requestId/messageId so IM can bind to the active request
+        // even when streamId lookup misses; do not mint linco-thinking-* ids.
+        messageId: base.messageId || `linco-thinking-${Date.now()}`,
+        requestId: base.messageId,
+        streamId: linco.streamId || base.streamId,
         mode: event.mode || "summary",
         text: event.text || event.delta || "",
         delta: event.delta || event.text || "",
@@ -274,9 +277,12 @@ function mapLocalEventToLinco(event, session, config, linco) {
       return {
         ...base,
         type: "outbound_message",
+        // Keep linco-error-* so IM can detect fault frames, but connect must not
+        // emit these before flushing partial assistant text (see failCodexTurn).
         messageId: `linco-${event.type}-${Date.now()}`,
         text: event.text || "",
         code: event.code,
+        bridgeFault: event.type === "error",
         actions: event.actions,
         quickActions: event.quickActions,
         quickReplies: event.quickReplies,

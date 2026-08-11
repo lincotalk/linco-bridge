@@ -60,6 +60,7 @@ const {
 const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
 const CODEX_COMPACTION_STALE_MS = 90_000;
 const DEFAULT_CODEX_COMPACTION_TIMEOUT_MS = 300_000;
+const DEFAULT_CODEX_RPC_TIMEOUT_MS = 15_000;
 
 class CodexRpcMethodError extends Error {
   constructor(method, error = {}) {
@@ -154,8 +155,9 @@ function runAppServerTurn(input, ws, session, config) {
     .catch(err => {
       session._log?.error('codex turn error', { message: err.message });
       if (session.isTurnActive) {
-        sendError(ws, `Codex app-server 错误: ${err.message}`);
-        finishCodexTurn(ws, session, config, 'error', { error: err.message });
+        failCodexTurn(ws, session, config, `Codex app-server 错误: ${err.message}`, {
+          error: err.message,
+        });
       }
     });
 }
@@ -962,8 +964,8 @@ function ensureAppServer(session, config) {
         const errWs = session._lastWs;
         failPendingCodexManualCompaction(session, 'app_server_error', err.message);
         failActiveCodexCompaction(session, 'app_server_error', err.message);
-        if (errWs) {
-          sendError(errWs, `Codex app-server 错误: ${err.message}`);
+        if (errWs && session.isTurnActive) {
+          failCodexTurn(errWs, session, session._lastConfig, `Codex app-server 错误: ${err.message}`);
         }
       }
     });
@@ -980,7 +982,7 @@ function ensureAppServer(session, config) {
         failPendingCodexManualCompaction(session, 'app_server_closed', errorMessage);
         failActiveCodexCompaction(session, 'app_server_closed', errorMessage);
         if (hadActiveTurn && errWs) {
-          finishCodexTurn(errWs, session, cfg, 'error', { error: errorMessage });
+          failCodexTurn(errWs, session, cfg, errorMessage, { error: errorMessage });
         } else {
           clearTurnState(session);
         }
@@ -1239,6 +1241,37 @@ function clearTurnState(session) {
   }
 }
 
+/**
+ * Fail an active Codex turn without stranding the IM client on "正在思考".
+ *
+ * IM treats outbound frames with messageId containing "error" as fatal and clears
+ * the active request. If we sendError() before flushing partial assistant text,
+ * later stream_chunk / assistant_end / turn_end frames are dropped and the UI sticks.
+ */
+function failCodexTurn(ws, session, config, message, payload = {}) {
+  const errorMessage = String(message || 'Codex turn failed');
+  if (!session?.isTurnActive) {
+    if (ws) sendError(ws, errorMessage);
+    return;
+  }
+
+  const hadPartial = Boolean(session.sawPartialAssistantText);
+  // Prefer promoting partial output to a normal completion so clients finalize.
+  // Only emit sendError when there is nothing to show; otherwise IM aborts first.
+  if (!hadPartial && ws) {
+    sendError(ws, errorMessage);
+  } else if (hadPartial) {
+    session._log?.warn?.('codex turn recovered partial output after error', {
+      message: errorMessage,
+    });
+  }
+  finishCodexTurn(ws, session, config, hadPartial ? 'completed' : 'error', {
+    ...payload,
+    error: errorMessage,
+    ...(hadPartial ? { partialRecovered: true } : {}),
+  });
+}
+
 function finishCodexTurn(ws, session, config, reason = 'completed', payload = {}) {
   if (!session.isTurnActive) return;
 
@@ -1250,8 +1283,9 @@ function finishCodexTurn(ws, session, config, reason = 'completed', payload = {}
     updateCodexSessionStats(session, payload);
   }
 
+  const hadPartial = Boolean(session.sawPartialAssistantText);
   clearTurnState(session);
-  if (session.sawPartialAssistantText) {
+  if (hadPartial) {
     sendCodexAssistantEnd(ws, session);
   }
   sendTurnEnd(ws, session, reason, payload);
@@ -1544,9 +1578,38 @@ function nextRpcId(session) {
   return session.codexRpcId;
 }
 
+function codexRpcTimeoutMs() {
+  return numberFromProcessEnv('LINCO_CODEX_RPC_TIMEOUT_MS', DEFAULT_CODEX_RPC_TIMEOUT_MS);
+}
+
 function rpcRequest(session, id, method, params) {
   return new Promise((resolve, reject) => {
-    session.codexPendingRequests.set(id, { resolve, reject, method });
+    if (!session.codexPendingRequests) {
+      session.codexPendingRequests = new Map();
+    }
+
+    const timeoutMs = codexRpcTimeoutMs();
+    const timer = setTimeout(() => {
+      const pending = session.codexPendingRequests.get(id);
+      if (!pending || pending !== tracked) return;
+      session.codexPendingRequests.delete(id);
+      reject(new Error(`Codex RPC 超时: ${method || 'unknown'} (${timeoutMs}ms)`));
+    }, timeoutMs);
+    timer.unref?.();
+
+    const tracked = {
+      method,
+      resolve(result) {
+        clearTimeout(timer);
+        resolve(result);
+      },
+      reject(err) {
+        clearTimeout(timer);
+        reject(err);
+      },
+    };
+    session.codexPendingRequests.set(id, tracked);
+
     try {
       sendJsonRpc(session.codexAppServer, {
         jsonrpc: '2.0',
@@ -1556,15 +1619,17 @@ function rpcRequest(session, id, method, params) {
       });
     } catch (err) {
       session.codexPendingRequests.delete(id);
+      clearTimeout(timer);
       reject(err);
     }
   });
 }
 
 function sendJsonRpc(child, message) {
-  if (child.stdin && !child.stdin.destroyed) {
-    child.stdin.write(JSON.stringify(message) + '\n');
+  if (!child?.stdin || child.stdin.destroyed) {
+    throw new Error('Codex app-server stdin unavailable');
   }
+  child.stdin.write(JSON.stringify(message) + '\n');
 }
 
 function codexAgentConfig(session) {
@@ -1734,7 +1799,7 @@ function failActiveCodexCompaction(session, code, message) {
   });
   session.codexCompaction = null;
   if (active.manualTurn && session.isTurnActive) {
-    finishCodexTurn(session._lastWs, session, session._lastConfig, 'error', { error: String(message || code) });
+    failCodexTurn(session._lastWs, session, session._lastConfig, String(message || code));
   }
   return true;
 }
@@ -1751,7 +1816,7 @@ function failPendingCodexManualCompaction(session, code, message) {
     text: 'Codex context compaction failed before it started.',
   });
   if (session.isTurnActive) {
-    finishCodexTurn(session._lastWs, session, session._lastConfig, 'error', { error: String(message || code) });
+    failCodexTurn(session._lastWs, session, session._lastConfig, String(message || code));
   }
   return true;
 }
@@ -2089,8 +2154,7 @@ function handleAppServerMessage(message, session) {
   if (method === 'error' || method.includes('error')) {
     const message = params.message || JSON.stringify(params);
     failActiveCodexCompaction(session, 'app_server_error', message);
-    sendError(ws, message);
-    finishCodexTurn(ws, session, session._lastConfig, 'error', { error: message });
+    failCodexTurn(ws, session, session._lastConfig, message, { error: message });
     return;
   }
 
@@ -2765,9 +2829,14 @@ module.exports = {
     buildCodexThreadResumeParams,
     buildExecArgs,
     codexDefaultReasoningEffort,
+    codexRpcTimeoutMs,
+    failCodexTurn,
+    finishCodexTurn,
     codexTurnModelOverride,
     codexTurnReasoningOverride,
     currentCodexReasoningEffort,
+    rpcRequest,
+    sendJsonRpc,
     codexModelInputNeedsLookup,
     codexReasoningInputNeedsLookup,
     formatCodexModelList,
