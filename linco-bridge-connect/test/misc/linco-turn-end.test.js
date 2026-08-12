@@ -415,8 +415,9 @@ function createCaptureWs() {
     linco,
   );
 
-  assert.strictEqual(first.fullText, "First step.");
-  assert.strictEqual(second.fullText, "Second step.");
+  assert.strictEqual(first, null);
+  assert.strictEqual(second, null);
+  assert.ok(!linco.thinkingText);
 }
 
 console.log("linco turn_end contract ok");

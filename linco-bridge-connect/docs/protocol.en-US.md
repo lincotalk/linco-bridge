@@ -112,6 +112,33 @@ Remote IM should treat `turn_end` as the final signal for one user-message turn.
 
 When `done: true`, the event may include `references` for clickable generated-file links.
 
+## Thinking
+
+`thinking` carries model reasoning summaries. It is **not** for commentary progress text.
+
+| Field | Description |
+| --- | --- |
+| `mode` | `summary` \| `progress`. Defaults to `summary`. |
+| `delta` / `text` | Incremental text for this frame. |
+| `fullText` | For `summary` only: cumulative text so far. Optional for `progress`. |
+
+Semantics:
+
+- `mode=summary`: remote IM should write a thinking-chain narrative; prefer `fullText` as the cumulative snapshot.
+- `mode=progress`: deprecated for the thinking chain. Progress body text must use `stream_chunk` with `phase=progress` and `ephemeral=true`. Remotes should ignore such `thinking` frames.
+- `thinking_clear`: clears the current-turn summary thinking buffer.
+
+```json
+{
+  "type": "thinking",
+  "mode": "summary",
+  "text": "Next I need to check subtitle font size.",
+  "delta": "Next I need to check subtitle font size.",
+  "fullText": "Next I need to check subtitle font size.",
+  "done": false
+}
+```
+
 ## Slash Command Results
 
 `slash_command_result` is used for structured UI such as lists, history, model settings, and configuration results.

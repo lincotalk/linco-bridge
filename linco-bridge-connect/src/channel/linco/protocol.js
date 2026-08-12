@@ -191,11 +191,13 @@ function mapLocalEventToLinco(event, session, config, linco) {
         done: true,
       };
     }
-    case "thinking":
-      linco.thinkingText =
-        event.mode === "progress"
-          ? String(event.text || event.delta || "")
-          : appendThinkingText(linco.thinkingText || "", event);
+    case "thinking": {
+      const mode = event.mode === "progress" ? "progress" : "summary";
+      if (mode === "progress") {
+        // Commentary belongs on stream_chunk; do not pollute summary buffer.
+        return null;
+      }
+      linco.thinkingText = appendThinkingText(linco.thinkingText || "", event);
       return {
         ...base,
         type: "thinking",
@@ -204,12 +206,13 @@ function mapLocalEventToLinco(event, session, config, linco) {
         messageId: base.messageId || `linco-thinking-${Date.now()}`,
         requestId: base.messageId,
         streamId: linco.streamId || base.streamId,
-        mode: event.mode || "summary",
+        mode: "summary",
         text: event.text || event.delta || "",
         delta: event.delta || event.text || "",
         fullText: linco.thinkingText,
         done: false,
       };
+    }
     case "thinking_clear":
       linco.thinkingText = "";
       return {

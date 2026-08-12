@@ -2057,7 +2057,6 @@ function handleAppServerMessage(message, session) {
       if (isRemoteCodexSession(session, ws) && isCodexAssistantMessageType(itemType) && phase !== 'final_answer') {
         if (shouldEmitCodexProgress(session, ws)) {
           appendCodexProgressAssistantText(delta, ws, session);
-          send(ws, 'thinking', { text: delta, mode: 'progress' });
         }
         markCodexAgentMessageEmitted(session, codexAgentMessageId(params), phase);
         return;
@@ -2065,7 +2064,6 @@ function handleAppServerMessage(message, session) {
       if (isCodexProgressAssistantItem(params)) {
         if (shouldEmitCodexProgress(session, ws)) {
           appendCodexProgressAssistantText(delta, ws, session);
-          send(ws, 'thinking', { text: delta, mode: 'progress' });
         }
         markCodexAgentMessageEmitted(session, codexAgentMessageId(params), phase);
         return;
@@ -2098,7 +2096,6 @@ function handleAppServerMessage(message, session) {
       if (text && !hasCodexAgentMessageEmitted(session, agentMessageId)) {
         if (shouldEmitCodexProgress(session, ws)) {
           appendCodexProgressAssistantText(text, ws, session);
-          send(ws, 'thinking', { text, mode: 'progress' });
         }
         markCodexAgentMessageEmitted(session, agentMessageId, params.item?.phase || params.phase || '');
       }

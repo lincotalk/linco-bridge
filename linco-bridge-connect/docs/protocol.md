@@ -113,6 +113,33 @@
 
 当 `done: true` 时，事件可能带有 `references`，用于展示 Agent 生成文件的可点击引用。
 
+## 思考过程
+
+`thinking` 用于模型 reasoning 摘要，**不是** commentary 过程正文。
+
+| 字段 | 说明 |
+| --- | --- |
+| `mode` | `summary` \| `progress`。缺省按 `summary`。 |
+| `delta` / `text` | 本帧增量。 |
+| `fullText` | 仅 `summary`：当前累计全文。`progress` 可不带。 |
+
+语义：
+
+- `mode=summary`：远端应写入思考链叙事；优先使用 `fullText` 做累计覆盖。
+- `mode=progress`：已废弃用于思考链。过程正文应走 `stream_chunk`（`phase=progress`，`ephemeral=true`）。远端收到此类 `thinking` 应忽略。
+- `thinking_clear`：清空本轮 summary 思考缓冲。
+
+```json
+{
+  "type": "thinking",
+  "mode": "summary",
+  "text": "下一步需要检查字幕字号。",
+  "delta": "下一步需要检查字幕字号。",
+  "fullText": "下一步需要检查字幕字号。",
+  "done": false
+}
+```
+
 ## 斜杠命令结果
 
 `slash_command_result` 用于列表、历史、模型、设置等结构化 UI。

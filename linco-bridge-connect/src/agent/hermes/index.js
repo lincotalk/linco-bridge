@@ -849,7 +849,7 @@ function flushPendingHermesReasoning(ws, session) {
   if (!session) return false;
   session.pendingHermesReasoning = '';
   if (!text || session.hermesCompaction) return false;
-  send(ws, 'thinking', { text });
+  send(ws, 'thinking', { text, mode: 'summary' });
   return true;
 }
 

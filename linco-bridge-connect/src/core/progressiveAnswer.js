@@ -1,5 +1,3 @@
-const { send } = require('./protocol');
-
 function resetProgressiveAnswer(session) {
   if (!session) return;
   session.pendingProgressText = '';
@@ -10,13 +8,13 @@ function appendProgressiveAnswerText(text, ws, session, appendFinalText) {
   session.pendingProgressText = `${session.pendingProgressText || ''}${text}`;
 }
 
-function promotePendingProgress(ws, session) {
+function promotePendingProgress(_ws, session) {
+  // Progress body already went out as ephemeral assistant_chunk / stream_chunk.
+  // Do not dual-emit the same text as thinking mode=progress.
   if (!session) return false;
-  const text = String(session.pendingProgressText || '').trim();
+  const had = Boolean(String(session.pendingProgressText || '').trim());
   session.pendingProgressText = '';
-  if (!text) return false;
-  send(ws, 'thinking', { text, mode: 'progress' });
-  return true;
+  return had;
 }
 
 function flushPendingAnswerText(ws, session, appendFinalText) {

@@ -77,18 +77,15 @@ function baseSession(extra = {}) {
   assert.deepStrictEqual(ws.sent.map(item => item.type), [
     'assistant_start',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
   ]);
   assert.strictEqual(ws.sent[1].text, 'I will inspect the target file first.');
-  assert.strictEqual(ws.sent[2].text, 'I will inspect the target file first.');
-  assert.strictEqual(ws.sent[4].text, '\n\nI found a reference and will search related files.');
-  assert.strictEqual(ws.sent[5].text, 'I found a reference and will search related files.');
-  assert.strictEqual(ws.sent[7].text, '\n\nFinal answer after reading.');
+  assert.strictEqual(ws.sent[3].text, '\n\nI found a reference and will search related files.');
+  assert.strictEqual(ws.sent[5].text, '\n\nFinal answer after reading.');
+  assert.ok(!ws.sent.some((item) => item.type === 'thinking' && item.mode === 'progress'));
 }
 
 function withMetadataSession(extra = {}) {
@@ -275,20 +272,17 @@ function withMetadataSession(extra = {}) {
     'thinking_clear',
     'assistant_start',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
     'assistant_end',
     'turn_end',
   ]);
   assert.strictEqual(ws.sent[2].text, 'I will run a search first.');
-  assert.strictEqual(ws.sent[3].text, 'I will run a search first.');
-  assert.strictEqual(ws.sent[5].text, '\n\nI found a URL and will fetch it.');
-  assert.strictEqual(ws.sent[6].text, 'I found a URL and will fetch it.');
-  assert.strictEqual(ws.sent[8].text, '\n\nFinal Hermes answer.');
+  assert.strictEqual(ws.sent[4].text, '\n\nI found a URL and will fetch it.');
+  assert.strictEqual(ws.sent[6].text, '\n\nFinal Hermes answer.');
+  assert.ok(!ws.sent.some((item) => item.type === 'thinking' && item.mode === 'progress'));
   assert.deepStrictEqual(
     ws.sent.filter(item => item.type === 'assistant_chunk').map(item => item.text),
     ['I will run a search first.', '\n\nI found a URL and will fetch it.', '\n\nFinal Hermes answer.'],
@@ -423,20 +417,17 @@ function withMetadataSession(extra = {}) {
   assert.deepStrictEqual(ws.sent.map(item => item.type), [
     'assistant_start',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
     'assistant_end',
     'turn_end',
   ]);
   assert.strictEqual(ws.sent[1].text, 'I will call the plugin first.');
-  assert.strictEqual(ws.sent[2].text, 'I will call the plugin first.');
-  assert.strictEqual(ws.sent[4].text, '\n\nI found another file and will inspect it.');
-  assert.strictEqual(ws.sent[5].text, 'I found another file and will inspect it.');
-  assert.strictEqual(ws.sent[7].text, '\n\nFinal OpenClaw answer.');
+  assert.strictEqual(ws.sent[3].text, '\n\nI found another file and will inspect it.');
+  assert.strictEqual(ws.sent[5].text, '\n\nFinal OpenClaw answer.');
+  assert.ok(!ws.sent.some((item) => item.type === 'thinking' && item.mode === 'progress'));
 }
 
 {
@@ -483,13 +474,12 @@ function withMetadataSession(extra = {}) {
     usage: {},
   }, {}, ws, session, config);
 
-  assert.deepStrictEqual(ws.sent.slice(0, 5).map(item => item.type), ['assistant_start', 'assistant_chunk', 'thinking', 'tool_call', 'tool_result']);
+  assert.deepStrictEqual(ws.sent.slice(0, 4).map(item => item.type), ['assistant_start', 'assistant_chunk', 'tool_call', 'tool_result']);
   assert.strictEqual(ws.sent[1].text, 'I will run a command first.');
-  assert.strictEqual(ws.sent[2].mode, 'progress');
-  assert.strictEqual(ws.sent[2].text, 'I will run a command first.');
-  assert.strictEqual(ws.sent[3].id, 'cmd-1');
-  assert.strictEqual(ws.sent[3].name, 'npm test');
-  assert.strictEqual(ws.sent[4].toolUseId, 'cmd-1');
+  assert.strictEqual(ws.sent[2].id, 'cmd-1');
+  assert.strictEqual(ws.sent[2].name, 'npm test');
+  assert.strictEqual(ws.sent[3].toolUseId, 'cmd-1');
+  assert.ok(!ws.sent.some((item) => item.type === 'thinking' && item.mode === 'progress'));
   assert(ws.sent.some(item => item.type === 'assistant_chunk' && item.text === '\n\nFinal command answer.'));
 }
 
@@ -546,13 +536,13 @@ function withMetadataSession(extra = {}) {
     },
   }, {}, ws, session, config);
 
-  assert.deepStrictEqual(ws.sent.map(item => item.type), ['assistant_start', 'assistant_chunk', 'thinking', 'tool_call', 'tool_result']);
+  assert.deepStrictEqual(ws.sent.map(item => item.type), ['assistant_start', 'assistant_chunk', 'tool_call', 'tool_result']);
   assert.strictEqual(ws.sent[1].text, 'I will inspect the file.');
-  assert.strictEqual(ws.sent[2].text, 'I will inspect the file.');
-  assert.strictEqual(ws.sent[3].id, 'tool-1');
+  assert.strictEqual(ws.sent[2].id, 'tool-1');
+  assert.strictEqual(ws.sent[2].name, 'read');
+  assert.strictEqual(ws.sent[3].toolUseId, 'tool-1');
   assert.strictEqual(ws.sent[3].name, 'read');
-  assert.strictEqual(ws.sent[4].toolUseId, 'tool-1');
-  assert.strictEqual(ws.sent[4].name, 'read');
+  assert.ok(!ws.sent.some((item) => item.type === 'thinking' && item.mode === 'progress'));
 }
 
 console.log('progressive action panel ok');

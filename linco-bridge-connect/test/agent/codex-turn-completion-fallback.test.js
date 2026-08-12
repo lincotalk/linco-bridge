@@ -436,11 +436,6 @@ withCapturedTimers((timers) => {
       type: 'assistant_chunk',
       text: 'I will search for a suitable kitten image first.',
     },
-    {
-      type: 'thinking',
-      text: 'I will search for a suitable kitten image first.',
-      mode: 'progress',
-    },
   ]);
 });
 
@@ -466,11 +461,6 @@ withCapturedTimers((timers) => {
     {
       type: 'assistant_chunk',
       text: 'I will search for a suitable kitten image first.',
-    },
-    {
-      type: 'thinking',
-      text: 'I will search for a suitable kitten image first.',
-      mode: 'progress',
     },
   ]);
 });
@@ -691,20 +681,17 @@ withCapturedTimers((timers) => {
   assert.deepStrictEqual(sent.map(message => message.type), [
     'assistant_start',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
     'assistant_end',
     'turn_end',
   ]);
   assert.strictEqual(sent[1].text, 'I will inspect the file first.');
-  assert.strictEqual(sent[2].text, 'I will inspect the file first.');
-  assert.strictEqual(sent[4].text, '\n\nI found the target and will search references.');
-  assert.strictEqual(sent[5].text, 'I found the target and will search references.');
-  assert.strictEqual(sent[7].text, '\n\nFinal answer.');
+  assert.strictEqual(sent[3].text, '\n\nI found the target and will search references.');
+  assert.strictEqual(sent[5].text, '\n\nFinal answer.');
+  assert.ok(!sent.some((message) => message.type === 'thinking' && message.mode === 'progress'));
 }
 
 {
@@ -746,13 +733,12 @@ withCapturedTimers((timers) => {
   assert.deepStrictEqual(sent.map(message => message.type), [
     'assistant_start',
     'assistant_chunk',
-    'thinking',
     'tool_call',
     'assistant_chunk',
   ]);
   assert.strictEqual(sent[1].text, 'I will inspect the file first.');
-  assert.strictEqual(sent[2].text, 'I will inspect the file first.');
-  assert(sent[4].text.endsWith('Final answer with enough text to flush immediately after progress is suppressed.'));
+  assert.ok(!sent.some((message) => message.type === 'thinking' && message.mode === 'progress'));
+  assert(sent[3].text.endsWith('Final answer with enough text to flush immediately after progress is suppressed.'));
 }
 
 {
@@ -782,12 +768,11 @@ withCapturedTimers((timers) => {
   assert.deepStrictEqual(sent.map(message => message.type), [
     'assistant_start',
     'assistant_chunk',
-    'thinking',
     'assistant_chunk',
   ]);
   assert.strictEqual(sent[1].text, 'I will inspect the file first.');
-  assert.strictEqual(sent[2].text, 'I will inspect the file first.');
-  assert(sent[3].text.endsWith('Final answer with enough text to flush immediately after no-phase progress is suppressed.'));
+  assert.ok(!sent.some((message) => message.type === 'thinking' && message.mode === 'progress'));
+  assert(sent[2].text.endsWith('Final answer with enough text to flush immediately after no-phase progress is suppressed.'));
 }
 
 {
