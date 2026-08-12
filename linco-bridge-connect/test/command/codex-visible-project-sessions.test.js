@@ -9,6 +9,7 @@ const { buildBindActions } = require('../../src/command/history/payloads');
 const {
   collectClaudeProjectSessions,
   collectCodexProjectSessions,
+  findCodexProjectSessionById,
 } = require('../../src/command/history/sessions');
 
 function createCodexStateDb(codexDir, schemaSql, rows) {
@@ -117,6 +118,77 @@ test('Codex JSONL listing excludes Subagent sessions', () => {
 
   const sessions = collectCodexProjectSessions(homeDir, project, { scanLimit: 10 });
   assert.deepEqual(sessions.map(item => item.id), ['codex-main']);
+});
+
+test('Codex forked JSONL keeps the child session identity', () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-forked-session-'));
+  const project = path.join(homeDir, 'code', 'codex-forked-project');
+  const sessionsDir = path.join(homeDir, '.codex', 'sessions', '2026', '08', '12');
+  const childId = '019ff507-cbe6-7362-8c10-9c62e05ebc6f';
+  const parentId = '019fefc6-b021-7491-8076-e78ad5d29a07';
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(sessionsDir, { recursive: true });
+
+  const transcriptPath = path.join(sessionsDir, `rollout-2026-08-12-${childId}.jsonl`);
+  fs.writeFileSync(transcriptPath, [
+    JSON.stringify({
+      type: 'session_meta',
+      payload: {
+        id: childId,
+        session_id: childId,
+        forked_from_id: parentId,
+        cwd: project,
+        source: 'vscode',
+      },
+    }),
+    JSON.stringify({
+      type: 'session_meta',
+      payload: {
+        id: parentId,
+        session_id: parentId,
+        cwd: project,
+        source: 'vscode',
+      },
+    }),
+    JSON.stringify({
+      type: 'event_msg',
+      payload: { type: 'user_message', message: 'forked session prompt' },
+    }),
+  ].join('\n'));
+
+  const sessions = collectCodexProjectSessions(homeDir, project, { scanLimit: 10 });
+  assert.deepEqual(sessions.map(item => item.id), [childId]);
+
+  const matched = findCodexProjectSessionById(homeDir, project, childId);
+  assert.equal(matched?.id, childId);
+  assert.equal(matched?.firstMessage, 'forked session prompt');
+  assert.equal(matched?.transcriptPath, transcriptPath);
+  assert.equal(findCodexProjectSessionById(homeDir, project, parentId), null);
+});
+
+test('Codex JSONL accepts a later valid identity after incomplete metadata', () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-late-session-id-'));
+  const project = path.join(homeDir, 'code', 'codex-late-session-id-project');
+  const sessionsDir = path.join(homeDir, '.codex', 'sessions', '2026', '08', '12');
+  const sessionId = 'codex-late-session-id';
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(sessionsDir, { recursive: true });
+
+  fs.writeFileSync(path.join(sessionsDir, `${sessionId}.jsonl`), [
+    JSON.stringify({ type: 'session_meta', payload: { cwd: project } }),
+    JSON.stringify({
+      type: 'session_meta',
+      payload: { id: sessionId, cwd: project, source: 'vscode' },
+    }),
+    JSON.stringify({
+      type: 'event_msg',
+      payload: { type: 'user_message', message: 'late identity prompt' },
+    }),
+  ].join('\n'));
+
+  const matched = findCodexProjectSessionById(homeDir, project, sessionId);
+  assert.equal(matched?.id, sessionId);
+  assert.equal(matched?.firstMessage, 'late identity prompt');
 });
 
 test('Codex SQLite listing filters Subagents before limit', () => {

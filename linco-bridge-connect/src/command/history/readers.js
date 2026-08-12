@@ -120,12 +120,20 @@ function isCodexSubagentSource(threadSource, source) {
 function readCodexSessionMeta(filePath) {
   const result = { id: '', cwd: '', firstMessage: '', source: undefined };
   let fallbackFirstMessage = '';
+  let hasSessionIdentity = false;
   readJsonlRecordsUntil(filePath, SESSION_SUMMARY_SCAN_LIMIT, item => {
-    if (item?.type === 'session_meta') {
-      result.id = stringOrEmpty(item.payload?.id || item.id) || result.id;
-      result.cwd = stringOrEmpty(item.payload?.cwd || item.cwd) || result.cwd;
-      if (Object.prototype.hasOwnProperty.call(item.payload || {}, 'source')) {
-        result.source = item.payload.source;
+    if (item?.type === 'session_meta' && !hasSessionIdentity) {
+      const sessionId = stringOrEmpty(item.payload?.id || item.id);
+      const sessionCwd = stringOrEmpty(item.payload?.cwd || item.cwd);
+      if (sessionId) {
+        hasSessionIdentity = true;
+        result.id = sessionId;
+        result.cwd = sessionCwd || result.cwd;
+        if (Object.prototype.hasOwnProperty.call(item.payload || {}, 'source')) {
+          result.source = item.payload.source;
+        }
+      } else {
+        result.cwd = sessionCwd || result.cwd;
       }
     }
 
