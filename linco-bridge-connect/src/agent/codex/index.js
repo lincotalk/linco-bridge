@@ -1241,6 +1241,16 @@ function clearTurnState(session) {
   }
 }
 
+function isRetriableCodexAppServerError(params = {}, message = '') {
+  if (params?.willRetry === true) return true;
+  if (params?.error?.willRetry === true) return true;
+  if (params?.error?.codexErrorInfo?.responseStreamDisconnected) return true;
+  const text = String(message || params?.message || '');
+  if (/"willRetry"\s*:\s*true/.test(text)) return true;
+  if (/Reconnecting\.\.\.\s*\d+\s*\/\s*\d+/i.test(text)) return true;
+  return false;
+}
+
 /**
  * Fail an active Codex turn without stranding the IM client on "正在思考".
  *
@@ -2153,6 +2163,13 @@ function handleAppServerMessage(message, session) {
 
   if (method === 'error' || method.includes('error')) {
     const message = params.message || JSON.stringify(params);
+    if (isRetriableCodexAppServerError(params, message)) {
+      session._log?.warn?.('codex turn error will retry; keeping turn active', {
+        message,
+        willRetry: params?.willRetry === true || params?.error?.willRetry === true,
+      });
+      return;
+    }
     failActiveCodexCompaction(session, 'app_server_error', message);
     failCodexTurn(ws, session, session._lastConfig, message, { error: message });
     return;
@@ -2832,6 +2849,7 @@ module.exports = {
     codexRpcTimeoutMs,
     failCodexTurn,
     finishCodexTurn,
+    isRetriableCodexAppServerError,
     codexTurnModelOverride,
     codexTurnReasoningOverride,
     currentCodexReasoningEffort,
