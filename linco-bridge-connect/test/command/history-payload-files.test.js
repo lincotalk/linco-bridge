@@ -686,6 +686,36 @@ test('extractCodexMentionedUserFiles keeps metadata without reading file content
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
+test('parseCodexHistoryRounds unwraps current and legacy attachment request headings', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-request-heading-'));
+  const transcriptPath = path.join(tempDir, 'history.jsonl');
+
+  try {
+    for (const heading of ['## My request:', '## My request for Codex:']) {
+      const userMessage = [
+        '# Files mentioned by the user:',
+        '',
+        '## screenshot.png: C:\\Temp\\screenshot.png',
+        '',
+        heading,
+        '只保留这段用户正文',
+      ].join('\n');
+      fs.writeFileSync(transcriptPath, JSON.stringify({
+        type: 'event_msg',
+        payload: { type: 'user_message', message: userMessage },
+      }));
+
+      const rounds = parseCodexHistoryRounds(transcriptPath);
+
+      assert.equal(rounds.length, 1);
+      assert.equal(rounds[0].user, '只保留这段用户正文');
+      assert.doesNotMatch(rounds[0].user, /Files mentioned by the user/u);
+    }
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('parseCodexHistoryRounds strips Linco Connect system note even when attached to user text', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-history-'));
   const transcriptPath = path.join(tempDir, 'history.jsonl');

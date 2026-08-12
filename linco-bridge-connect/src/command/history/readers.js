@@ -659,7 +659,7 @@ function normalizeCodexUserText(text) {
 function unwrapCodexUserRequest(text) {
   const value = stringOrEmpty(text);
   if (!value) return '';
-  const marker = value.match(/^##\s+My request for Codex:\s*$/im);
+  const marker = value.match(/^##\s+My request(?: for Codex)?:\s*$/im);
   if (!marker || marker.index === undefined) return value;
   const request = value.slice(marker.index + marker[0].length).trim();
   return request || value;

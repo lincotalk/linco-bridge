@@ -1792,7 +1792,7 @@ if (directorySymlinkSupported) {
       '',
       '## codex-clipboard-c504392c-1e1d-4ed0-ade9-7ecf49a16c13.png: /var/folders/cf/14d_8nt10fd1slj8l8dc51gc0000gp/T/codex-clipboard-c504392c-1e1d-4ed0-ade9-7ecf49a16c13.png',
       '',
-      '## My request for Codex:',
+      '## My request:',
       '底部按钮长度/高度目前有多少种规格？',
     ].join('\n') } }),
     JSON.stringify({ type: 'event_msg', timestamp: '2026-06-11T02:02:06.000Z', payload: { type: 'agent_message', phase: 'final_answer', message: 'third codex final answer' } }),
