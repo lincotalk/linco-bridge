@@ -212,6 +212,47 @@ test('DeepSeek history reload maps Harness events into visible conversation roun
   assert.equal(harness.calls.filter(call => call.method === 'session.create').length, 0);
 });
 
+test('DeepSeek settings apply returns slash_command_result before turn_end', async t => {
+  const harness = await createMockHarness();
+  t.after(() => harness.close());
+  const fixture = createFixture(harness.url);
+  t.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+  fixture.session.agentSessionId = 'dsh-session-settings';
+  fixture.session.deepseekAttachedSessionId = 'dsh-session-settings';
+  fixture.ws.linco = {
+    messageId: 'bridge-settings-update-1',
+    streamId: 'ddchat-stream-bridge-settings-update-1',
+  };
+
+  assert.equal(
+    await deepseek.applySettings(fixture.ws, fixture.session, fixture.config, {
+      modelId: 'DeepSeek-V4-Flash',
+      reasoningEffort: 'high',
+    }),
+    true,
+  );
+  await waitFor(() => fixture.frames.some(frame => frame.type === 'turn_end'));
+
+  const result = fixture.frames.find(
+    frame => frame.type === 'slash_command_result' && frame.command === 'getModelsAndReasons',
+  );
+  assert.ok(result, 'settings apply must emit getModelsAndReasons slash_command_result');
+  assert.equal(result.data.agentType, 'deepseek');
+  assert.equal(result.data.status, 'set');
+  assert.equal(result.data.model.current, 'DeepSeek-V4-Flash');
+  assert.equal(result.data.reasoning.current, 'high');
+  assert.equal(
+    harness.calls.filter(call => call.method === 'session.selectModel').length,
+    1,
+  );
+  assert.deepEqual(harness.calls.find(call => call.method === 'session.selectModel').payload, {
+    sessionId: 'dsh-session-settings',
+    provider: 'deepseek-official',
+    model: 'DeepSeek-V4-Flash',
+    reasoningEffort: 'high',
+  });
+});
+
 function createFixture(gatewayUrl) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-deepseek-test-'));
   const config = {
@@ -256,6 +297,48 @@ async function createMockHarness(options = {}) {
       return;
     }
     if (method === 'session.cancel') return sendRpc(res, body.rpcId, { accepted: true });
+    if (method === 'session.models') {
+      return sendRpc(res, body.rpcId, options.modelsResult || {
+        current: {
+          provider: 'deepseek-official',
+          model: 'DeepSeek-V4-Pro',
+          reasoningEffort: 'off',
+        },
+        groups: [
+          {
+            id: 'deepseek-official',
+            name: 'DeepSeek',
+            models: [
+              {
+                id: 'DeepSeek-V4-Flash',
+                name: 'DeepSeek-V4-Flash',
+                reasoning: {
+                  defaultEffort: 'high',
+                  efforts: [{ id: 'off' }, { id: 'high' }, { id: 'max' }],
+                },
+              },
+              {
+                id: 'DeepSeek-V4-Pro',
+                name: 'DeepSeek-V4-Pro',
+                reasoning: {
+                  defaultEffort: 'high',
+                  efforts: [{ id: 'off' }, { id: 'high' }, { id: 'max' }],
+                },
+              },
+            ],
+          },
+        ],
+      });
+    }
+    if (method === 'session.selectModel') {
+      return sendRpc(res, body.rpcId, options.selectModelResult || {
+        selected: {
+          provider: body.payload.provider || 'deepseek-official',
+          model: body.payload.model || 'DeepSeek-V4-Flash',
+          reasoningEffort: body.payload.reasoningEffort || 'high',
+        },
+      });
+    }
     sendRpc(res, body.rpcId, {});
   });
   const downlinks = new WebSocketServer({ noServer: true });

@@ -3,6 +3,7 @@ const path = require('path');
 const WebSocket = require('ws');
 const { isDangerousCommand } = require('../../core/danger');
 const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../../core/protocol');
+const { GET_MODELS_AND_REASONS_COMMAND } = require('../../command/settings');
 const {
   persistAgentSessionId,
   stopAgentProcess: stopSessionProcess,
@@ -708,19 +709,56 @@ async function applySettings(ws, session, config, options = {}) {
   try {
     const models = await loadModels(session, config);
     const current = models.current || {};
+    const previousModel = current.model || '';
+    const previousEffort = current.reasoningEffort || '';
     const selected = await callRpc(resolveAgentConfig(config), 'session.selectModel', {
       sessionId: session.agentSessionId,
       provider: options.provider || providerForModel(models, options.modelId) || current.provider,
       model: options.modelId || current.model,
       ...(options.reasoningEffort ? { reasoningEffort: options.reasoningEffort } : {}),
     });
-    sendSystem(ws, `DeepSeek 模型已切换为 ${selected.selected?.provider || current.provider}/${selected.selected?.model || current.model}。`);
+    const nextModel = selected.selected?.model || options.modelId || current.model || '';
+    const nextEffort = selected.selected?.reasoningEffort
+      || options.reasoningEffort
+      || current.reasoningEffort
+      || '';
+    sendDeepSeekSettingsApplyResult(ws, session, {
+      status: 'set',
+      previousModel,
+      previousEffort,
+      modelId: nextModel,
+      reasoningEffort: nextEffort,
+    });
+    sendSystem(ws, `DeepSeek 模型已切换为 ${selected.selected?.provider || current.provider}/${nextModel}。`);
     sendTurnEnd(ws, session);
   } catch (err) {
     sendError(ws, `DeepSeek 设置更新失败: ${err.message}`);
     sendTurnEnd(ws, session, 'error', { error: err.message });
   }
   return true;
+}
+
+function sendDeepSeekSettingsApplyResult(ws, session, options = {}) {
+  const linco = ws?.linco || session?.linco || {};
+  send(ws, 'slash_command_result', {
+    command: GET_MODELS_AND_REASONS_COMMAND,
+    version: 1,
+    requestId: linco.messageId,
+    streamId: linco.streamId,
+    sessionKey: session?.id,
+    data: {
+      agentType: 'deepseek',
+      status: options.status || 'set',
+      reasoning: {
+        current: String(options.reasoningEffort || '').trim(),
+        previous: String(options.previousEffort || '').trim(),
+      },
+      model: {
+        current: String(options.modelId || '').trim(),
+        previous: String(options.previousModel || '').trim(),
+      },
+    },
+  });
 }
 
 async function model(ws, session, config, options = {}) {
