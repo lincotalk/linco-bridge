@@ -81,11 +81,12 @@ export interface BridgeAccountsPayloadDto {
 const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
   codex: '/static/icons/bot/bridge_codex.png',
   claude: '/static/icons/bot/bridge_claude.png',
+  deepseek: '/static/icons/bot/bridge_deepseek.svg',
   hermes: '/static/icons/bot/bridge_hermes.png',
   openclaw: '/static/icons/bot/bridge_claw.png',
 }
 
-const CONNECTOR_CONTEXT_TYPES = new Set<AgentBridgeType>(['codex', 'claude'])
+const CONNECTOR_CONTEXT_TYPES = new Set<AgentBridgeType>(['codex', 'claude', 'deepseek'])
 const CONNECTOR_SELECTOR_TYPES = new Set<AgentBridgeType>(['openclaw', 'hermes'])
 const ACCOUNTS_SLASH_COMMAND_TIMEOUT_MS = 10_000
 
@@ -783,7 +784,7 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    if (type !== 'codex' && type !== 'claude') {
+    if (type !== 'codex' && type !== 'claude' && type !== 'deepseek') {
       throw new ConflictException('当前 Agent 不支持模型与推理设置')
     }
 
@@ -809,7 +810,7 @@ export class BridgeService {
     if (!isAgentBridgeType(type)) {
       throw new NotFoundException('不支持的 Agent 类型')
     }
-    if (type !== 'codex' && type !== 'claude') {
+    if (type !== 'codex' && type !== 'claude' && type !== 'deepseek') {
       throw new ConflictException('当前 Agent 不支持模型与推理设置')
     }
 
@@ -860,7 +861,7 @@ export class BridgeService {
         agentType: type,
         title: agentDisplayName(type),
         bridgeConnectionId: connection.id,
-        lastMessage: type === 'codex' || type === 'claude' ? 'Ready when you are.' : '',
+        lastMessage: type === 'codex' || type === 'claude' || type === 'deepseek' ? 'Ready when you are.' : '',
       })
     }
 
@@ -868,7 +869,7 @@ export class BridgeService {
       this.database.linkConnectionSession(connection.id, session.id)
     }
 
-    if (type === 'codex' || type === 'claude') {
+    if (type === 'codex' || type === 'claude' || type === 'deepseek') {
       this.database.touchSession(session.id, 'Ready when you are.')
     }
 

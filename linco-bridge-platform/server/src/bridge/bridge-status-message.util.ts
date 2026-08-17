@@ -9,7 +9,7 @@ export function isBridgeSessionStatusMessage(text: string): boolean {
   }
 
   if (
-    /^(?:claude|codex|hermes|openclaw|open\s*claw)\s+Agent\s+Session\s+ID\s*:/i.test(
+    /^(?:claude|codex|deepseek|deepseek\s+harness|hermes|openclaw|open\s*claw)\s+Agent\s+Session\s+ID\s*:/i.test(
       normalized,
     )
   ) {

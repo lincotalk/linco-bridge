@@ -37,8 +37,8 @@ function initCommand(options, context = {}) {
   }
 
   if (agentType) {
-    // Hermes is an HTTP gateway service, not a CLI binary
-    if (agentType !== 'hermes') {
+    // Hermes and DeepSeek Harness are gateway services, not same-named CLI binaries.
+    if (agentType !== 'hermes' && agentType !== 'deepseek') {
       const agentBin = resolveCommand(agentType);
       if (!agentBin || !commandExists(agentType)) {
         throw new Error(`未检测到 ${agentType} CLI，请先安装 ${agentType} 再初始化。`);

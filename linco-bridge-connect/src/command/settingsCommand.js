@@ -2,6 +2,7 @@ const { sendError } = require('../core/protocol');
 const claudeAgent = require('../agent/claude');
 const { DEFAULT_CLAUDE_EFFORT } = require('../agent/claude/options');
 const codexAgent = require('../agent/codex');
+const deepseekAgent = require('../agent/deepseek');
 const {
   GET_MODELS_AND_REASONS_COMMAND,
   parseSettingsArgs,
@@ -18,7 +19,7 @@ const LEGACY_BRIDGE_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
 function handleSettingsListCommand(ws, session, config = {}) {
   const agentType = session.agentType || 'claude';
-  if (agentType !== 'codex' && agentType !== 'claude') {
+  if (agentType !== 'codex' && agentType !== 'claude' && agentType !== 'deepseek') {
     sendError(ws, `Current agent does not support ${GET_MODELS_AND_REASONS_COMMAND}.`);
     return completeLocalCommand(ws, session);
   }
@@ -51,7 +52,7 @@ function handleSettingsApplyCommand(args, ws, session, config = {}) {
   }
 
   const agentType = session.agentType || 'claude';
-  if (agentType !== 'codex' && agentType !== 'claude') {
+  if (agentType !== 'codex' && agentType !== 'claude' && agentType !== 'deepseek') {
     sendError(ws, 'Current agent does not support /settings apply.');
     return completeLocalCommand(ws, session);
   }
@@ -72,7 +73,49 @@ function handleSettingsApplyCommand(args, ws, session, config = {}) {
 async function buildBridgeSettingsPayload(session, config = {}) {
   const agentType = session.agentType || 'claude';
   if (agentType === 'codex') return buildCodexSettingsPayload(session, config);
+  if (agentType === 'deepseek') return buildDeepSeekSettingsPayload(session, config);
   return buildClaudeSettingsPayload(session, config);
+}
+
+async function buildDeepSeekSettingsPayload(session, config = {}) {
+  const catalog = await deepseekAgent._internal.loadModels(session, config);
+  const current = catalog.current || {};
+  const items = [];
+  for (const group of catalog.groups || []) {
+    for (const model of group.models || []) {
+      const supportedReasoningEfforts = (model.reasoning?.efforts || []).map(option => reasoningOptionFromId(option.id, option));
+      items.push({
+        id: model.id,
+        label: model.name || model.id,
+        provider: group.id,
+        ...(model.description ? { description: model.description } : {}),
+        command: `/model ${model.id}`,
+        defaultReasoningEffort: model.reasoning?.defaultEffort || supportedReasoningEfforts[0]?.id || '',
+        supportedReasoningEfforts,
+      });
+    }
+  }
+  const currentModel = items.find(item => item.id === current.model && item.provider === current.provider)
+    || items.find(item => item.id === current.model)
+    || null;
+  const reasoningOptions = currentModel?.supportedReasoningEfforts || [];
+  return {
+    capabilitiesVersion: 2,
+    agentType: 'deepseek',
+    reasoning: {
+      current: current.reasoningEffort || '',
+      defaultEffort: currentModel?.defaultReasoningEffort || '',
+      model: current.model || '',
+      options: reasoningOptions.map(option => ({ ...option, command: `/reasoning ${option.id}` })),
+    },
+    model: {
+      current: current.model || '',
+      defaultModel: current.model || '',
+      runtimeDefaultModelId: current.model || items[0]?.id || '',
+      items,
+      ...(catalog.failures?.length ? { listError: catalog.failures.map(item => `${item.name}: ${item.message}`).join('; ') } : {}),
+    },
+  };
 }
 
 async function buildCodexSettingsPayload(session, config = {}) {

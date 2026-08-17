@@ -14,7 +14,7 @@ Linco Bridge connector 会配套开源一个参考 platform 项目，对应插�
 
 ## 功能
 
-- 支持 Claude Code、Codex、Hermes、OpenClaw 等 Agent。
+- 支持 Claude Code、Codex、DeepSeek Harness、Hermes、OpenClaw 等 Agent。
 - 支持远端 IM 连接，也支持本地测试页调试。
 - 支持文本、图片和常见文档附件上传。
 - 支持 Agent 生成文件路径引用：Agent 返回带绝对本机路径的 Markdown 链接，远端 IM 可展示为可点击文件引用。
@@ -43,6 +43,7 @@ Linco Bridge connector 会配套开源一个参考 platform 项目，对应插�
 | --- | --- | --- |
 | Claude Code | `2.1.198 (Claude Code)` | 使用 stream-json 输入/输出、stdio 权限确认和 `--append-system-prompt`；配置统一走 `agents.claude.*`，会话 ID 统一保存为 `agentSessionId`。 |
 | Codex CLI | `codex-cli 0.142.5` | 默认使用 `codex app-server --listen stdio://`；工作区沙箱为 `workspace-write`，默认允许网络访问，可用 `LINCO_CODEX_NETWORK_ACCESS=0` 关闭。 |
+| DeepSeek Harness | 源码 Web Profile | 通过 `/api/session.*` HTTP RPC 与 `/api/events.mux` WebSocket 接入，支持项目目录、多轮会话、流式输出、工具事件、审批、取消和模型设置。默认地址为 `http://127.0.0.1:3080`。 |
 | OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | 支持 Gateway agent session、`openclaw agents list --json` / `openclaw gateway call --json agents.list`；Linco 会话内可用 `/agent` 查看/绑定后续 OpenClaw Agent。 |
 | Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | 支持 Hermes Gateway `/v1/runs` 和 `hermes profile list`；Linco 会话内可用 `/profile` 查看/绑定后续 Hermes Profile。 |
 
@@ -209,6 +210,9 @@ linco-connect start --local-im
 | `LINCO_LOCAL_AGENT` | 本地测试页默认 Agent |
 | `LINCO_CLAUDE_ENABLED` | 是否启用 Claude |
 | `LINCO_CODEX_ENABLED` | 是否启用 Codex |
+| `LINCO_DEEPSEEK_ENABLED` | 是否启用 DeepSeek Harness |
+| `LINCO_DEEPSEEK_GATEWAY_URL` | DeepSeek Harness Web API 地址，默认 `http://127.0.0.1:3080` |
+| `LINCO_DEEPSEEK_AGENT_PRESET` | 新建 Harness 会话使用的 Agent preset，默认 `standard` |
 | `LINCO_HERMES_ENABLED` | 是否启用 Hermes |
 | `LINCO_OPENCLAW_ENABLED` | 是否启用 OpenClaw |
 | `LINCO_<AGENT>_BIN` | 覆盖对应 Agent CLI 命令或路径 |

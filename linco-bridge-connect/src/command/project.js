@@ -117,8 +117,11 @@ function handleProject(rawArg, ws, session, config) {
   const args = parseProjectArgs(rawArg);
 
   if (args.mode === 'known') {
+    if ((session.agentType || 'claude') === 'deepseek') {
+      return sendDeepSeekProjects(ws, session, config);
+    }
     sendKnownProjects(ws, session, { homeDir: config?.homeDir });
-    return;
+    return undefined;
   }
 
   if (args.mode === 'select') {
@@ -127,6 +130,27 @@ function handleProject(rawArg, ws, session, config) {
   }
 
   sendError(ws, '用法：/project 查看已知项目，或 /project --select <路径> 绑定项目。');
+}
+
+async function sendDeepSeekProjects(ws, session, config) {
+  try {
+    const rows = await agentRunner().listAgentProjects(session, config);
+    const projects = normalizeKnownProjectCandidates(rows.map(row => ({
+      path: row.path,
+      label: row.title,
+      projectId: row.workspaceId,
+      source: 'deepseek-harness',
+      updatedAt: Date.parse(row.updatedAt || '') || 0,
+    })), config?.homeDir || os.homedir(), 'deepseek');
+    const actions = projects.map(project => projectAction(
+      `选择项目 ${project.label}`,
+      `/project --select ${quoteProjectPath(project.path)}`,
+      { action: 'select', path: project.path, projectId: project.projectId, project_id: project.projectId, source: project.source },
+    ));
+    sendSlashCommandResult(ws, 'project', buildProjectsPayload('deepseek', session.workspace || '', projects, actions));
+  } catch (err) {
+    sendError(ws, `无法读取 DeepSeek Harness 项目: ${err.message}`);
+  }
 }
 
 function handleCd(rawArg, ws, session) {
@@ -140,7 +164,7 @@ function handleCd(rawArg, ws, session) {
 
 function sendKnownProjects(ws, session, options = {}) {
   const agentType = session.agentType || 'claude';
-  if (!['claude', 'codex'].includes(agentType)) {
+  if (!['claude', 'codex', 'deepseek'].includes(agentType)) {
     sendError(ws, '/project 目前只支持 Claude 和 Codex 模式。');
     return;
   }

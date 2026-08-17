@@ -1,11 +1,13 @@
 const claude = require('../agent/claude');
 const codex = require('../agent/codex');
+const deepseek = require('../agent/deepseek');
 const hermes = require('../agent/hermes');
 const openclaw = require('../agent/openclaw');
 
 const providers = {
   claude,
   codex,
+  deepseek,
   hermes,
   openclaw,
 };
@@ -53,10 +55,30 @@ function applyAgentSettings(ws, session, config, options = {}) {
   return providerFor(session).applySettings?.(ws, session, config, options) || false;
 }
 
+function listAgentProjects(session, config) {
+  return providerFor(session).listProjects?.(session, config) || Promise.resolve([]);
+}
+
+function listAgentProjectSessions(session, config, options = {}) {
+  return providerFor(session).listProjectSessions?.(session, config, options) || Promise.resolve([]);
+}
+
+function findAgentProjectSession(session, config, options = {}) {
+  return providerFor(session).findProjectSession?.(session, config, options) || Promise.resolve(null);
+}
+
+function readAgentSessionHistory(session, config, options = {}) {
+  return providerFor(session).readSessionHistory?.(session, config, options) || Promise.resolve({ rounds: [] });
+}
+
 module.exports = {
   applyAgentSettings,
   compactAgentContext,
   executeAgentQuery,
+  findAgentProjectSession,
+  listAgentProjectSessions,
+  listAgentProjects,
+  readAgentSessionHistory,
   resolvePendingDanger,
   resolvePendingPermission,
   switchAgentReasoning,

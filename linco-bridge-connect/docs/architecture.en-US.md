@@ -21,7 +21,7 @@ From an open-source perspective, the Linco Bridge connector is not limited to th
 | `src/update/` | npm self-update checks, status records, and background update scheduling. |
 | `src/config/` | Defaults, environment variables, user config IO, command resolution, and account config handling. |
 | `src/channel/` | Concrete channel adapters. Currently includes the `linco/` and `lincoDemo/` directories, which map to the `linco` and `linco-demo` channel keys; shared connection, registry, and presence logic live in `src/core/`. |
-| `src/agent/` | Agent adapters for Claude, Codex, Hermes, and OpenClaw. Each Agent type has its own directory and `index.js` provider entry. |
+| `src/agent/` | Agent adapters for Claude, Codex, DeepSeek Harness, Hermes, and OpenClaw. Each Agent type has its own directory and `index.js` provider entry. |
 | `src/runtime/` | Agent runtime environment, process runner, Claude history, and project-path helpers. |
 | `src/command/` | Local slash commands handled inside remote sessions. |
 | `src/core/` | Shared session, protocol sending, logging, permission state, file reference, and streaming-buffer logic. |
@@ -69,7 +69,7 @@ The Linco Bridge connector handles at least three identifier types:
 | Identifier | Source | Purpose |
 | --- | --- | --- |
 | `sessionKey` | Remote IM or connector | Bridge-layer session routing. |
-| `agentSessionId` | Agent CLI/Gateway | Resume native Claude/Codex/Hermes/OpenClaw sessions. |
+| `agentSessionId` | Agent CLI/Gateway | Resume native Claude/Codex/DeepSeek/Hermes/OpenClaw sessions. |
 | `messageId` / `streamId` | Remote IM or connector | Bind a user message, streaming reply, and `turn_end`. |
 
 Do not concatenate `_lincoMeta` into user text or Agent prompts.

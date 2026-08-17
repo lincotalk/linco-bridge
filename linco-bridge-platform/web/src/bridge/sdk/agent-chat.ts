@@ -3,6 +3,7 @@ import type { AgentBridgeType } from '../types'
 const BRIDGE_AVATAR: Record<AgentBridgeType, string> = {
   codex: '/static/icons/bot/bridge_codex.png',
   claude: '/static/icons/bot/bridge_claude.png',
+  deepseek: '/static/icons/bot/bridge_deepseek.svg',
   hermes: '/static/icons/bot/bridge_hermes.png',
   openclaw: '/static/icons/bot/bridge_claw.png',
 }
@@ -12,7 +13,7 @@ export function getAgentAvatar(agentType: AgentBridgeType): string {
 }
 
 export function parseAgentTypeFromSessionId(sessionId: string): AgentBridgeType | null {
-  const histMatch = sessionId.match(/^hist-(codex|claude|hermes|openclaw)-/)
+  const histMatch = sessionId.match(/^hist-(codex|claude|deepseek|hermes|openclaw)-/)
   if (histMatch?.[1]) return histMatch[1] as AgentBridgeType
 
   for (const type of Object.keys(BRIDGE_AVATAR) as AgentBridgeType[]) {

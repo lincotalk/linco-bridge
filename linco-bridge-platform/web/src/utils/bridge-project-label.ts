@@ -1,6 +1,6 @@
 import type { AgentBridgeType, ChatSessionItem } from '@/bridge/types'
 
-const BRIDGE_PROJECT_AGENT_TYPES = new Set<AgentBridgeType>(['codex', 'claude'])
+const BRIDGE_PROJECT_AGENT_TYPES = new Set<AgentBridgeType>(['codex', 'claude', 'deepseek'])
 
 export function bridgePathBasename(path: string): string {
   const normalized = path.trim().replace(/[\\/]+$/, '')

@@ -138,20 +138,28 @@ function handleSlashCommand(text, ws, session, config) {
         sendProviderWorkspaceNotice(ws, session);
         return completeLocalCommand(ws, session);
       }
-      handleProject(rawArg, ws, session, config);
-      return completeLocalCommand(ws, session);
+      completeMaybeAsyncLocalCommand(handleProject(rawArg, ws, session, config), ws, session);
+      return true;
 
     case '/sessions':
-      handleSessions(rawArg, ws, session, { homeDir: config?.homeDir });
-      return completeLocalCommand(ws, session);
+      completeMaybeAsyncLocalCommand(
+        handleSessions(rawArg, ws, session, { homeDir: config?.homeDir, config }),
+        ws,
+        session,
+      );
+      return true;
 
     case '/chats':
       handleChats(rawArg, ws, session, { homeDir: config?.homeDir });
       return completeLocalCommand(ws, session);
 
     case '/bind':
-      handleBind(rawArg, ws, session, { homeDir: config?.homeDir });
-      return completeLocalCommand(ws, session);
+      completeMaybeAsyncLocalCommand(
+        handleBind(rawArg, ws, session, { homeDir: config?.homeDir, config }),
+        ws,
+        session,
+      );
+      return true;
 
     case '/agent':
       completeMaybeAsyncLocalCommand(handleAgent(rawArg, ws, session, config), ws, session);
@@ -225,8 +233,12 @@ function handleSlashCommand(text, ws, session, config) {
       return completeLocalCommand(ws, session);
 
     case '/history':
-      handleHistory(rawArg, ws, session, { homeDir: config?.homeDir });
-      return completeLocalCommand(ws, session);
+      completeMaybeAsyncLocalCommand(
+        handleHistory(rawArg, ws, session, { homeDir: config?.homeDir, config }),
+        ws,
+        session,
+      );
+      return true;
 
     case '/history-reload':
     case '/sync-history':

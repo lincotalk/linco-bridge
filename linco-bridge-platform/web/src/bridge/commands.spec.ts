@@ -156,6 +156,7 @@ describe('bridge/commands', () => {
     expect(getAgentDisplayName('claude')).toBe('Claude Code')
 
     expect(getAgentDisplayName('codex')).toBe('Codex')
+    expect(getAgentDisplayName('deepseek')).toBe('DeepSeek Harness')
 
   })
 
@@ -174,6 +175,7 @@ describe('bridge/commands', () => {
   it('isLocalAgentType excludes openclaw', () => {
 
     expect(isLocalAgentType('codex')).toBe(true)
+    expect(isLocalAgentType('deepseek')).toBe(true)
 
     expect(isLocalAgentType('openclaw')).toBe(false)
 
@@ -184,6 +186,7 @@ describe('bridge/commands', () => {
   it('parseAgentBridgeType normalizes valid values', () => {
 
     expect(parseAgentBridgeType(' OpenClaw ')).toBe('openclaw')
+    expect(parseAgentBridgeType(' DeepSeek ')).toBe('deepseek')
 
     expect(parseAgentBridgeType('invalid')).toBeNull()
 

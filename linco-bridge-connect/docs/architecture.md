@@ -21,7 +21,7 @@ Linco Bridge connector 是运行在用户本机的 Agent 连接器。它负责�
 | `src/update/` | npm 包自更新检查、状态记录和后台更新调度。 |
 | `src/config/` | 默认配置、环境变量、用户配置读写、命令路径解析和账号配置处理。 |
 | `src/channel/` | 具体 channel adapter 实现。当前包含 `linco/` 和 `lincoDemo/` 目录，对应 `linco` 和 `linco-demo` channel key；公共连接、注册和 presence 逻辑放在 `src/core/`。 |
-| `src/agent/` | Claude、Codex、Hermes、OpenClaw 的 Agent 适配器；按 Agent 类型放入同名目录，并以各目录的 `index.js` 作为 provider 入口。 |
+| `src/agent/` | Claude、Codex、DeepSeek Harness、Hermes、OpenClaw 的 Agent 适配器；按 Agent 类型放入同名目录，并以各目录的 `index.js` 作为 provider 入口。 |
 | `src/runtime/` | Agent 运行环境、进程 runner、Claude 历史和项目路径辅助逻辑。 |
 | `src/command/` | 远端会话内的本地斜杠命令处理。`index.js` 保持为分发入口，具体命令逻辑按职责拆到独立模块。 |
 | `src/core/` | session、协议发送、日志、权限状态、文件引用、流式缓冲等共享核心逻辑。 |
@@ -69,7 +69,7 @@ Linco Bridge connector 内部至少会同时处理三类标识：
 | 标识 | 来源 | 用途 |
 | --- | --- | --- |
 | `sessionKey` | 远端 IM 或连接器生成 | 桥接层会话路由。 |
-| `agentSessionId` | Agent CLI/Gateway 返回 | 恢复 Claude/Codex/Hermes/OpenClaw 的原生会话。 |
+| `agentSessionId` | Agent CLI/Gateway 返回 | 恢复 Claude/Codex/DeepSeek/Hermes/OpenClaw 的原生会话。 |
 | `messageId` / `streamId` | 远端 IM 或连接器生成 | 绑定一次用户消息、流式回复和 `turn_end`。 |
 
 新增功能时应保留这些标识，不要把 `_lincoMeta` 拼入用户正文或 Agent prompt。

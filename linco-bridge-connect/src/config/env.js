@@ -174,6 +174,9 @@ function agentConfig(userConfig, imConfig, agentType, defaults = {}) {
       networkAccess: booleanFromEnv('LINCO_CODEX_NETWORK_ACCESS', channelAccount?.networkAccess ?? configured.networkAccess ?? defaults.networkAccess ?? true),
       compactionTimeoutMs: numberFromEnv('LINCO_CODEX_COMPACTION_TIMEOUT_MS', channelAccount?.compactionTimeoutMs || configured.compactionTimeoutMs || defaults.compactionTimeoutMs || 300000),
     } : {}),
+    ...(agentType === 'deepseek' ? {
+      agentPreset: stringFromEnv('LINCO_DEEPSEEK_AGENT_PRESET', channelAccount?.agentPreset || configured.agentPreset || defaults.agentPreset || 'standard'),
+    } : {}),
     ...(agentType === 'claude' ? {
       addRuntimeDir: booleanFromEnv('LINCO_CLAUDE_ADD_RUNTIME_DIR', configured.addRuntimeDir ?? channelAccount?.addRuntimeDir ?? defaults.addRuntimeDir ?? true),
       compactionTimeoutMs: numberFromEnv('LINCO_CLAUDE_COMPACTION_TIMEOUT_MS', channelAccount?.compactionTimeoutMs || configured.compactionTimeoutMs || defaults.compactionTimeoutMs || 300000),
@@ -280,6 +283,7 @@ function loadConfig(rootDir) {
   const accountAgentType = imConfig.agentType;
   const selectedChannelWsUrls = getChannelAgentWsUrls(imConfig.channel);
   const codexAccountConfig = defaultAccountFromChannel(userConfig, imConfig.channel, 'codex');
+  const deepseekAccountConfig = defaultAccountFromChannel(userConfig, imConfig.channel, 'deepseek');
   const hermesAccountConfig = defaultAccountFromChannel(userConfig, imConfig.channel, 'hermes');
   const openclawAccountConfig = defaultAccountFromChannel(userConfig, imConfig.channel, 'openclaw');
   const agents = {
@@ -292,6 +296,11 @@ function loadConfig(rootDir) {
     codex: agentConfig(userConfig, imConfig, 'codex', {
       bin: stringFromEnv('CODEX_BIN', userConfig.codexBin || codexAccountConfig.bin || 'codex'),
       wsUrl: codexAccountConfig.wsUrl || selectedChannelWsUrls.codex,
+    }),
+    deepseek: agentConfig(userConfig, imConfig, 'deepseek', {
+      wsUrl: deepseekAccountConfig.wsUrl || selectedChannelWsUrls.deepseek,
+      gatewayUrl: 'http://127.0.0.1:3080',
+      agentPreset: 'standard',
     }),
     hermes: agentConfig(userConfig, imConfig, 'hermes', {
       wsUrl: hermesAccountConfig.wsUrl || selectedChannelWsUrls.hermes,

@@ -3,6 +3,7 @@ const OFFICIAL_LINCO_DEMO_WS_BASE_URL = 'ws://127.0.0.1:3300/bridge/ws';
 const OFFICIAL_LINCO_DEMO_AGENT_WS_URLS = {
   claude: `${OFFICIAL_LINCO_DEMO_WS_BASE_URL}/claude`,
   codex: `${OFFICIAL_LINCO_DEMO_WS_BASE_URL}/codex`,
+  deepseek: `${OFFICIAL_LINCO_DEMO_WS_BASE_URL}/deepseek`,
   hermes: `${OFFICIAL_LINCO_DEMO_WS_BASE_URL}/hermes`,
   openclaw: `${OFFICIAL_LINCO_DEMO_WS_BASE_URL}/openclaw`,
 };

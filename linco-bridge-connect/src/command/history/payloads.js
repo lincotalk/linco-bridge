@@ -82,7 +82,9 @@ function buildSessionsPayload(agentType, workspace, sessions, actions, requested
     returnedCount: sessions.length,
     items: sessions.map((item, index) => {
       const sessionWorkspace = item.workspace || workspace;
-      const resumeCommand = buildPcResumeCommand(agentType, sessionWorkspace, item.id);
+      const resumeCommand = agentType === 'deepseek'
+        ? null
+        : buildPcResumeCommand(agentType, sessionWorkspace, item.id);
       return {
         index: index + 1,
         id: item.id,

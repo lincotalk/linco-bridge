@@ -1,5 +1,5 @@
 /** Supported local agent bridge types (aligned with aichat-service agent-bridge). */
-export type AgentBridgeType = 'codex' | 'claude' | 'hermes' | 'openclaw'
+export type AgentBridgeType = 'codex' | 'claude' | 'deepseek' | 'hermes' | 'openclaw'
 
 export type BridgeConnectionStatus = 'online' | 'offline' | 'unknown'
 

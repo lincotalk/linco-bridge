@@ -14,7 +14,7 @@ Linco Bridge connector is open-sourced together with a reference platform projec
 
 ## Features
 
-- Supports Claude Code, Codex, Hermes, OpenClaw, and related Agent integrations.
+- Supports Claude Code, Codex, DeepSeek Harness, Hermes, OpenClaw, and related Agent integrations.
 - Supports remote IM connections and a local test page for debugging.
 - Supports text, image, and common document attachments.
 - Supports generated file references. Agents return Markdown links with absolute local paths so the remote IM can display clickable file references.
@@ -43,6 +43,7 @@ Verified Agent versions:
 | --- | --- | --- |
 | Claude Code | `2.1.198 (Claude Code)` | Uses stream-json input/output, stdio permission confirmation, and `--append-system-prompt`. Configuration uses `agents.claude.*`, and session IDs are stored as `agentSessionId`. |
 | Codex CLI | `codex-cli 0.142.5` | Uses `codex app-server --listen stdio://` by default. The workspace sandbox is `workspace-write`; network access is allowed by default and can be disabled with `LINCO_CODEX_NETWORK_ACCESS=0`. |
+| DeepSeek Harness | Source Web profile | Uses `/api/session.*` HTTP RPC and the `/api/events.mux` WebSocket. Supports project directories, resumable sessions, streaming output, tools, approvals, cancellation, and model settings. The default URL is `http://127.0.0.1:3080`. |
 | OpenClaw | `OpenClaw 2026.5.18 (50a2481)` | Supports Gateway agent sessions and `openclaw agents list --json` / `openclaw gateway call --json agents.list`. Use `/agent` in a Linco session to view or bind the default OpenClaw Agent for future sessions. |
 | Hermes | `Hermes Agent v0.13.0 (2026.5.7)` | Supports Hermes Gateway `/v1/runs` and `hermes profile list`. Use `/profile` in a Linco session to view or bind the default Hermes Profile for future sessions. |
 
@@ -209,6 +210,9 @@ Common environment variables:
 | `LINCO_LOCAL_AGENT` | Default Agent for the local test page. |
 | `LINCO_CLAUDE_ENABLED` | Enables Claude. |
 | `LINCO_CODEX_ENABLED` | Enables Codex. |
+| `LINCO_DEEPSEEK_ENABLED` | Enables DeepSeek Harness. |
+| `LINCO_DEEPSEEK_GATEWAY_URL` | DeepSeek Harness Web API URL. Defaults to `http://127.0.0.1:3080`. |
+| `LINCO_DEEPSEEK_AGENT_PRESET` | Harness Agent preset for new sessions. Defaults to `standard`. |
 | `LINCO_HERMES_ENABLED` | Enables Hermes. |
 | `LINCO_OPENCLAW_ENABLED` | Enables OpenClaw. |
 | `LINCO_<AGENT>_BIN` | Overrides the Agent CLI command or path. |

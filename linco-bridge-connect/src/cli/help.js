@@ -24,7 +24,7 @@ function printHelp(pkg) {
   doctor  检查本地运行环境
 
 Agent:
-  --agent   指定 Agent 类型: claude, codex, hermes, openclaw
+  --agent   指定 Agent 类型: claude, codex, deepseek, hermes, openclaw
   --account 指定账号名，默认 default
   --channel 指定 channel key，默认 linco；参考平台使用 linco-demo
 

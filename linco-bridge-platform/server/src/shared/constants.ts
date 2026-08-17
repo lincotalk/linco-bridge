@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 export const DEMO_USER_ID = 'demo'
 
-export const AGENT_BRIDGE_TYPES = ['codex', 'claude', 'hermes', 'openclaw'] as const
+export const AGENT_BRIDGE_TYPES = ['codex', 'claude', 'deepseek', 'hermes', 'openclaw'] as const
 
 export type AgentBridgeType = (typeof AGENT_BRIDGE_TYPES)[number]
 
@@ -42,6 +42,8 @@ export function agentDisplayName(type: AgentBridgeType): string {
   switch (type) {
     case 'codex':
       return 'Codex'
+    case 'deepseek':
+      return 'DeepSeek Harness'
     case 'hermes':
       return 'Hermes'
     case 'openclaw':

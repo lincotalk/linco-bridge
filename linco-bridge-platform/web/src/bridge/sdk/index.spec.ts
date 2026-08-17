@@ -7,11 +7,12 @@ import {
 import { createMockBridgeSdk } from '@/bridge/sdk'
 
 describe('bridge/constants', () => {
-  it('exposes exactly four bridge source cards', () => {
-    expect(BRIDGE_SOURCE_CARDS).toHaveLength(4)
+  it('exposes all five bridge source cards', () => {
+    expect(BRIDGE_SOURCE_CARDS).toHaveLength(5)
     expect(BRIDGE_SOURCE_CARDS.map((item) => item.type)).toEqual([
       'codex',
       'claude',
+      'deepseek',
       'hermes',
       'openclaw',
     ])
@@ -27,6 +28,7 @@ describe('bridge/constants', () => {
     expect(requiresContextBinding('hermes')).toBe(true)
     expect(requiresContextBinding('codex')).toBe(false)
     expect(requiresContextBinding('claude')).toBe(false)
+    expect(requiresContextBinding('deepseek')).toBe(false)
   })
 })
 

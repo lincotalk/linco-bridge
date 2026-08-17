@@ -3,6 +3,7 @@ const OFFICIAL_LINCO_WS_BASE_URL = 'wss://app.lincotalk.com/socket/ai';
 const OFFICIAL_LINCO_AGENT_WS_URLS = {
   claude: `${OFFICIAL_LINCO_WS_BASE_URL}/claude`,
   codex: `${OFFICIAL_LINCO_WS_BASE_URL}/codex`,
+  deepseek: `${OFFICIAL_LINCO_WS_BASE_URL}/deepseek`,
   hermes: `${OFFICIAL_LINCO_WS_BASE_URL}/hermes`,
   openclaw: `${OFFICIAL_LINCO_WS_BASE_URL}/openclaw`,
 };

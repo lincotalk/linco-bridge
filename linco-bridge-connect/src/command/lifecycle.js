@@ -4,6 +4,7 @@ const { handleUpdate } = require('./update');
 const {
   agentRunner,
   completeLocalCommand,
+  completeMaybeAsyncLocalCommand,
 } = require('./common');
 
 function handleCompactCommand(rawArg, ws, session, config) {
@@ -54,6 +55,17 @@ function runReload(ws, session, config) {
 function handleHistoryReload(rawArg, ws, session, config = {}) {
   if (isSessionBusyForHistoryReload(session)) {
     return completeLocalCommand(ws, session);
+  }
+
+  if ((session.agentType || 'claude') === 'deepseek') {
+    completeMaybeAsyncLocalCommand(handleHistory(rawArg, ws, session, {
+      homeDir: config?.homeDir,
+      config,
+      bindExplicitHistorySession: true,
+      allowExplicitHistorySessionSwitch: true,
+      historyReload: true,
+    }), ws, session);
+    return true;
   }
 
   const trackingWs = trackHistoryResult(ws, { defer: true });

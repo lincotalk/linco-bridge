@@ -16,7 +16,7 @@ function buildHelpPayload(session) {
     helpItem('/remove-account', '删除当前或指定 Agent 下的账号配置'),
   ];
 
-  if (agentType === 'claude' || agentType === 'codex') {
+  if (agentType === 'claude' || agentType === 'codex' || agentType === 'deepseek') {
     items.splice(2, 0,
       helpItem('/pwd', '显示当前项目目录'),
       helpItem('/cd <路径>', '绑定指定项目目录'),
@@ -26,7 +26,9 @@ function buildHelpPayload(session) {
     const usageIndex = items.findIndex(item => item.command === '/usage');
     const desc = agentType === 'claude'
       ? 'Show/switch Claude effort'
-      : 'Show/switch Codex reasoning effort';
+      : agentType === 'deepseek'
+        ? 'Show/switch DeepSeek reasoning effort'
+        : 'Show/switch Codex reasoning effort';
     items.splice(usageIndex >= 0 ? usageIndex : items.length, 0, helpItem('/reasoning', desc));
   } else if (agentType === 'openclaw') {
     items.splice(2, 0, helpItem('/agent', '查看/绑定后续 OpenClaw Agent'));

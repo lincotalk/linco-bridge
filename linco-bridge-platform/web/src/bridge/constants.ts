@@ -17,6 +17,13 @@ export const BRIDGE_SOURCE_CARDS: readonly BridgeSourceCard[] = [
     route: '/pages/bridge/import-local?type=claude',
   },
   {
+    type: 'deepseek',
+    title: '从 DeepSeek Harness 导入',
+    subtitle: '将手机与 DeepSeek Harness 连接',
+    icon: '/static/icons/bot/deepseek.svg',
+    route: '/pages/bridge/import-local?type=deepseek',
+  },
+  {
     type: 'hermes',
     title: '从 Hermes 导入',
     subtitle: '将手机与 Hermes 连接',
@@ -48,12 +55,12 @@ export function supportsBridgeContextSelector(_type: AgentBridgeType): boolean {
 
 /** Codex / Claude Code only — aligned with Flutter `_supportsBridgeWorkspaceSelector`. */
 export function supportsBridgeWorkspaceSelector(type: AgentBridgeType): boolean {
-  return type === 'codex' || type === 'claude'
+  return type === 'codex' || type === 'claude' || type === 'deepseek'
 }
 
 /** Codex / Claude Code only — model + reasoning settings entry in input toolbar. */
 export function supportsBridgeSettingsSelector(type: AgentBridgeType): boolean {
-  return type === 'codex' || type === 'claude'
+  return type === 'codex' || type === 'claude' || type === 'deepseek'
 }
 
 /** All bridge agents — `/help` slash command cache + input autocomplete. */
@@ -61,6 +68,7 @@ export function supportsBridgeSlashCommands(type: AgentBridgeType): boolean {
   return (
     type === 'codex' ||
     type === 'claude' ||
+    type === 'deepseek' ||
     type === 'hermes' ||
     type === 'openclaw'
   )

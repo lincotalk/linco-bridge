@@ -97,11 +97,11 @@ function buildClientWebSocketUrl(req, config) {
 
 function localAgentOptions(config) {
   const agents = config.agents || {};
-  return ['claude', 'codex', 'hermes', 'openclaw']
+  return ['claude', 'codex', 'deepseek', 'hermes', 'openclaw']
     .filter(type => agents[type])
     .map(type => ({
       type,
-      label: type === 'claude' ? 'Claude Code' : type === 'codex' ? 'Codex' : type === 'hermes' ? 'Hermes' : type === 'openclaw' ? 'OpenClaw' : type,
+      label: type === 'claude' ? 'Claude Code' : type === 'codex' ? 'Codex' : type === 'deepseek' ? 'DeepSeek Harness' : type === 'hermes' ? 'Hermes' : type === 'openclaw' ? 'OpenClaw' : type,
       enabled: agents[type]?.enabled === true,
     }));
 }

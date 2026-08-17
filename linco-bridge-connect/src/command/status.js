@@ -43,7 +43,7 @@ Agent 进程: ${processRunning ? '运行中' : '未运行'}
 
 function handleSessionId(ws, session) {
   const agentType = session.agentType || 'claude';
-  if (!['claude', 'codex'].includes(agentType)) {
+  if (!['claude', 'codex', 'deepseek'].includes(agentType)) {
     sendError(ws, `/session 目前只支持 Claude 和 Codex 模式，当前是 ${agentType}。`);
     return;
   }

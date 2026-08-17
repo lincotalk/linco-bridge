@@ -264,6 +264,7 @@ export function createMockBridgeSdk(options?: {
   const mockContexts: Record<AgentBridgeType, AgentBridgeBindableContext[]> = {
     codex: [{ id: 'project-1', label: 'demo-project', description: 'Codex workspace' }],
     claude: [{ id: 'project-1', label: 'demo-project', description: 'Claude project' }],
+    deepseek: [{ id: 'project-1', label: 'demo-project', description: 'DeepSeek Harness workspace' }],
     hermes: [{ id: 'profile-default', label: 'default', description: 'Hermes profile' }],
     openclaw: [{ id: 'agent-main', label: 'main', description: 'OpenClaw agent' }],
   }

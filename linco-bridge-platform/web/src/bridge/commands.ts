@@ -16,13 +16,15 @@ export interface BridgeCommandParams {
   wsUrl?: string
 }
 
-const LOCAL_AGENT_TYPES = new Set<AgentBridgeType>(['codex', 'claude', 'hermes'])
+const LOCAL_AGENT_TYPES = new Set<AgentBridgeType>(['codex', 'claude', 'deepseek', 'hermes'])
 
 /** Human-readable agent name (aligned with Flutter LocalAgentBridgeSpec). */
 export function getAgentDisplayName(type: AgentBridgeType): string {
   switch (type) {
     case 'codex':
       return 'Codex'
+    case 'deepseek':
+      return 'DeepSeek Harness'
     case 'hermes':
       return 'Hermes'
     case 'openclaw':
@@ -99,6 +101,7 @@ export function parseAgentBridgeType(raw: string): AgentBridgeType | null {
   if (
     normalized === 'codex' ||
     normalized === 'claude' ||
+    normalized === 'deepseek' ||
     normalized === 'hermes' ||
     normalized === 'openclaw'
   ) {

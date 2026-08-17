@@ -14,6 +14,7 @@ const emit = defineEmits<{
 const bridgeAvatarMap: Record<ChatSessionItem['agentType'], string> = {
   codex: '/static/icons/bot/bridge_codex.png',
   claude: '/static/icons/bot/bridge_claude.png',
+  deepseek: '/static/icons/bot/bridge_deepseek.svg',
   hermes: '/static/icons/bot/bridge_hermes.png',
   openclaw: '/static/icons/bot/bridge_claw.png',
 }

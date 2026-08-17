@@ -26,7 +26,7 @@ export interface AccountsCommandPayload {
 }
 
 function isAgentBridgeType(value: string): value is AgentBridgeType {
-  return value === 'codex' || value === 'claude' || value === 'hermes' || value === 'openclaw'
+  return value === 'codex' || value === 'claude' || value === 'deepseek' || value === 'hermes' || value === 'openclaw'
 }
 
 function parseConnectedAgentItem(raw: unknown): ConnectedAgentItem | null {
