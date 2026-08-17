@@ -77,7 +77,7 @@ function sendControlCommand(config, command, options = {}) {
 
     socket.setEncoding('utf8');
     socket.on('connect', () => {
-      socket.end(`${JSON.stringify({ command })}\n`);
+      socket.write(`${JSON.stringify({ command })}\n`);
     });
     socket.on('data', chunk => {
       data += chunk;
