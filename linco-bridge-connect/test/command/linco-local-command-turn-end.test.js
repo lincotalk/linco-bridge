@@ -20,6 +20,16 @@ function createCaptureWs() {
   };
 }
 
+async function waitForFrame(ws, predicate, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const frame = ws.sent.find(predicate);
+    if (frame) return frame;
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  throw new Error('Timed out waiting for WebSocket frame');
+}
+
 function canCreateDirectorySymlink() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-symlink-check-'));
   const realDir = path.join(tempDir, 'real');
@@ -1166,7 +1176,7 @@ const directorySymlinkSupported = canCreateDirectorySymlink();
   assert.strictEqual(bindMetadata.agentSessionId, 'project-session');
 }
 
-{
+test('Codex local session list remains available in exec compatibility mode', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-sessions-home-'));
   const project = path.join(homeDir, 'code', 'codex-session-project');
   const otherProject = path.join(homeDir, 'code', 'codex-other-project');
@@ -1201,7 +1211,11 @@ const directorySymlinkSupported = canCreateDirectorySymlink();
     agentSessionHistory: [],
   };
 
-  assert.strictEqual(handleSlashCommand('/sessions', ws, session, { homeDir }), true);
+  assert.strictEqual(handleSlashCommand('/sessions', ws, session, {
+    homeDir,
+    agents: { codex: { mode: 'exec' } },
+  }), true);
+  await waitForFrame(ws, frame => frame.type === 'turn_end');
   assert.strictEqual(ws.sent[0].type, 'slash_command_result');
   assert.strictEqual(ws.sent[0].command, 'sessions');
   assert.strictEqual(ws.sent[0].data.agentType, 'codex');
@@ -1210,9 +1224,9 @@ const directorySymlinkSupported = canCreateDirectorySymlink();
   assert.strictEqual(ws.sent[0].data.items[0].bindCommand, '/bind codex-new');
   assert.match(ws.sent[0].data.items[0].resumeCommand.text, /codex resume --cd/);
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
-}
+});
 
-{
+test('Codex state database session list remains available in exec compatibility mode', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-state-sessions-home-'));
   const project = path.join(homeDir, 'code', 'codex-state-project');
   const otherProject = path.join(homeDir, 'code', 'codex-state-other');
@@ -1260,7 +1274,11 @@ const directorySymlinkSupported = canCreateDirectorySymlink();
     agentSessionHistory: [],
   };
 
-  assert.strictEqual(handleSlashCommand('/sessions 1', ws, session, { homeDir }), true);
+  assert.strictEqual(handleSlashCommand('/sessions 1', ws, session, {
+    homeDir,
+    agents: { codex: { mode: 'exec' } },
+  }), true);
+  await waitForFrame(ws, frame => frame.type === 'turn_end');
   assert.strictEqual(ws.sent[0].type, 'slash_command_result');
   assert.strictEqual(ws.sent[0].command, 'sessions');
   assert.strictEqual(ws.sent[0].data.returnedCount, 1);
@@ -1269,9 +1287,9 @@ const directorySymlinkSupported = canCreateDirectorySymlink();
   assert.strictEqual(ws.sent[0].data.items[0].firstMessage, 'new state prompt');
   assert.strictEqual(ws.sent[0].data.items[0].transcriptPath, path.join(codexDir, 'missing-new.jsonl'));
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
-}
+});
 
-if (directorySymlinkSupported) {
+if (directorySymlinkSupported) test('Codex state database follows workspace realpaths in exec compatibility mode', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-state-realpath-home-'));
   const realProject = path.join(homeDir, 'real', 'codex-state-project');
   const linkProject = path.join(homeDir, 'link', 'codex-state-project');
@@ -1328,14 +1346,18 @@ if (directorySymlinkSupported) {
     agentSessionHistory: [],
   };
 
-  assert.strictEqual(handleSlashCommand('/sessions 1', ws, session, { homeDir }), true);
+  assert.strictEqual(handleSlashCommand('/sessions 1', ws, session, {
+    homeDir,
+    agents: { codex: { mode: 'exec' } },
+  }), true);
+  await waitForFrame(ws, frame => frame.type === 'turn_end');
   assert.strictEqual(ws.sent[0].type, 'slash_command_result');
   assert.strictEqual(ws.sent[0].command, 'sessions');
   assert.strictEqual(ws.sent[0].data.returnedCount, 1);
   assert.strictEqual(ws.sent[0].data.items[0].id, 'codex-state-realpath');
   assert.strictEqual(ws.sent[0].data.items[0].title, 'realpath state title');
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
-}
+});
 
 if (directorySymlinkSupported) {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-state-alias-split-home-'));
@@ -1559,7 +1581,7 @@ if (directorySymlinkSupported) {
   assert.strictEqual(sessions[0].title, 'real codex prompt');
 }
 
-{
+test('Codex explicit project history remains available in exec compatibility mode', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-fast-history-home-'));
   const project = path.join(homeDir, 'code', 'codex-fast-history-project');
   const otherProject = path.join(homeDir, 'code', 'codex-fast-history-other');
@@ -1599,15 +1621,19 @@ if (directorySymlinkSupported) {
     messageQueue: [],
     agentSessionHistory: [],
   };
-  assert.strictEqual(handleSlashCommand(`/history --project "${project}" --session 019f-fast-history 1`, ws, session, { homeDir }), true);
+  assert.strictEqual(handleSlashCommand(`/history --project "${project}" --session 019f-fast-history 1`, ws, session, {
+    homeDir,
+    agents: { codex: { mode: 'exec' } },
+  }), true);
+  await waitForFrame(ws, frame => frame.type === 'turn_end');
   assert.strictEqual(ws.sent[0].type, 'slash_command_result');
   assert.strictEqual(ws.sent[0].data.agentSessionId, '019f-fast-history');
   assert.strictEqual(ws.sent[0].data.rounds[0].user.text, 'fast history question');
   assert.strictEqual(ws.sent[0].data.rounds[0].assistant.text, 'fast history answer');
   assert.strictEqual(session.workspace, otherProject);
-}
+});
 
-{
+test('Codex projectless chat history remains available through local transcripts', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-chats-home-'));
   const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-chats-runtime-'));
   const newWorkspace = path.join(homeDir, 'Documents', 'Codex', 'new-chat');
@@ -1656,19 +1682,33 @@ if (directorySymlinkSupported) {
   assert.strictEqual(listWs.sent[0].data.items[0].bindCommand, '/bind --chat chat-new');
   assert.strictEqual(listWs.sent[0].data.items[0].workspace, newWorkspace);
 
+  session.linco = {
+    messageId: 'm-codex-chat-history',
+    streamId: 'linco-stream-codex-chat-history',
+  };
   const historyWs = createCaptureWs();
   assert.strictEqual(handleSlashCommand('/history --chat chat-new', historyWs, session, { homeDir }), true);
+  await waitForFrame(historyWs, frame => frame.type === 'turn_end');
   assert.strictEqual(historyWs.sent[0].type, 'slash_command_result');
   assert.strictEqual(historyWs.sent[0].command, 'history');
   assert.strictEqual(historyWs.sent[0].data.agentSessionId, 'chat-new');
   assert.strictEqual(historyWs.sent[0].data.rounds[0].user.text, 'new chat question');
   assert.strictEqual(historyWs.sent[0].data.rounds[0].assistant.text, 'new chat answer');
 
+  session.linco = {
+    messageId: 'm-codex-chat-history-equals',
+    streamId: 'linco-stream-codex-chat-history-equals',
+  };
   const historyEqualsWs = createCaptureWs();
   assert.strictEqual(handleSlashCommand('/history --chat=chat-new 1', historyEqualsWs, session, { homeDir }), true);
+  await waitForFrame(historyEqualsWs, frame => frame.type === 'turn_end');
   assert.strictEqual(historyEqualsWs.sent[0].data.agentSessionId, 'chat-new');
   assert.strictEqual(historyEqualsWs.sent[0].data.returnedRounds, 1);
 
+  session.linco = {
+    messageId: 'm-codex-chat-bind',
+    streamId: 'linco-stream-codex-chat-bind',
+  };
   const bindWs = createCaptureWs();
   assert.strictEqual(handleSlashCommand('/bind --chat=chat-new', bindWs, session, { homeDir }), true);
   assert.strictEqual(session.workspace, newWorkspace);
@@ -1679,7 +1719,7 @@ if (directorySymlinkSupported) {
 
   const chats = slashCommandInternals.collectCodexProjectlessChats(homeDir, { limit: 1 });
   assert.deepStrictEqual(chats.map(chat => chat.id), ['chat-new']);
-}
+});
 
 {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-nested-chats-home-'));
@@ -1760,7 +1800,7 @@ if (directorySymlinkSupported) {
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
 }
 
-{
+test('Codex bound history remains available in exec compatibility mode', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-codex-history-home-'));
   const project = path.join(homeDir, 'code', 'codex-history-project');
   const sessionId = 'codex-history-session';
@@ -1818,7 +1858,11 @@ if (directorySymlinkSupported) {
     agentSessionHistory: [],
   };
 
-  assert.strictEqual(handleSlashCommand('/history', ws, session, { homeDir }), true);
+  assert.strictEqual(handleSlashCommand('/history', ws, session, {
+    homeDir,
+    agents: { codex: { mode: 'exec' } },
+  }), true);
+  await waitForFrame(ws, frame => frame.type === 'turn_end');
   assert.strictEqual(ws.sent[0].type, 'slash_command_result');
   assert.strictEqual(ws.sent[0].command, 'history');
   assert.strictEqual(ws.sent[0].data.agentType, 'codex');
@@ -1856,7 +1900,7 @@ if (directorySymlinkSupported) {
   assert.strictEqual(ws.sent[0].data.rounds[0].timestamp, '2026-06-11T02:01:00.000Z');
   assert.strictEqual(ws.sent[0].data.rounds[0].timestampMs, Date.parse('2026-06-11T02:01:00.000Z'));
   assert.strictEqual(ws.sent.at(-1).type, 'turn_end');
-}
+});
 
 test('history-reload waits for reload warmup before returning history', async () => {
   const slashPath = require.resolve('../../src/command');

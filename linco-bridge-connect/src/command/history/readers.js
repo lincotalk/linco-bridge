@@ -1109,6 +1109,7 @@ module.exports = {
   extractTextFromMessageContent,
   isCodexSubagentSource,
   normalizeCodexTitle,
+  normalizeCodexUserText,
   parseClaudeHistoryRounds,
   parseCodexHistoryRounds,
   parseRecentHistoryRounds,
@@ -1116,4 +1117,5 @@ module.exports = {
   readCodexSessionIndex,
   readCodexSessionMeta,
   readJsonlRecords,
+  sanitizeCodexHistoryAssistantText,
 };

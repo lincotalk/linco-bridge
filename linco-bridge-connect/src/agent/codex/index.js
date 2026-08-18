@@ -56,6 +56,15 @@ const {
   extractCodexDeveloperInstructions,
   mergeCodexDeveloperInstructions,
 } = require('./instructions');
+const {
+  buildHistoryPageInfo,
+  buildThreadListParams,
+  decodeHistoryCursor,
+  encodeHistoryCursor,
+  mapThreadListItem,
+  mapTurnsToRounds,
+  paginateRounds,
+} = require('./sessions');
 
 const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
 const CODEX_COMPACTION_STALE_MS = 90_000;
@@ -173,6 +182,224 @@ async function warmup(ws, session, config) {
   await ensureAppServer(session, config);
   const threadId = await ensureThread(session);
   return { supported: true, process: 'codex app-server', threadId };
+}
+
+async function listProjectSessions(session, config, options = {}) {
+  const projectPath = String(options.workspace || options.projectPath || '').trim();
+  if (!projectPath) return [];
+  if (isCodexExecMode(config)) {
+    return listProjectSessionsFromLocal(session, config, options);
+  }
+
+  try {
+    return await listProjectSessionsFromRpc(session, config, options);
+  } catch (err) {
+    config?.logger?.warn?.('codex thread/list failed, falling back to local sessions', {
+      error: err.message,
+      workspace: projectPath,
+    });
+    return listProjectSessionsFromLocal(session, config, options);
+  }
+}
+
+async function findProjectSession(session, config, options = {}) {
+  const targetId = String(options.sessionId || '').trim();
+  if (!targetId) return null;
+  const sessions = await listProjectSessions(session, config, { ...options, limit: 0 });
+  const matched = sessions.find(item => item.id === targetId);
+  if (matched) return matched;
+  if (isCodexExecMode(config)) return null;
+
+  try {
+    await prepareCodexRpcSession(session, config);
+    const result = await rpcRequest(session, nextRpcId(session), 'thread/read', {
+      threadId: targetId,
+      includeTurns: false,
+    });
+    const mapped = mapThreadListItem(result?.thread, options.workspace || session.workspace || '');
+    return mapped?.id === targetId ? mapped : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readSessionHistory(session, config, options = {}) {
+  const sessionId = String(options.sessionId || '').trim();
+  const limit = Number(options.limit);
+  if (!sessionId) throw new Error('Codex session ID is required');
+  if (!Number.isInteger(limit) || limit < 1) throw new Error('Codex history limit is invalid');
+
+  if (isCodexExecMode(config)) {
+    return readSessionHistoryFromLocal(session, config, options);
+  }
+
+  try {
+    return await readSessionHistoryFromRpc(session, config, options);
+  } catch (err) {
+    config?.logger?.warn?.('codex thread history RPC failed, falling back to local transcript', {
+      error: err.message,
+      sessionId,
+    });
+    return readSessionHistoryFromLocal(session, config, options);
+  }
+}
+
+function isCodexExecMode(config = {}) {
+  return (config.agents?.codex || {}).mode === 'exec';
+}
+
+async function prepareCodexRpcSession(session, config) {
+  session._lastConfig = config;
+  session._log = config.logger;
+  await ensureAppServer(session, config);
+}
+
+async function listProjectSessionsFromRpc(session, config, options = {}) {
+  const projectPath = String(options.workspace || options.projectPath || '').trim();
+  const resultLimit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : 0;
+  await prepareCodexRpcSession(session, config);
+
+  const sessions = [];
+  let cursor;
+  for (let page = 0; page < 20; page += 1) {
+    const pageLimit = resultLimit > 0
+      ? Math.min(100, Math.max(resultLimit - sessions.length, 1))
+      : 50;
+    const result = await rpcRequest(
+      session,
+      nextRpcId(session),
+      'thread/list',
+      buildThreadListParams(projectPath, { limit: pageLimit, cursor }),
+    );
+    const rows = Array.isArray(result?.data) ? result.data : [];
+    for (const row of rows) {
+      const mapped = mapThreadListItem(row, projectPath);
+      if (!mapped) continue;
+      sessions.push(mapped);
+      if (resultLimit > 0 && sessions.length >= resultLimit) break;
+    }
+    cursor = typeof result?.nextCursor === 'string' ? result.nextCursor.trim() : '';
+    if (!cursor || (resultLimit > 0 && sessions.length >= resultLimit) || rows.length === 0) break;
+  }
+
+  return resultLimit > 0 ? sessions.slice(0, resultLimit) : sessions;
+}
+
+function listProjectSessionsFromLocal(session, config, options = {}) {
+  const {
+    collectLocalProjectSessions,
+  } = require('../../command/history/sessions');
+  const os = require('os');
+  return collectLocalProjectSessions({
+    agentType: 'codex',
+    workspace: options.workspace || options.projectPath || session.workspace,
+    homeDir: config?.homeDir || os.homedir(),
+    limit: options.limit,
+    projectId: options.projectId,
+  });
+}
+
+async function readSessionHistoryFromRpc(session, config, options = {}) {
+  const sessionId = String(options.sessionId || '').trim();
+  const limit = Number(options.limit);
+  await prepareCodexRpcSession(session, config);
+
+  const decoded = options.beforeCursor
+    ? decodeHistoryCursor(options.beforeCursor, sessionId)
+    : null;
+
+  if (decoded?.kind === 'read') {
+    return readSessionHistoryViaThreadRead(session, config, options, decoded);
+  }
+
+  try {
+    const result = await rpcRequest(session, nextRpcId(session), 'thread/turns/list', {
+      threadId: sessionId,
+      limit: Math.min(100, Math.max(limit, 1)),
+      sortDirection: 'desc',
+      itemsView: 'full',
+      ...(decoded?.kind === 'rpc' && decoded.cursor ? { cursor: decoded.cursor } : {}),
+    });
+    const turnsNewestFirst = Array.isArray(result?.data) ? result.data : [];
+    const officialCursor = typeof result?.nextCursor === 'string' ? result.nextCursor.trim() : '';
+    const pageTurns = turnsNewestFirst.slice(0, limit).reverse();
+    const rounds = mapTurnsToRounds(pageTurns, {
+      includeThinking: options.includeThinking === true,
+    });
+    const pageInfo = buildHistoryPageInfo({
+      hasMore: Boolean(officialCursor),
+      nextCursor: officialCursor ? encodeHistoryCursor(sessionId, officialCursor) : null,
+      snapshotId: sessionId,
+    });
+    return {
+      rounds,
+      pageInfo,
+      syncMeta: {
+        strategy: 'codex_app_server_turns_list',
+        pageMode: decoded ? 'older' : 'latest',
+        turnCount: turnsNewestFirst.length,
+      },
+    };
+  } catch (turnsErr) {
+    config?.logger?.warn?.('codex thread/turns/list unavailable, trying thread/read', {
+      error: turnsErr.message,
+      sessionId,
+    });
+    if (decoded?.kind === 'rpc') {
+      throw turnsErr;
+    }
+    return readSessionHistoryViaThreadRead(session, config, options, decoded);
+  }
+}
+
+async function readSessionHistoryViaThreadRead(session, config, options = {}, decoded = null) {
+  const sessionId = String(options.sessionId || '').trim();
+  const limit = Number(options.limit);
+  const result = await rpcRequest(session, nextRpcId(session), 'thread/read', {
+    threadId: sessionId,
+    includeTurns: true,
+  });
+  const turns = Array.isArray(result?.thread?.turns) ? result.thread.turns : [];
+  const allRounds = mapTurnsToRounds(turns, {
+    includeThinking: options.includeThinking === true,
+  });
+  const paged = paginateRounds(allRounds, {
+    sessionId,
+    limit,
+    decoded,
+  });
+  return {
+    rounds: paged.rounds,
+    pageInfo: paged.pageInfo,
+    syncMeta: {
+      strategy: 'codex_app_server_thread_read',
+      pageMode: decoded ? 'older' : 'latest',
+      turnCount: turns.length,
+    },
+  };
+}
+
+function readSessionHistoryFromLocal(session, config, options = {}) {
+  const os = require('os');
+  const {
+    resolveCurrentHistoryTranscript,
+  } = require('../../command/history/sessions');
+  const { parseRecentHistoryRounds } = require('../../command/history/readers');
+  const workspace = options.workspace || session.workspace;
+  const resolved = resolveCurrentHistoryTranscript({
+    agentType: 'codex',
+    workspace,
+    homeDir: config?.homeDir || os.homedir(),
+    sessionId: options.sessionId,
+  });
+  if (!resolved.ok) throw new Error(resolved.message);
+  return parseRecentHistoryRounds(resolved.transcriptPath, {
+    agentType: 'codex',
+    sessionId: options.sessionId,
+    limit: options.limit,
+    includeThinking: options.includeThinking === true,
+    beforeCursor: options.beforeCursor,
+  });
 }
 
 function compactCodexContext(ws, session, config, options = {}) {
@@ -2830,8 +3057,11 @@ function drainQueue(ws, session, config) {
 module.exports = {
   compact: compactCodexContext,
   execute,
+  findProjectSession,
+  listProjectSessions,
   model: modelCodexContext,
   applySettings: applySettingsCodexContext,
+  readSessionHistory,
   reasoning: reasoningCodexContext,
   resolvePendingDanger,
   resolvePendingPermission,
@@ -2842,14 +3072,21 @@ module.exports = {
     buildCodexThreadStartParams,
     buildCodexThreadResumeParams,
     buildExecArgs,
+    buildThreadListParams,
+    buildHistoryPageInfo,
     codexDefaultReasoningEffort,
     codexRpcTimeoutMs,
+    decodeHistoryCursor,
+    encodeHistoryCursor,
     failCodexTurn,
     finishCodexTurn,
     isRetriableCodexAppServerError,
     codexTurnModelOverride,
     codexTurnReasoningOverride,
     currentCodexReasoningEffort,
+    mapThreadListItem,
+    mapTurnsToRounds,
+    paginateRounds,
     rpcRequest,
     sendJsonRpc,
     codexModelInputNeedsLookup,

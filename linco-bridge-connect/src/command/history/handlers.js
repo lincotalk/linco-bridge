@@ -66,11 +66,12 @@ function handleSessions(rawArg, ws, session, options = {}) {
     return;
   }
 
-  if (agentType === 'deepseek') {
-    return sendDeepSeekProjectSessions(ws, session, options.config, {
+  if (agentType === 'deepseek' || agentType === 'codex') {
+    return sendProviderProjectSessions(ws, session, options.config, agentType, {
       workspace,
       projectId: parsed.projectId,
       limit: parsed.limit,
+      explicitProject: Boolean(parsed.projectPath),
     });
   }
 
@@ -91,18 +92,23 @@ function handleSessions(rawArg, ws, session, options = {}) {
   sendSlashCommandResult(ws, 'sessions', buildSessionsPayload(agentType, workspace, sessions, actions, parsed.limit));
 }
 
-async function sendDeepSeekProjectSessions(ws, session, config, options) {
+async function sendProviderProjectSessions(ws, session, config, agentType, options) {
   try {
     const sessions = await agentRunner().listAgentProjectSessions(session, config, options);
-    const actions = buildBindActions(sessions, options.workspace);
+    const actions = buildBindActions(sessions, options.explicitProject ? options.workspace : '');
     sendSlashCommandResult(
       ws,
       'sessions',
-      buildSessionsPayload('deepseek', options.workspace, sessions, actions, options.limit),
+      buildSessionsPayload(agentType, options.workspace, sessions, actions, options.limit),
     );
   } catch (err) {
-    sendError(ws, `无法读取 DeepSeek Harness 会话: ${err.message}`);
+    const label = agentType === 'deepseek' ? 'DeepSeek Harness' : 'Codex';
+    sendError(ws, `无法读取 ${label} 会话: ${err.message}`);
   }
+}
+
+async function sendDeepSeekProjectSessions(ws, session, config, options) {
+  return sendProviderProjectSessions(ws, session, config, 'deepseek', options);
 }
 
 function handleChats(rawArg, ws, session, options = {}) {
@@ -172,10 +178,11 @@ function handleBind(rawArg, ws, session, options = {}) {
     return;
   }
 
-  if (agentType === 'deepseek') {
-    return bindDeepSeekProjectSession(ws, session, options.config, {
+  if (agentType === 'deepseek' || agentType === 'codex') {
+    return bindProviderProjectSession(ws, session, options.config, agentType, {
       workspace,
       sessionId: targetId,
+      projectId: parsed.projectId,
     });
   }
 
@@ -209,18 +216,23 @@ function handleBind(rawArg, ws, session, options = {}) {
   sendSystem(ws, `已接入 PC 会话。\nAgent session: ${matched.id}\n工作目录: ${workspace}`);
 }
 
-async function bindDeepSeekProjectSession(ws, session, config, options) {
+async function bindProviderProjectSession(ws, session, config, agentType, options) {
+  const label = agentType === 'deepseek' ? 'DeepSeek Harness' : 'Codex';
   try {
     const matched = await agentRunner().findAgentProjectSession(session, config, options);
     if (!matched) {
-      sendError(ws, `未找到当前项目下可接入的 DeepSeek Harness session: ${options.sessionId}`);
+      sendError(ws, `未找到当前项目下可接入的 ${label} session: ${options.sessionId}`);
       return;
     }
     activateMatchedSession(session, matched, options.workspace);
-    sendSystem(ws, `已接入 DeepSeek Harness 会话。\nAgent session: ${matched.id}\n工作目录: ${options.workspace}`);
+    sendSystem(ws, `已接入 ${label} 会话。\nAgent session: ${matched.id}\n工作目录: ${options.workspace}`);
   } catch (err) {
-    sendError(ws, `无法接入 DeepSeek Harness 会话: ${err.message}`);
+    sendError(ws, `无法接入 ${label} 会话: ${err.message}`);
   }
+}
+
+async function bindDeepSeekProjectSession(ws, session, config, options) {
+  return bindProviderProjectSession(ws, session, config, 'deepseek', options);
 }
 
 function bindMatchedSession(ws, session, matched, workspace, label = 'PC session') {
@@ -320,8 +332,8 @@ function handleHistory(rawArg, ws, session, options = {}) {
     return;
   }
 
-  if (agentType === 'deepseek') {
-    return sendDeepSeekHistory(parsed, ws, session, options);
+  if (agentType === 'deepseek' || agentType === 'codex') {
+    return sendProviderHistory(parsed, ws, session, options, agentType);
   }
 
   if (parsed.chatId) {
@@ -435,15 +447,53 @@ function handleHistory(rawArg, ws, session, options = {}) {
   }));
 }
 
-async function sendDeepSeekHistory(parsed, ws, session, options) {
+async function sendProviderHistory(parsed, ws, session, options, agentType) {
   if (parsed.chatId) {
-    sendError(ws, '/history --chat only supports Codex mode.');
+    if (agentType !== 'codex') {
+      sendError(ws, '/history --chat only supports Codex mode.');
+      return;
+    }
+    // projectless chats still use local transcript lookup
+    const matched = findCodexProjectlessChatById(options.homeDir || os.homedir(), parsed.chatId);
+    if (!matched?.transcriptPath) {
+      sendError(ws, `Codex chat history not found: ${parsed.chatId}`);
+      return;
+    }
+    const history = readRecentHistory(ws, matched.transcriptPath, {
+      agentType: 'codex',
+      sessionId: matched.id,
+      limit: parsed.limit,
+      includeThinking: parsed.includeThinking === true,
+      beforeCursor: parsed.beforeCursor,
+    });
+    if (!history) return;
+    let switched = false;
+    if (options.bindExplicitHistorySession) {
+      const bindResult = bindExplicitHistorySession(ws, session, {
+        agentType: 'codex',
+        agentSessionId: matched.id,
+        workspace: matched.workspace,
+        transcriptPath: matched.transcriptPath,
+        homeDir: options.homeDir || os.homedir(),
+        allowSwitch: options.allowExplicitHistorySessionSwitch === true,
+      });
+      if (!bindResult.ok) return;
+      switched = bindResult.switched;
+    }
+    sendHistoryResult(ws, session, buildHistoryPayload('codex', matched.id, parsed.limit, history.rounds, {
+      workspace: matched.workspace,
+      replaceConversation: options.historyReload === true,
+      switchedSession: switched,
+      syncMeta: history.syncMeta,
+      pageInfo: history.pageInfo,
+    }));
     return;
   }
 
+  const label = agentType === 'deepseek' ? 'DeepSeek Harness' : 'Codex';
   const agentSessionId = stringOrEmpty(parsed.sessionId || session.agentSessionId);
   if (!agentSessionId) {
-    sendError(ws, '当前 IM 会话还没有绑定 DeepSeek Harness Session。');
+    sendError(ws, `当前 IM 会话还没有绑定 ${label} Session。`);
     return;
   }
 
@@ -460,9 +510,10 @@ async function sendDeepSeekHistory(parsed, ws, session, options) {
       const matched = await agentRunner().findAgentProjectSession(session, options.config, {
         workspace,
         sessionId: agentSessionId,
+        projectId: parsed.projectId,
       });
       if (!matched) {
-        sendError(ws, `未找到当前项目下可接入的 DeepSeek Harness session: ${agentSessionId}`);
+        sendError(ws, `未找到当前项目下可接入的 ${label} session: ${agentSessionId}`);
         return;
       }
       activateMatchedSession(session, matched, workspace);
@@ -471,11 +522,12 @@ async function sendDeepSeekHistory(parsed, ws, session, options) {
 
     const history = await agentRunner().readAgentSessionHistory(session, options.config, {
       sessionId: agentSessionId,
+      workspace,
       limit: parsed.limit,
       includeThinking: parsed.includeThinking === true,
       beforeCursor: parsed.beforeCursor,
     });
-    sendHistoryResult(ws, session, buildHistoryPayload('deepseek', agentSessionId, parsed.limit, history.rounds, {
+    sendHistoryResult(ws, session, buildHistoryPayload(agentType, agentSessionId, parsed.limit, history.rounds, {
       workspace,
       replaceConversation: options.historyReload === true,
       switchedSession: switched,
@@ -483,8 +535,12 @@ async function sendDeepSeekHistory(parsed, ws, session, options) {
       pageInfo: history.pageInfo,
     }));
   } catch (err) {
-    sendError(ws, `无法读取 DeepSeek Harness 历史: ${err.message}`);
+    sendError(ws, `无法读取 ${label} 历史: ${err.message}`);
   }
+}
+
+async function sendDeepSeekHistory(parsed, ws, session, options) {
+  return sendProviderHistory(parsed, ws, session, options, 'deepseek');
 }
 
 module.exports = {

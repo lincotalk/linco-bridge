@@ -57,7 +57,8 @@ function handleHistoryReload(rawArg, ws, session, config = {}) {
     return completeLocalCommand(ws, session);
   }
 
-  if ((session.agentType || 'claude') === 'deepseek') {
+  const agentType = session.agentType || 'claude';
+  if (agentType === 'deepseek') {
     completeMaybeAsyncLocalCommand(handleHistory(rawArg, ws, session, {
       homeDir: config?.homeDir,
       config,
@@ -69,12 +70,28 @@ function handleHistoryReload(rawArg, ws, session, config = {}) {
   }
 
   const trackingWs = trackHistoryResult(ws, { defer: true });
-  handleHistory(rawArg, trackingWs, session, {
+  const historyOptions = {
     homeDir: config?.homeDir,
+    config,
     bindExplicitHistorySession: true,
     allowExplicitHistorySessionSwitch: true,
     historyReload: true,
-  });
+  };
+
+  if (agentType === 'codex') {
+    completeMaybeAsyncLocalCommand(
+      Promise.resolve(handleHistory(rawArg, trackingWs, session, historyOptions))
+        .then(() => runReload(ws, session, config))
+        .then(() => {
+          trackingWs.flush();
+        }),
+      ws,
+      session,
+    );
+    return true;
+  }
+
+  handleHistory(rawArg, trackingWs, session, historyOptions);
 
   runReload(ws, session, config)
     .then(() => {

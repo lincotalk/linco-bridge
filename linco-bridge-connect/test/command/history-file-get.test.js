@@ -75,6 +75,7 @@ function createFixture() {
     },
     config: {
       homeDir,
+      agents: { codex: { mode: 'exec' } },
       maxOutgoingAttachmentBytes: 1024 * 1024,
       allowHiddenGetFiles: false,
       allowUnsafeAttachments: false,
@@ -83,7 +84,7 @@ function createFixture() {
   };
 }
 
-test('history authorization metadata no longer gates get file access', t => {
+test('history authorization metadata no longer gates get file access', async t => {
   const fixture = createFixture();
   t.after(() => {
     fs.rmSync(fixture.homeDir, { recursive: true, force: true });
@@ -98,7 +99,10 @@ test('history authorization metadata no longer gates get file access', t => {
   );
 
   const historyWs = createCaptureWs();
-  handleHistory('1', historyWs, fixture.session, { homeDir: fixture.homeDir });
+  await handleHistory('1', historyWs, fixture.session, {
+    homeDir: fixture.homeDir,
+    config: fixture.config,
+  });
   assert.equal(historyWs.sent[0]?.type, 'slash_command_result');
   assert.equal(historyWs.sent[0]?.data.rounds[0].user.files[0].localPath, fixture.imagePath);
   assert.deepEqual(authorizedHistoryFiles(fixture.session), [fixture.imagePath]);
@@ -126,7 +130,10 @@ test('history authorization metadata no longer gates get file access', t => {
   );
 
   fixture.session.workspace = fixture.workspace;
-  handleHistory('1', createCaptureWs(), fixture.session, { homeDir: fixture.homeDir });
+  await handleHistory('1', createCaptureWs(), fixture.session, {
+    homeDir: fixture.homeDir,
+    config: fixture.config,
+  });
   fixture.session.agentSessionId = 'another-agent-session';
   const otherSessionWs = createCaptureWs();
   handleGet(fixture.imagePath, otherSessionWs, fixture.session, fixture.config);
