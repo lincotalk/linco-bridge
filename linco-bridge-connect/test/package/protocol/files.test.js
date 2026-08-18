@@ -5,6 +5,7 @@ const {
   normalizeLincoFiles,
   normalizeOutboundFiles,
 } = require('../../../src/package/protocol');
+const { mimeFromFilename } = require('../../../src/core/fileReferences');
 
 test('normalizes inbound file array and legacy media fields', () => {
   const files = normalizeLincoFiles({
@@ -33,4 +34,8 @@ test('normalizes outbound media fields into files', () => {
     url: 'https://example.test/report.pdf',
     mediaUrl: 'https://example.test/report.pdf',
   }]);
+});
+
+test('detects MP4 video files by extension', () => {
+  assert.equal(mimeFromFilename('demo.mp4'), 'video/mp4');
 });

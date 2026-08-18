@@ -1,4 +1,4 @@
-const { buildOutboundFileMessage, resolveGetTarget, validateGetFile } = require('../core/fileReferences');
+const { buildOutboundFileMessages, resolveGetTarget, validateGetFile } = require('../core/fileReferences');
 const { send, sendError } = require('../core/protocol');
 
 function handleGet(rawTarget, ws, session, config) {
@@ -15,14 +15,22 @@ function handleGet(rawTarget, ws, session, config) {
   }
 
   try {
-    send(ws, 'outbound_message', buildOutboundFileMessage(
+    const messages = buildOutboundFileMessages(
       session,
       validation.path,
       validation.size,
       { readPath: validation.readPath },
-    ));
-  } catch {
-    sendError(ws, `读取文件失败：${resolved}`);
+    );
+    for (const message of messages) {
+      send(ws, 'outbound_message', message);
+    }
+  } catch (err) {
+    sendError(
+      ws,
+      err?.code === 'file_too_large'
+        ? err.message
+        : `读取文件失败：${resolved}`,
+    );
   }
 }
 

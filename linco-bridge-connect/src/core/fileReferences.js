@@ -4,6 +4,9 @@ const { buildAgentSystemPrompt, buildFileDeliveryInstructions } = require('./age
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
 const FILE_REFERENCE_HINT_MARKER = 'System note: The user is asking to send or deliver a file/image.';
+const OUTBOUND_FILE_BASE64_CHUNK_CHARS = 1024 * 1024;
+const OUTBOUND_FILE_MAX_BYTES = 50 * 1024 * 1024;
+const OUTBOUND_FILE_MAX_CHUNK_COUNT = 128;
 
 function buildFileReferenceSystemPrompt(session, config) {
   return buildAgentSystemPrompt(session, config);
@@ -167,6 +170,46 @@ function buildOutboundFileMessage(session, filePath, size, options = {}) {
   };
 }
 
+function buildOutboundFileMessages(session, filePath, size, options = {}) {
+  const estimatedBase64Chars = Math.ceil(size / 3) * 4;
+  const estimatedChunkCount = Math.ceil(
+    estimatedBase64Chars / OUTBOUND_FILE_BASE64_CHUNK_CHARS,
+  );
+  if (
+    size > OUTBOUND_FILE_MAX_BYTES ||
+    estimatedChunkCount > OUTBOUND_FILE_MAX_CHUNK_COUNT
+  ) {
+    const error = new RangeError('文件超过预览大小限制：最大 50 MB');
+    error.code = 'file_too_large';
+    throw error;
+  }
+
+  const message = buildOutboundFileMessage(session, filePath, size, options);
+  if (message.mediaBase64.length <= OUTBOUND_FILE_BASE64_CHUNK_CHARS) {
+    return [message];
+  }
+
+  const mediaTransferId = message.messageId;
+  const mediaChunkCount = Math.ceil(
+    message.mediaBase64.length / OUTBOUND_FILE_BASE64_CHUNK_CHARS,
+  );
+  return Array.from({ length: mediaChunkCount }, (_, mediaChunkIndex) => ({
+    messageId: `${mediaTransferId}:chunk:${mediaChunkIndex}`,
+    mediaTransferId,
+    mediaName: message.mediaName,
+    mediaType: message.mediaType,
+    mediaSize: message.size,
+    size: message.size,
+    mediaChunkIndex,
+    mediaChunkCount,
+    mediaBase64Chunk: message.mediaBase64.slice(
+      mediaChunkIndex * OUTBOUND_FILE_BASE64_CHUNK_CHARS,
+      (mediaChunkIndex + 1) * OUTBOUND_FILE_BASE64_CHUNK_CHARS,
+    ),
+    ...(mediaChunkIndex === 0 ? { text: message.text, references: message.references } : {}),
+  }));
+}
+
 function buildFileReference(filePath, session) {
   const resolved = path.resolve(filePath);
   const relative = relativePathForReference(resolved, session);
@@ -286,6 +329,7 @@ function mimeFromFilename(name) {
     case '.gif': return 'image/gif';
     case '.webp': return 'image/webp';
     case '.svg': return 'image/svg+xml';
+    case '.mp4': return 'video/mp4';
     case '.txt': return 'text/plain; charset=utf-8';
     case '.vue': return 'text/plain; charset=utf-8';
     case '.md': return 'text/markdown; charset=utf-8';
@@ -380,6 +424,7 @@ module.exports = {
   buildFileReferenceSystemPrompt,
   buildMarkdownImageFallback,
   buildOutboundFileMessage,
+  buildOutboundFileMessages,
   candidatePathsFromMarkdownLinks,
   extractFileReferences,
   kindFromFilename,
