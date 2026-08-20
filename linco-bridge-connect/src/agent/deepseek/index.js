@@ -20,6 +20,33 @@ const {
 } = require('../../core/permissionState');
 
 const DEFAULT_GATEWAY_URL = 'http://127.0.0.1:3080';
+const HARNESS_NOT_RUNNING_CODE = 'DEEPSEEK_HARNESS_NOT_RUNNING';
+const HARNESS_NOT_RUNNING_MESSAGE = 'DeepSeek Harness 未启动，请先启动 Harness';
+
+function errorTreeHasCode(error, code, seen = new Set()) {
+  if (!error || typeof error !== 'object' || seen.has(error)) return false;
+  seen.add(error);
+  if (error.code === code) return true;
+  if (errorTreeHasCode(error.cause, code, seen)) return true;
+  return Array.isArray(error.errors)
+    && error.errors.some(item => errorTreeHasCode(item, code, seen));
+}
+
+function normalizeHarnessError(error) {
+  if (error?.code === HARNESS_NOT_RUNNING_CODE) return error;
+  const normalized = error instanceof Error ? error : new Error(String(error));
+  if (!errorTreeHasCode(normalized, 'ECONNREFUSED')) return normalized;
+  const unavailable = new Error(HARNESS_NOT_RUNNING_MESSAGE, { cause: normalized });
+  unavailable.code = HARNESS_NOT_RUNNING_CODE;
+  return unavailable;
+}
+
+function harnessErrorMessage(error, prefix) {
+  const normalized = normalizeHarnessError(error);
+  return normalized.code === HARNESS_NOT_RUNNING_CODE
+    ? normalized.message
+    : `${prefix}: ${normalized.message}`;
+}
 
 function execute(input, ws, session, config) {
   const textForCheck = stringifyInput(input);
@@ -73,7 +100,7 @@ async function runTurn(input, ws, session, config) {
     }
   } catch (err) {
     if (!isAbortError(err) && session.isTurnActive) {
-      const message = `DeepSeek Harness 错误: ${err.message}`;
+      const message = harnessErrorMessage(err, 'DeepSeek Harness 错误');
       sendError(ws, message);
       sendTurnEnd(ws, session, 'error', { error: message });
       finishTurn(ws, session, config);
@@ -138,8 +165,9 @@ async function ensureEventStream(session, agentConfig, config) {
       config.logger?.warn?.('deepseek event stream failed', { sessionId: session.id, error: err.message });
       if (session.isTurnActive) {
         const ws = session._lastWs;
-        sendError(ws, `DeepSeek Harness 事件流中断: ${err.message}`);
-        sendTurnEnd(ws, session, 'error', { error: err.message });
+        const message = harnessErrorMessage(err, 'DeepSeek Harness 事件流中断');
+        sendError(ws, message);
+        sendTurnEnd(ws, session, 'error', { error: message });
         finishTurn(ws, session, config);
       }
     })
@@ -210,7 +238,7 @@ function consumeEventSocket(socket, session, config, controller, ready) {
       settle(new Error(`DeepSeek Harness event WebSocket closed (${code})${suffix}`));
     };
     const onError = (error) => {
-      const normalized = error instanceof Error ? error : new Error(String(error));
+      const normalized = normalizeHarnessError(error);
       if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) socket.terminate();
       if (controller.signal.aborted) settle();
       else settle(normalized);
@@ -855,9 +883,17 @@ function drainQueue(ws, session, config) {
   setImmediate(() => execute(input, nextWs, session, config));
 }
 
+async function fetchHarness(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    throw normalizeHarnessError(error);
+  }
+}
+
 async function callRpc(agentConfig, method, payload, signal) {
   const rpcId = crypto.randomUUID();
-  const response = await fetch(`${agentConfig.gatewayUrl}/api/${method}`, {
+  const response = await fetchHarness(`${agentConfig.gatewayUrl}/api/${method}`, {
     method: 'POST',
     headers: buildHeaders(agentConfig, { 'Content-Type': 'application/json', Accept: 'application/json' }),
     body: JSON.stringify({ type: 'client-request', rpcId, method, payload }),
@@ -871,7 +907,7 @@ async function callRpc(agentConfig, method, payload, signal) {
 }
 
 async function respond(agentConfig, rpcId, value) {
-  const response = await fetch(`${agentConfig.gatewayUrl}/api/respond`, {
+  const response = await fetchHarness(`${agentConfig.gatewayUrl}/api/respond`, {
     method: 'POST',
     headers: buildHeaders(agentConfig, { 'Content-Type': 'application/json', Accept: 'application/json' }),
     body: JSON.stringify({ type: 'client-response', rpcId, result: { ok: true, value } }),
@@ -910,6 +946,8 @@ module.exports = {
   stop,
   warmup,
   _internal: {
+    HARNESS_NOT_RUNNING_CODE,
+    HARNESS_NOT_RUNNING_MESSAGE,
     assistantMessageText,
     buildPromptContent,
     callRpc,
@@ -920,6 +958,7 @@ module.exports = {
     loadModels,
     listProjects,
     mapTurnEndReason,
+    normalizeHarnessError,
     normalizeGatewayUrl,
     resolveWorkspaceId,
     workspacePathKey,

@@ -25,6 +25,50 @@ test('DeepSeek adapter maps Harness HTTP origins to WebSocket event URLs', () =>
   );
 });
 
+test('DeepSeek RPC reports when Harness is not running', async () => {
+  const gatewayUrl = await closedLoopbackUrl();
+
+  await assert.rejects(
+    deepseek._internal.callRpc({ gatewayUrl }, 'workspace.list', {}),
+    error => {
+      assert.equal(error.code, 'DEEPSEEK_HARNESS_NOT_RUNNING');
+      assert.equal(error.message, 'DeepSeek Harness 未启动，请先启动 Harness');
+      return true;
+    },
+  );
+});
+
+test('DeepSeek turn returns the Harness-not-running message to the client', async t => {
+  const gatewayUrl = await closedLoopbackUrl();
+  const fixture = createFixture(gatewayUrl);
+  t.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+
+  deepseek.execute('hello', fixture.ws, fixture.session, fixture.config);
+  await waitFor(() => fixture.frames.some(frame => frame.type === 'turn_end'));
+
+  assert.equal(
+    fixture.frames.find(frame => frame.type === 'error')?.text,
+    'DeepSeek Harness 未启动，请先启动 Harness',
+  );
+  assert.equal(fixture.frames.find(frame => frame.type === 'turn_end')?.reason, 'error');
+});
+
+test('DeepSeek Harness error normalization finds nested refused connections', () => {
+  const refused = Object.assign(new Error('connect refused'), { code: 'ECONNREFUSED' });
+  const wrapped = new TypeError('fetch failed', { cause: new AggregateError([refused]) });
+
+  const normalized = deepseek._internal.normalizeHarnessError(wrapped);
+
+  assert.equal(normalized.code, 'DEEPSEEK_HARNESS_NOT_RUNNING');
+  assert.equal(normalized.message, 'DeepSeek Harness 未启动，请先启动 Harness');
+});
+
+test('DeepSeek Harness error normalization preserves unrelated errors', () => {
+  const unauthorized = Object.assign(new Error('401 Unauthorized'), { code: 'EACCES' });
+
+  assert.equal(deepseek._internal.normalizeHarnessError(unauthorized), unauthorized);
+});
+
 test('DeepSeek adapter creates a Harness session and maps streamed events', async t => {
   const harness = await createMockHarness();
   t.after(() => harness.close());
@@ -415,6 +459,16 @@ async function readJson(req) {
   let text = '';
   for await (const chunk of req) text += chunk;
   return text ? JSON.parse(text) : {};
+}
+
+async function closedLoopbackUrl() {
+  const server = http.createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  await new Promise((resolve, reject) => {
+    server.close(error => error ? reject(error) : resolve());
+  });
+  return `http://127.0.0.1:${port}`;
 }
 
 async function waitFor(predicate, timeoutMs = 3000) {
