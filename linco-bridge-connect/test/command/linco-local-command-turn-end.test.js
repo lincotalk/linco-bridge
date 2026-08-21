@@ -2223,11 +2223,14 @@ test('history-reload silently ends when the current turn is active', () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linco-known-codex-project-ids-home-'));
   const serviceProject = path.join(homeDir, 'code', 'linkflow-service');
   const adminProject = path.join(homeDir, 'code', 'AIChat-Admin');
+  const unorderedProject = path.join(homeDir, 'code', 'Codex Skin');
   const savedProject = path.join(homeDir, 'legacy', 'aichat');
   const serviceProjectId = 'codex-project-service';
   const adminProjectId = 'codex-project-admin';
+  const unorderedProjectId = 'codex-project-unordered';
   fs.mkdirSync(serviceProject, { recursive: true });
   fs.mkdirSync(adminProject, { recursive: true });
+  fs.mkdirSync(unorderedProject, { recursive: true });
   fs.mkdirSync(savedProject, { recursive: true });
   fs.mkdirSync(path.join(homeDir, '.codex'), { recursive: true });
 
@@ -2246,6 +2249,12 @@ test('history-reload silently ends when the current turn is active', () => {
         rootPaths: [adminProject],
         updatedAt: 100,
       },
+      [unorderedProjectId]: {
+        id: unorderedProjectId,
+        name: 'Codex Skin',
+        rootPaths: [unorderedProject],
+        updatedAt: 300,
+      },
     },
     'active-workspace-roots': [serviceProject],
     'electron-saved-workspace-roots': [savedProject],
@@ -2255,9 +2264,12 @@ test('history-reload silently ends when the current turn is active', () => {
   assert.deepStrictEqual(candidates.map(item => ({ path: item.path, label: item.label })), [
     { path: serviceProject, label: 'Linkflow Service' },
     { path: adminProject, label: 'AIChat Admin' },
-    { path: savedProject, label: path.basename(savedProject) },
+    { path: unorderedProject, label: 'Codex Skin' },
   ]);
-  assert.deepStrictEqual(candidates.slice(0, 2).map(item => item.projectId), [serviceProjectId, adminProjectId]);
+  assert.deepStrictEqual(
+    candidates.map(item => item.projectId),
+    [serviceProjectId, adminProjectId, unorderedProjectId],
+  );
 
   const ws = createCaptureWs();
   const session = {

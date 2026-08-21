@@ -235,14 +235,11 @@ function knownProjectCandidates(session, options = {}) {
   const homeDir = options.homeDir || os.homedir();
   if (agentType === 'codex') {
     // Desktop project picker is backed by Codex state (project-order + local-projects).
-    // Do NOT merge session jsonl cwds into that list — sessions often use ephemeral
-    // directories like "new-chat" or UUID folder names that are not real projects.
-    const stateProjects = normalizeKnownProjectCandidates(
-      collectCodexStateProjects(homeDir),
-      homeDir,
-      agentType,
-    );
-    if (stateProjects.length > 0) {
+    // A modern local-projects record is authoritative even when empty, so hidden
+    // desktop projects are not resurrected from legacy roots or session history.
+    const stateSnapshot = collectCodexStateProjectSnapshot(homeDir);
+    const stateProjects = normalizeKnownProjectCandidates(stateSnapshot.candidates, homeDir, agentType);
+    if (stateSnapshot.authoritative || stateProjects.length > 0) {
       return limitKnownProjects(stateProjects, options.limit);
     }
     return limitKnownProjects(
@@ -291,15 +288,18 @@ function collectClaudeKnownProjects(homeDir) {
   return candidates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
-function collectCodexStateProjects(homeDir) {
+function collectCodexStateProjectSnapshot(homeDir) {
   const codexDir = path.join(homeDir, '.codex');
   const candidates = [];
   const stateFile = path.join(codexDir, '.codex-global-state.json');
   const state = readJsonFile(stateFile);
   const labels = collectCodexWorkspaceRootLabels(state);
   const updatedAt = safeMtimeMs(stateFile);
+  const localProjectRecords = collectObjectsByKeys(state, new Set(['local-projects']));
+  const authoritative = localProjectRecords.length > 0;
   const localProjects = collectCodexLocalProjects(state);
   const projectOrder = collectStringArraysByKeys(state, new Set(['project-order']));
+  const orderedProjectIds = new Set();
 
   for (const [order, value] of projectOrder.entries()) {
     if (path.isAbsolute(value)) {
@@ -316,6 +316,7 @@ function collectCodexStateProjects(homeDir) {
 
     const project = localProjects.get(value);
     if (!project) continue;
+    orderedProjectIds.add(project.id);
     for (const rootPath of project.rootPaths) {
       candidates.push({
         path: rootPath,
@@ -329,7 +330,23 @@ function collectCodexStateProjects(homeDir) {
     }
   }
 
-  const fallbackKeys = new Set(['active-workspace-roots', 'electron-saved-workspace-roots']);
+  for (const project of localProjects.values()) {
+    if (orderedProjectIds.has(project.id)) continue;
+    for (const rootPath of project.rootPaths) {
+      candidates.push({
+        path: rootPath,
+        label: project.name || workspaceRootLabel(labels, rootPath),
+        projectId: project.id,
+        source: 'codex-state',
+        priority: 25,
+        updatedAt: project.updatedAt || updatedAt,
+      });
+    }
+  }
+
+  const fallbackKeys = authoritative
+    ? new Set(['active-workspace-roots'])
+    : new Set(['active-workspace-roots', 'electron-saved-workspace-roots']);
   for (const projectPath of collectStringArraysByKeys(state, fallbackKeys)) {
     candidates.push({
       path: projectPath,
@@ -339,23 +356,10 @@ function collectCodexStateProjects(homeDir) {
       updatedAt,
     });
   }
-
-  // Include every local-projects entry, even if it is absent from project-order.
-  let localOrder = projectOrder.length;
-  for (const project of localProjects.values()) {
-    for (const rootPath of project.rootPaths) {
-      candidates.push({
-        path: rootPath,
-        label: project.name || workspaceRootLabel(labels, rootPath),
-        projectId: project.id,
-        source: 'codex-state',
-        priority: 25,
-        order: localOrder++,
-        updatedAt: project.updatedAt || updatedAt,
-      });
-    }
-  }
-  return candidates.sort(compareKnownProjectCandidates);
+  return {
+    authoritative,
+    candidates: candidates.sort(compareKnownProjectCandidates),
+  };
 }
 
 function collectCodexLocalProjects(state) {
