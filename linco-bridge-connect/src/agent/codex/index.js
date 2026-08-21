@@ -202,6 +202,64 @@ async function listProjectSessions(session, config, options = {}) {
   }
 }
 
+async function listProjects(session, config) {
+  // /project is on the bridge-workspace hot path. Do NOT start app-server or call
+  // experimental project/list here - cold spawn + RPC can hang for 15-60s and make
+  // every plugin query time out. Prefer local Codex state/session files instead.
+  return listProjectsFromLocal(session, config);
+}
+
+function listProjectsFromLocal(session, config) {
+  const { knownProjectCandidates } = require('../../command/project');
+  const candidates = knownProjectCandidates(
+    { agentType: 'codex' },
+    { homeDir: config?.homeDir },
+  );
+  return candidates.map(item => ({
+    path: item.path,
+    title: item.label || item.name || path.basename(item.path),
+    workspaceId: item.projectId || '',
+    updatedAt: Number(item.updatedAt) || 0,
+  }));
+}
+
+function mapCodexProjectListResult(result) {
+  const data = Array.isArray(result?.data) ? result.data : [];
+  const rows = [];
+  for (const project of data) {
+    if (!project || typeof project !== 'object') continue;
+    const workspaceId = String(project.id || '').trim();
+    const title = String(project.name || '').trim();
+    const updatedAt = Number(project.updatedAt);
+    const roots = Array.isArray(project.roots) ? project.roots : [];
+    for (const root of roots) {
+      const rootPath = typeof root === 'string'
+        ? root.trim()
+        : String(root?.path || '').trim();
+      if (!rootPath) continue;
+      rows.push({
+        path: rootPath,
+        title: title || path.basename(rootPath),
+        workspaceId,
+        updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+      });
+    }
+  }
+  return rows;
+}
+
+function mergeCodexProjectRows(primaryRows, fallbackRows) {
+  const merged = [];
+  const seen = new Set();
+  for (const row of [...(primaryRows || []), ...(fallbackRows || [])]) {
+    const key = String(row?.path || '').trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(row);
+  }
+  return merged;
+}
+
 async function findProjectSession(session, config, options = {}) {
   const targetId = String(options.sessionId || '').trim();
   if (!targetId) return null;
@@ -3059,6 +3117,7 @@ module.exports = {
   execute,
   findProjectSession,
   listProjectSessions,
+  listProjects,
   model: modelCodexContext,
   applySettings: applySettingsCodexContext,
   readSessionHistory,
@@ -3084,8 +3143,10 @@ module.exports = {
     codexTurnModelOverride,
     codexTurnReasoningOverride,
     currentCodexReasoningEffort,
+    mapCodexProjectListResult,
     mapThreadListItem,
     mapTurnsToRounds,
+    mergeCodexProjectRows,
     paginateRounds,
     rpcRequest,
     sendJsonRpc,

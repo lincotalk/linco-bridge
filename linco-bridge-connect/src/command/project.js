@@ -117,8 +117,11 @@ function handleProject(rawArg, ws, session, config) {
   const args = parseProjectArgs(rawArg);
 
   if (args.mode === 'known') {
-    if ((session.agentType || 'claude') === 'deepseek') {
-      return sendDeepSeekProjects(ws, session, config);
+    const agentType = session.agentType || 'claude';
+    // DeepSeek needs harness RPC. Codex must stay local - starting app-server for
+    // /project blocks bridge-workspace queries and surfaces as plugin timeouts.
+    if (agentType === 'deepseek') {
+      return sendProviderProjects(ws, session, config);
     }
     sendKnownProjects(ws, session, { homeDir: config?.homeDir });
     return undefined;
@@ -132,25 +135,33 @@ function handleProject(rawArg, ws, session, config) {
   sendError(ws, '用法：/project 查看已知项目，或 /project --select <路径> 绑定项目。');
 }
 
-async function sendDeepSeekProjects(ws, session, config) {
+async function sendProviderProjects(ws, session, config) {
+  const agentType = session.agentType || 'claude';
   try {
     const rows = await agentRunner().listAgentProjects(session, config);
     const projects = normalizeKnownProjectCandidates(rows.map(row => ({
       path: row.path,
       label: row.title,
       projectId: row.workspaceId,
-      source: 'deepseek-harness',
-      updatedAt: Date.parse(row.updatedAt || '') || 0,
-    })), config?.homeDir || os.homedir(), 'deepseek');
+      source: agentType === 'codex' ? 'codex-rpc' : 'deepseek-harness',
+      updatedAt: typeof row.updatedAt === 'number'
+        ? row.updatedAt
+        : (Date.parse(row.updatedAt || '') || 0),
+    })), config?.homeDir || os.homedir(), agentType);
     const actions = projects.map(project => projectAction(
       `选择项目 ${project.label}`,
       `/project --select ${quoteProjectPath(project.path)}`,
       { action: 'select', path: project.path, projectId: project.projectId, project_id: project.projectId, source: project.source },
     ));
-    sendSlashCommandResult(ws, 'project', buildProjectsPayload('deepseek', session.workspace || '', projects, actions));
+    sendSlashCommandResult(ws, 'project', buildProjectsPayload(agentType, session.workspace || '', projects, actions));
   } catch (err) {
-    sendError(ws, `无法读取 DeepSeek Harness 项目: ${err.message}`);
+    const label = agentType === 'codex' ? 'Codex' : 'DeepSeek Harness';
+    sendError(ws, `无法读取 ${label} 项目: ${err.message}`);
   }
+}
+
+async function sendDeepSeekProjects(ws, session, config) {
+  return sendProviderProjects(ws, session, config);
 }
 
 function handleCd(rawArg, ws, session) {
@@ -223,8 +234,17 @@ function knownProjectCandidates(session, options = {}) {
   const agentType = session.agentType || 'claude';
   const homeDir = options.homeDir || os.homedir();
   if (agentType === 'codex') {
-    const stateProjects = normalizeKnownProjectCandidates(collectCodexStateProjects(homeDir), homeDir, agentType);
-    if (stateProjects.length > 0) return limitKnownProjects(stateProjects, options.limit);
+    // Desktop project picker is backed by Codex state (project-order + local-projects).
+    // Do NOT merge session jsonl cwds into that list — sessions often use ephemeral
+    // directories like "new-chat" or UUID folder names that are not real projects.
+    const stateProjects = normalizeKnownProjectCandidates(
+      collectCodexStateProjects(homeDir),
+      homeDir,
+      agentType,
+    );
+    if (stateProjects.length > 0) {
+      return limitKnownProjects(stateProjects, options.limit);
+    }
     return limitKnownProjects(
       normalizeKnownProjectCandidates(collectCodexSessionProjects(homeDir), homeDir, agentType),
       options.limit,
@@ -319,6 +339,22 @@ function collectCodexStateProjects(homeDir) {
       updatedAt,
     });
   }
+
+  // Include every local-projects entry, even if it is absent from project-order.
+  let localOrder = projectOrder.length;
+  for (const project of localProjects.values()) {
+    for (const rootPath of project.rootPaths) {
+      candidates.push({
+        path: rootPath,
+        label: project.name || workspaceRootLabel(labels, rootPath),
+        projectId: project.id,
+        source: 'codex-state',
+        priority: 25,
+        order: localOrder++,
+        updatedAt: project.updatedAt || updatedAt,
+      });
+    }
+  }
   return candidates.sort(compareKnownProjectCandidates);
 }
 
@@ -364,10 +400,21 @@ function collectCodexSessionProjects(homeDir) {
   const candidates = [];
   for (const file of safeReadFilesRecursive(path.join(codexDir, 'sessions'), { extension: '.jsonl', limit: 200 })) {
     for (const cwd of readJsonlCwdValues(file.fullPath, 10)) {
+      if (isEphemeralCodexProjectPath(cwd)) continue;
       candidates.push({ path: cwd, source: 'codex-session', priority: 10, updatedAt: file.updatedAt });
     }
   }
   return candidates.sort(compareKnownProjectCandidates);
+}
+
+function isEphemeralCodexProjectPath(projectPath) {
+  const base = path.basename(String(projectPath || '').replace(/[\\/]+$/, ''));
+  if (!base) return true;
+  if (/^(new-chat|new chat|new-project|new project|untitled.*)$/i.test(base)) return true;
+  // Codex/OpenClaw style opaque workspace folder names.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(base)) return true;
+  if (/^01[0-9a-f]{6}-[0-9a-f-]{20,}$/i.test(base)) return true;
+  return false;
 }
 
 function normalizeKnownProjectCandidates(candidates, homeDir, agentType = 'agent') {
@@ -380,14 +427,17 @@ function normalizeKnownProjectCandidates(candidates, homeDir, agentType = 'agent
     const canonical = canonicalProjectPath(resolved);
     const key = normalizePathKey(resolved);
     if (!isReadableDirectory(resolved)) continue;
-    if (!isSelectableProjectDirectory(canonical)) continue;
-    if (isLincoRuntimeWorkspace(canonical, homeDir)) continue;
-    if (isUnsafeKnownProjectPath(canonical, homeDir)) continue;
-    const label = stringOrEmpty(candidate.label) || path.basename(resolved) || resolved;
     const explicitProjectId = stringOrEmpty(candidate.projectId) ||
       stringOrEmpty(candidate.project_id) ||
       stringOrEmpty(candidate.projectKey) ||
       stringOrEmpty(candidate.project_key);
+    // Codex desktop allows first-level roots like D:\account; keep that for state
+    // projects with an explicit id. Session-scraped / manual paths still need depth >= 2.
+    const allowShallow = Boolean(explicitProjectId) || candidate.source === 'codex-state';
+    if (!isSelectableProjectDirectory(canonical, { allowShallow })) continue;
+    if (isLincoRuntimeWorkspace(canonical, homeDir)) continue;
+    if (isUnsafeKnownProjectPath(canonical, homeDir)) continue;
+    const label = stringOrEmpty(candidate.label) || path.basename(resolved) || resolved;
     const projectId = explicitProjectId || projectIdentity(agentType, resolved);
     const canonicalPath = normalizePathKey(canonical) === normalizePathKey(resolved) ? '' : canonical;
     const normalizedCandidate = {
@@ -601,7 +651,12 @@ function selectWorkspace(targetPath, ws, session) {
   const newPath = resolveWorkspacePath(targetPath, session.workspace);
   if (!validateWorkspaceDirectory(newPath, ws)) return;
   const canonicalPath = canonicalProjectPath(newPath);
-  if (!isSelectableProjectDirectory(canonicalPath)) {
+  const knownPaths = new Set(
+    knownProjectCandidates(session, { homeDir: os.homedir() })
+      .map(item => normalizePathKey(item.path)),
+  );
+  const allowShallow = knownPaths.has(normalizePathKey(canonicalPath));
+  if (!isSelectableProjectDirectory(canonicalPath, { allowShallow })) {
     sendError(ws, `请选择更具体的项目目录，不能直接选择磁盘根目录或一级目录: ${newPath}`);
     return;
   }
@@ -618,12 +673,14 @@ function selectWorkspace(targetPath, ws, session) {
   sendSystem(ws, `📂 工作目录已切换至: ${newPath}\n🆕 已开启新 Agent 会话。`);
 }
 
-function isSelectableProjectDirectory(targetPath) {
+function isSelectableProjectDirectory(targetPath, options = {}) {
   const resolved = path.resolve(targetPath || '');
   const parsed = path.parse(resolved);
   const relative = path.relative(parsed.root, resolved);
   if (!relative) return false;
-  return relative.split(path.sep).filter(Boolean).length >= 2;
+  const depth = relative.split(path.sep).filter(Boolean).length;
+  const minDepth = options.allowShallow ? 1 : 2;
+  return depth >= minDepth;
 }
 
 function isReadableDirectory(targetPath) {

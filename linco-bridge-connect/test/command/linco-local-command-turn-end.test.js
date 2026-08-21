@@ -2377,6 +2377,10 @@ if (directorySymlinkSupported) {
   assert.strictEqual(slashCommandInternals.isSelectableProjectDirectory(root), false);
   assert.strictEqual(slashCommandInternals.isSelectableProjectDirectory(shallow), false);
   assert.strictEqual(slashCommandInternals.isSelectableProjectDirectory(concrete), true);
+  assert.strictEqual(
+    slashCommandInternals.isSelectableProjectDirectory(shallow, { allowShallow: true }),
+    true,
+  );
 }
 
 {
