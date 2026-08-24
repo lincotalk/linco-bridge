@@ -211,6 +211,7 @@ function collectCodexProjectSessionsFromJsonl(codexDir, workspace, index, assign
       updatedAt: parseTimeMs(indexed.updatedAt) || file.updatedAt,
       transcriptPath: file.fullPath,
       workspace: meta.cwd || '',
+      forkedFromId: meta.forkedFromId || '',
     };
     matchedSessions.push(item);
     if (!assignment && resultLimit && matchedSessions.length >= resultLimit) break;
@@ -561,6 +562,7 @@ function findCodexProjectSessionById(homeDir, workspace, sessionId) {
       firstMessage: meta.firstMessage || '',
       updatedAt: parseTimeMs(indexed.updatedAt) || file.updatedAt,
       transcriptPath: file.fullPath,
+      forkedFromId: meta.forkedFromId || '',
     };
     if (matchTier === 'exact') return matched;
     if (!aliasMatch) aliasMatch = matched;
@@ -617,6 +619,7 @@ function collectCodexProjectlessChats(homeDir, options = {}) {
       workspace: meta.cwd || '',
       updatedAt: parseTimeMs(indexed.updatedAt) || file.updatedAt,
       transcriptPath: file.fullPath,
+      forkedFromId: meta.forkedFromId || '',
       source: 'codex-chats',
     });
   }

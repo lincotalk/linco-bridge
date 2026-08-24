@@ -71,6 +71,7 @@ const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
 const CODEX_COMPACTION_STALE_MS = 90_000;
 const DEFAULT_CODEX_COMPACTION_TIMEOUT_MS = 300_000;
 const DEFAULT_CODEX_RPC_TIMEOUT_MS = 15_000;
+const CODEX_THREAD_RESUME_MAX_ATTEMPTS = 2;
 
 class CodexRpcMethodError extends Error {
   constructor(method, error = {}) {
@@ -165,7 +166,10 @@ function runAppServerTurn(input, ws, session, config) {
     .catch(err => {
       session._log?.error('codex turn error', { message: err.message });
       if (session.isTurnActive) {
-        failCodexTurn(ws, session, config, `Codex app-server 错误: ${err.message}`, {
+        const displayMessage = err?.code === 'CODEX_THREAD_ACTIVE_WRITER'
+          ? err.message
+          : `Codex app-server 错误: ${err.message}`;
+        failCodexTurn(ws, session, config, displayMessage, {
           error: err.message,
         });
       }
@@ -1364,34 +1368,122 @@ function buildCodexAppServerEnv() {
 }
 
 async function ensureThread(session) {
+  if (session.codexThreadEnsurePromise) {
+    return session.codexThreadEnsurePromise;
+  }
+
+  const pending = ensureThreadOnce(session);
+  session.codexThreadEnsurePromise = pending;
+  try {
+    return await pending;
+  } finally {
+    if (session.codexThreadEnsurePromise === pending) {
+      session.codexThreadEnsurePromise = null;
+    }
+  }
+}
+
+async function ensureThreadOnce(session) {
+  const expectedThreadId = String(session.agentSessionId || '').trim();
+  if (expectedThreadId) {
+    return resumeBoundCodexThread(session, expectedThreadId);
+  }
+
   const agentConfig = session._lastConfig?.agents?.codex || {};
   const resolvedDeveloperInstructions = await resolveCodexDeveloperInstructions(session);
   const developerInstructions = session.codexDeveloperInstructionsMode === 'developer'
     && session.codexDeveloperInstructionsApplied !== true
     ? resolvedDeveloperInstructions
     : '';
-
-  if (session.agentSessionId) {
-    // Resume existing thread after app-server restart
-    return resumeCodexThread(session, developerInstructions).then(result => {
-      recordCodexThreadReasoning(session, result);
-      if (developerInstructions && session.codexDeveloperInstructionsMode === 'developer') {
-        session.codexDeveloperInstructionsApplied = true;
-      }
-      emitCodexAgentSession(session, session.agentSessionId);
-      return session.agentSessionId;
-    }).catch(err => {
-      // If resume fails, start a new thread
-      session._log?.warn('codex thread resume failed, starting new', { message: err.message });
-      return startNewThread(
-        session,
-        agentConfig,
-        session.codexDeveloperInstructionsMode === 'developer' ? developerInstructions : '',
-      );
-    });
-  }
-
   return startNewThread(session, agentConfig, developerInstructions);
+}
+
+async function resumeBoundCodexThread(session, expectedThreadId) {
+  const hadPreviousExpectedId = Object.prototype.hasOwnProperty.call(session, 'codexExpectedResumeThreadId');
+  const previousExpectedId = session.codexExpectedResumeThreadId;
+  session.codexExpectedResumeThreadId = expectedThreadId;
+
+  try {
+    const resolvedDeveloperInstructions = await resolveCodexDeveloperInstructions(session);
+    const developerInstructions = session.codexDeveloperInstructionsMode === 'developer'
+      && session.codexDeveloperInstructionsApplied !== true
+      ? resolvedDeveloperInstructions
+      : '';
+    let lastError;
+    for (let attempt = 1; attempt <= CODEX_THREAD_RESUME_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const result = await resumeCodexThread(session, developerInstructions);
+        assertCodexResumedThreadIdentity(session, expectedThreadId, result);
+        recordCodexThreadReasoning(session, result);
+        if (developerInstructions && session.codexDeveloperInstructionsMode === 'developer') {
+          session.codexDeveloperInstructionsApplied = true;
+        }
+        emitCodexAgentSession(session, expectedThreadId);
+        return expectedThreadId;
+      } catch (err) {
+        lastError = err;
+        if (attempt >= CODEX_THREAD_RESUME_MAX_ATTEMPTS || !isRetriableCodexThreadResumeError(err)) {
+          break;
+        }
+        session._log?.warn('codex thread resume transient failure, retrying same thread', {
+          threadId: expectedThreadId,
+          attempt,
+          message: err.message,
+        });
+      }
+    }
+
+    const error = new Error(
+      buildCodexThreadResumeFailureMessage(session, lastError),
+    );
+    error.code = isCodexActiveWriterError(lastError)
+      ? 'CODEX_THREAD_ACTIVE_WRITER'
+      : 'CODEX_THREAD_RESUME_FAILED';
+    error.cause = lastError;
+    throw error;
+  } finally {
+    if (session.codexExpectedResumeThreadId === expectedThreadId) {
+      if (hadPreviousExpectedId) session.codexExpectedResumeThreadId = previousExpectedId;
+      else delete session.codexExpectedResumeThreadId;
+    }
+  }
+}
+
+function assertCodexResumedThreadIdentity(session, expectedThreadId, result) {
+  const resumedThreadId = String(result?.thread?.id || result?.id || result?.threadId || '').trim();
+  if (resumedThreadId && resumedThreadId !== expectedThreadId) {
+    const error = new Error(`Codex 恢复返回了意外的会话 ID: ${resumedThreadId}`);
+    error.code = 'CODEX_THREAD_ID_MISMATCH';
+    throw error;
+  }
+  if (String(session.agentSessionId || '').trim() !== expectedThreadId) {
+    const error = new Error('Codex 会话绑定在恢复期间发生变化');
+    error.code = 'CODEX_THREAD_ID_MISMATCH';
+    throw error;
+  }
+}
+
+function isRetriableCodexThreadResumeError(err) {
+  if (isCodexActiveWriterError(err)) return false;
+  if (isRetriableCodexAppServerError(err?.data || {}, err?.message || '')) return true;
+  return /Codex RPC 超时|timeout|timed out/i.test(String(err?.message || ''));
+}
+
+function isCodexActiveWriterError(err) {
+  return /already has an active writer/i.test(String(err?.message || err || ''));
+}
+
+function buildCodexThreadResumeFailureMessage(session, err) {
+  const detail = err?.message ? ` ${err.message}` : '';
+  if (isCodexActiveWriterError(err)) {
+    const activeEntry = (session?.agentSessionHistory || [])
+      .find(entry => entry?.id === session?.agentSessionId);
+    if (activeEntry?.forkedFromId) {
+      return '该会话是通过 Codex 旧版“复制会话”功能创建的。新版 Codex 已调整这类会话的写入机制，Linco App 暂时无法继续在原会话中聊天。原会话内容不会丢失，可在 Codex 桌面端继续使用。';
+    }
+    return '新版 Codex 已调整旧会话的跨端写入机制，Linco App 暂时无法继续在这个原会话中聊天。原会话内容不会丢失，可在 Codex 桌面端继续使用。';
+  }
+  return `所选 Codex 会话暂时无法恢复，已保留原会话且未创建新会话。请稍后重试。${detail}`;
 }
 
 function resumeCodexThread(session, developerInstructions = '') {
@@ -1400,7 +1492,7 @@ function resumeCodexThread(session, developerInstructions = '') {
     session,
     developerInstructions,
   )).catch(err => {
-    if (!developerInstructions) throw err;
+    if (!developerInstructions || isCodexActiveWriterError(err)) throw err;
     switchCodexDeveloperInstructionsToInputFallback(session, err);
     const fallbackRpcId = nextRpcId(session);
     return rpcRequest(session, fallbackRpcId, 'thread/resume', buildCodexThreadResumeParams(session));
@@ -2322,10 +2414,18 @@ function handleAppServerMessage(message, session) {
   const ws = session._lastWs;
 
   // thread.started notification — resolve ensureThread promise
-  if (message.method === 'thread.started' || message.method === 'thread/start') {
+  if (message.method === 'thread/started' || message.method === 'thread.started' || message.method === 'thread/start') {
     recordCodexThreadReasoning(session, message);
     const threadId = message.params?.thread?.id || message.params?.id || message.result?.thread?.id;
     if (threadId) {
+      const expectedThreadId = String(session.codexExpectedResumeThreadId || '').trim();
+      if (expectedThreadId && threadId !== expectedThreadId) {
+        session._log?.warn('codex ignored unexpected thread id while resuming', {
+          expectedThreadId,
+          receivedThreadId: threadId,
+        });
+        return;
+      }
       persistAgentSessionId(session, threadId);
       emitCodexAgentSession(session, threadId);
       if (session._threadStartResolve) {

@@ -118,7 +118,7 @@ function isCodexSubagentSource(threadSource, source) {
 }
 
 function readCodexSessionMeta(filePath) {
-  const result = { id: '', cwd: '', firstMessage: '', source: undefined };
+  const result = { id: '', cwd: '', firstMessage: '', source: undefined, forkedFromId: '' };
   let fallbackFirstMessage = '';
   let hasSessionIdentity = false;
   readJsonlRecordsUntil(filePath, SESSION_SUMMARY_SCAN_LIMIT, item => {
@@ -132,6 +132,9 @@ function readCodexSessionMeta(filePath) {
         if (Object.prototype.hasOwnProperty.call(item.payload || {}, 'source')) {
           result.source = item.payload.source;
         }
+        result.forkedFromId = stringOrEmpty(
+          item.payload?.forked_from_id || item.payload?.forkedFromId,
+        );
       } else {
         result.cwd = sessionCwd || result.cwd;
       }

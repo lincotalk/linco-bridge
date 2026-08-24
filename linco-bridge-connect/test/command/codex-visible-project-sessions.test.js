@@ -161,6 +161,7 @@ test('Codex forked JSONL keeps the child session identity', () => {
 
   const matched = findCodexProjectSessionById(homeDir, project, childId);
   assert.equal(matched?.id, childId);
+  assert.equal(matched?.forkedFromId, parentId);
   assert.equal(matched?.firstMessage, 'forked session prompt');
   assert.equal(matched?.transcriptPath, transcriptPath);
   assert.equal(findCodexProjectSessionById(homeDir, project, parentId), null);

@@ -25,6 +25,7 @@ const {
 } = require('./payloads');
 const {
   parseRecentHistoryRounds,
+  readCodexSessionMeta,
 } = require('./readers');
 const {
   collectCodexProjectlessChats,
@@ -247,12 +248,19 @@ function activateMatchedSession(session, matched, workspace) {
   session.workspace = workspace;
   session.agentSessionId = matched.id;
   const existing = session.agentSessionHistory.find(entry => entry.id === matched.id);
+  const localCodexMeta = session.agentType === 'codex' && matched.transcriptPath
+    ? readCodexSessionMeta(matched.transcriptPath)
+    : null;
+  const forkedFromId = stringOrEmpty(matched.forkedFromId || localCodexMeta?.forkedFromId);
   if (existing) {
     existing.isActive = true;
     existing.lastActiveAt = new Date().toISOString();
+    if (forkedFromId) existing.forkedFromId = forkedFromId;
+    else delete existing.forkedFromId;
   } else {
     const entry = createAgentSessionEntry(session, matched.id, matched.firstMessage || matched.title || '');
     entry.isActive = true;
+    if (forkedFromId) entry.forkedFromId = forkedFromId;
     session.agentSessionHistory.push(entry);
   }
   saveSessionMetadata(session);

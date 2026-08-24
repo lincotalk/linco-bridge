@@ -21,6 +21,7 @@ function mapThreadListItem(thread, workspace) {
     || timestampMs(thread?.createdAt)
     || 0;
   const statusType = stringValue(thread?.status?.type).toLowerCase();
+  const forkedFromId = stringValue(thread?.forkedFromId || thread?.forked_from_id);
   return {
     id,
     title,
@@ -28,6 +29,7 @@ function mapThreadListItem(thread, workspace) {
     updatedAt,
     workspace: stringValue(thread?.cwd) || workspace,
     running: statusType === 'active',
+    ...(forkedFromId ? { forkedFromId } : {}),
     source: 'codex-app-server',
   };
 }
