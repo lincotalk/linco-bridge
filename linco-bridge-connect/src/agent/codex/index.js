@@ -65,6 +65,7 @@ const {
   mapTurnsToRounds,
   paginateRounds,
 } = require('./sessions');
+const { MAX_LOCAL_SESSIONS_LIMIT } = require('../../command/history/constants');
 
 const CODEX_TURN_COMPLETION_FALLBACK_MS = 1000;
 const CODEX_COMPACTION_STALE_MS = 90_000;
@@ -191,14 +192,16 @@ async function listProjectSessions(session, config, options = {}) {
     return listProjectSessionsFromLocal(session, config, options);
   }
 
+  const localSessions = listProjectSessionsFromLocal(session, config, options);
   try {
-    return await listProjectSessionsFromRpc(session, config, options);
+    const rpcSessions = await listProjectSessionsFromRpc(session, config, options);
+    return mergeCodexSessionRows(rpcSessions, localSessions, options.limit);
   } catch (err) {
     config?.logger?.warn?.('codex thread/list failed, falling back to local sessions', {
       error: err.message,
       workspace: projectPath,
     });
-    return listProjectSessionsFromLocal(session, config, options);
+    return localSessions;
   }
 }
 
@@ -258,6 +261,32 @@ function mergeCodexProjectRows(primaryRows, fallbackRows) {
     merged.push(row);
   }
   return merged;
+}
+
+function mergeCodexSessionRows(rpcRows, localRows, limit = 0) {
+  const sessionsById = new Map();
+  for (const row of localRows || []) {
+    const id = String(row?.id || '').trim();
+    if (!id) continue;
+    sessionsById.set(id, row);
+  }
+  for (const row of rpcRows || []) {
+    const id = String(row?.id || '').trim();
+    if (!id) continue;
+    const local = sessionsById.get(id) || {};
+    sessionsById.set(id, {
+      ...local,
+      ...row,
+      transcriptPath: row.transcriptPath || local.transcriptPath || '',
+    });
+  }
+
+  const merged = Array.from(sessionsById.values()).sort((a, b) => {
+    const updatedDelta = (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0);
+    if (updatedDelta) return updatedDelta;
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+  return Number.isInteger(limit) && limit > 0 ? merged.slice(0, limit) : merged;
 }
 
 async function findProjectSession(session, config, options = {}) {
@@ -352,7 +381,11 @@ function listProjectSessionsFromLocal(session, config, options = {}) {
     agentType: 'codex',
     workspace: options.workspace || options.projectPath || session.workspace,
     homeDir: config?.homeDir || os.homedir(),
-    limit: options.limit,
+    // limit=0 means "find from all available sessions" in the provider API.
+    // The local collector requires a positive limit, so use its public maximum.
+    limit: Number.isInteger(options.limit) && options.limit > 0
+      ? options.limit
+      : MAX_LOCAL_SESSIONS_LIMIT,
     projectId: options.projectId,
   });
 }
@@ -3146,6 +3179,7 @@ module.exports = {
     mapCodexProjectListResult,
     mapThreadListItem,
     mapTurnsToRounds,
+    mergeCodexSessionRows,
     mergeCodexProjectRows,
     paginateRounds,
     rpcRequest,

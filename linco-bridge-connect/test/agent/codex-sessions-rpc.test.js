@@ -13,6 +13,7 @@ const {
   mapTurnsToRounds,
   paginateRounds,
 } = require('../../src/agent/codex/sessions');
+const { _internal: { mergeCodexSessionRows } } = require('../../src/agent/codex');
 
 test('mapThreadListItem prefers name then preview', () => {
   assert.deepEqual(
@@ -34,6 +35,37 @@ test('mapThreadListItem prefers name then preview', () => {
       source: 'codex-app-server',
     },
   );
+});
+
+test('provider-scoped RPC sessions are merged with previous-provider local sessions', () => {
+  const merged = mergeCodexSessionRows(
+    [{
+      id: 'current-provider',
+      title: 'Current provider title',
+      updatedAt: 300,
+      running: true,
+      source: 'codex-app-server',
+    }],
+    [{
+      id: 'current-provider',
+      title: 'Local current title',
+      updatedAt: 300,
+      transcriptPath: '/local/current.jsonl',
+      source: 'codex-local',
+    }, {
+      id: 'previous-provider',
+      title: 'Previous provider title',
+      updatedAt: 200,
+      transcriptPath: '/local/previous.jsonl',
+      source: 'codex-local',
+    }],
+    10,
+  );
+
+  assert.deepEqual(merged.map(item => item.id), ['current-provider', 'previous-provider']);
+  assert.equal(merged[0].title, 'Current provider title');
+  assert.equal(merged[0].transcriptPath, '/local/current.jsonl');
+  assert.equal(merged[1].title, 'Previous provider title');
 });
 
 test('mapTurnsToRounds maps user/agent items and optional thinking', () => {
