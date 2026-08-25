@@ -167,10 +167,13 @@ function runAppServerTurn(input, ws, session, config) {
       session._log?.error('codex turn error', { message: err.message });
       if (session.isTurnActive) {
         const displayMessage = err?.code === 'CODEX_THREAD_ACTIVE_WRITER'
+          || err?.code === 'CODEX_THREAD_RESUME_FAILED'
           ? err.message
           : `Codex app-server 错误: ${err.message}`;
+        const errorCode = String(err?.code || '').trim();
         failCodexTurn(ws, session, config, displayMessage, {
           error: err.message,
+          ...(errorCode ? { code: errorCode, error_code: errorCode } : {}),
         });
       }
     });
@@ -1670,8 +1673,14 @@ function isRetriableCodexAppServerError(params = {}, message = '') {
  */
 function failCodexTurn(ws, session, config, message, payload = {}) {
   const errorMessage = String(message || 'Codex turn failed');
+  const errorCode = String(payload.code || payload.error_code || '').trim();
+  const codedPayload = {
+    ...payload,
+    error: errorMessage,
+    ...(errorCode ? { code: errorCode, error_code: errorCode } : {}),
+  };
   if (!session?.isTurnActive) {
-    if (ws) sendError(ws, errorMessage);
+    if (ws) sendError(ws, errorMessage, errorCode || undefined, session);
     return;
   }
 
@@ -1679,15 +1688,15 @@ function failCodexTurn(ws, session, config, message, payload = {}) {
   // Prefer promoting partial output to a normal completion so clients finalize.
   // Only emit sendError when there is nothing to show; otherwise IM aborts first.
   if (!hadPartial && ws) {
-    sendError(ws, errorMessage);
+    sendError(ws, errorMessage, errorCode || undefined, session);
   } else if (hadPartial) {
     session._log?.warn?.('codex turn recovered partial output after error', {
       message: errorMessage,
+      code: errorCode || undefined,
     });
   }
   finishCodexTurn(ws, session, config, hadPartial ? 'completed' : 'error', {
-    ...payload,
-    error: errorMessage,
+    ...codedPayload,
     ...(hadPartial ? { partialRecovered: true } : {}),
   });
 }

@@ -219,3 +219,39 @@ test('concurrent callers share one copied-session resume request', async () => {
   assert.deepEqual(await Promise.all([first, second]), ['fork-child-thread', 'fork-child-thread']);
   assert.equal(writes.filter(message => message.method === 'thread/resume').length, 1);
 });
+
+test('failCodexTurn emits structured CODEX_THREAD_ACTIVE_WRITER code on error and turn_end', () => {
+  const { failCodexTurn } = require('../../src/agent/codex')._internal;
+  const frames = [];
+  const ws = {
+    send(value) {
+      frames.push(JSON.parse(value));
+    },
+  };
+  const session = {
+    id: 'linco-session',
+    agentType: 'codex',
+    agentSessionId: 'fork-child-thread',
+    isTurnActive: true,
+    sawPartialAssistantText: false,
+    messageQueue: [],
+    linco: { messageId: 'msg-1', streamId: 'stream-1' },
+  };
+  const message = '该会话是通过 Codex 旧版“复制会话”功能创建的。';
+
+  failCodexTurn(ws, session, { agents: { codex: { mode: 'app-server' } } }, message, {
+    code: 'CODEX_THREAD_ACTIVE_WRITER',
+    error_code: 'CODEX_THREAD_ACTIVE_WRITER',
+  });
+
+  const errorFrame = frames.find((frame) => frame.type === 'error');
+  const turnEnd = frames.find((frame) => frame.type === 'turn_end');
+  assert.equal(errorFrame?.text, message);
+  assert.equal(errorFrame?.code, 'CODEX_THREAD_ACTIVE_WRITER');
+  assert.equal(errorFrame?.error_code, 'CODEX_THREAD_ACTIVE_WRITER');
+  assert.equal(errorFrame?.agentSessionId, 'fork-child-thread');
+  assert.equal(turnEnd?.reason, 'error');
+  assert.equal(turnEnd?.code, 'CODEX_THREAD_ACTIVE_WRITER');
+  assert.equal(turnEnd?.error_code, 'CODEX_THREAD_ACTIVE_WRITER');
+  assert.equal(turnEnd?.error, message);
+});

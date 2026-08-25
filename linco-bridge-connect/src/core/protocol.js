@@ -8,8 +8,17 @@ function sendSystem(ws, text) {
   send(ws, 'system', { text });
 }
 
-function sendError(ws, text, code) {
-  send(ws, 'error', { text, ...(code ? { code } : {}) });
+function sendError(ws, text, code, session) {
+  const coded = code ? { code, error_code: code } : {};
+  if (session) {
+    send(ws, 'error', {
+      ...buildSessionScopedPayload(session, {}),
+      text,
+      ...coded,
+    });
+    return;
+  }
+  send(ws, 'error', { text, ...coded });
 }
 
 function agentSessionIdFrom(session, payload = {}) {
