@@ -1,7 +1,13 @@
 const { executeAgentQuery, resolvePendingDanger, resolvePendingPermission } = require('../runtime/agentRunner');
 const { handleMessageWithAttachments } = require('../attachment/attachmentHandler');
 const { send, sendError, sendSystem, sendTurnEnd } = require('./protocol');
-const { cleanupSession, createSession, saveSessionMetadata, stopAgentProcess } = require('./session');
+const {
+  cleanupSession,
+  createSession,
+  restoreAgentSessionIdFromInbound,
+  saveSessionMetadata,
+  stopAgentProcess,
+} = require('./session');
 const {
   handleSlashCommand,
   handleRemoteBridgeSlashCommand,
@@ -237,6 +243,8 @@ class ImConnector {
     const session = this.getOrCreateSession(sessionKey, msg);
     if (!session) return;
     session.lastRemoteActivityAt = Date.now();
+    // /stop 或闲置回收后可能丢掉内存绑定；服务端在已建立桌面 Session 时会带 expectedAgentSessionId。
+    restoreAgentSessionIdFromInbound(session, msg);
     const linco = lincoMetaForConnector(this, msg);
     linco.streamId = linco.streamId || buildStreamId(msg);
     linco.fullText = '';

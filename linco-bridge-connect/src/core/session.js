@@ -302,6 +302,21 @@ function persistAgentSessionId(session, agentSessionId) {
   }
 }
 
+function restoreAgentSessionIdFromInbound(session, msg = {}) {
+  if (!session) return false;
+  if (String(session.agentSessionId || '').trim()) return false;
+
+  const expected = String(msg.expectedAgentSessionId || msg.expected_agent_session_id || '').trim();
+  if (!expected) return false;
+  if (expected === String(session.id || '').trim()) return false;
+  if (expected.startsWith('conv_')) return false;
+  if (/^conn_/i.test(expected)) return false;
+  if (expected.length < 8) return false;
+
+  persistAgentSessionId(session, expected);
+  return String(session.agentSessionId || '').trim() === expected;
+}
+
 function clearPersistedAgentSession(session) {
   clearHistoryFileAuthorization(session);
   session.agentSessionId = null;
@@ -410,6 +425,7 @@ module.exports = {
   persistAgentSessionId,
   recordAgentSession,
   resetConversationState,
+  restoreAgentSessionIdFromInbound,
   saveSessionMetadata,
   stopAgentProcess,
   updateAgentSessionHistory,

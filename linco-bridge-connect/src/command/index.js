@@ -1,4 +1,5 @@
 const { sendError, sendSystem } = require('../core/protocol');
+const { saveSessionMetadata } = require('../core/session');
 const { handleRemoveAccount, parseRemoveAccountArgs } = require('./account');
 const { handleAccounts, parseAccountsArgs } = require('./accounts');
 const {
@@ -171,6 +172,12 @@ function handleSlashCommand(text, ws, session, config) {
 
     case '/stop':
       agentRunner().stopAgentProcess(session, { clearAgentSession: false });
+      // 显式落盘，避免仅有内存 agentSessionId，闲置回收后无法 resume。
+      try {
+        saveSessionMetadata(session);
+      } catch {
+        // ignore persistence errors; resume 仍尽量保留内存 id
+      }
       sendSystem(ws, '⏹️ 已停止当前 Agent 进程，下次消息会尝试恢复当前会话。');
       return completeLocalCommand(ws, session);
 
