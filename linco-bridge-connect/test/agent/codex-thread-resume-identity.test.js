@@ -62,11 +62,12 @@ function createHarness() {
   return { child, frames, session, warnings, writes, ws };
 }
 
-async function waitForRequest(writes, method, occurrence = 1) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+async function waitForRequest(writes, method, occurrence = 1, timeoutMs = 8000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
     const matches = writes.filter(message => message.method === method);
     if (matches.length >= occurrence) return matches[occurrence - 1];
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setTimeout(resolve, 20));
   }
   throw new Error(`Timed out waiting for ${method} request #${occurrence}`);
 }
@@ -116,7 +117,7 @@ test('a failed copied-session resume preserves the selected id and never starts 
   assert.equal(writes.some(message => message.method === 'thread/start'), false);
 });
 
-test('an active desktop writer fails once with a precise error and preserves the selected id', async () => {
+test('an active desktop writer retries then fails with a precise error and preserves the selected id', async () => {
   const { ensureThread, handleAppServerMessage } = loadCodexInternals();
   const { session, writes } = createHarness();
   session.codexDeveloperInstructionsMode = 'developer';
@@ -127,7 +128,7 @@ test('an active desktop writer fails once with a precise error and preserves the
   }];
 
   const pending = ensureThread(session);
-  const request = await waitForRequest(writes, 'thread/resume');
+  const request = await waitForRequest(writes, 'thread/resume', 1);
   rejectRpc(
     handleAppServerMessage,
     session,
@@ -145,6 +146,23 @@ test('an active desktop writer fails once with a precise error and preserves the
   assert.equal(session.agentSessionId, 'fork-child-thread');
   assert.equal(writes.filter(message => message.method === 'thread/resume').length, 1);
   assert.equal(writes.some(message => message.method === 'thread/start'), false);
+});
+
+test('ensureThread skips a second resume when the same live thread is already active', async () => {
+  const { ensureThread, handleAppServerMessage } = loadCodexInternals();
+  const { session, writes } = createHarness();
+
+  const first = ensureThread(session);
+  const request = await waitForRequest(writes, 'thread/resume');
+  resolveRpc(handleAppServerMessage, session, request, {
+    thread: { id: 'fork-child-thread' },
+  });
+  assert.equal(await first, 'fork-child-thread');
+  assert.equal(session.codexActiveThreadId, 'fork-child-thread');
+
+  const second = await ensureThread(session);
+  assert.equal(second, 'fork-child-thread');
+  assert.equal(writes.filter(message => message.method === 'thread/resume').length, 1);
 });
 
 test('a transient resume failure retries the same copied-session id without creating a thread', async () => {
@@ -220,7 +238,7 @@ test('concurrent callers share one copied-session resume request', async () => {
   assert.equal(writes.filter(message => message.method === 'thread/resume').length, 1);
 });
 
-test('failCodexTurn emits structured CODEX_THREAD_ACTIVE_WRITER code on error and turn_end', () => {
+test('failCodexTurn emits active-writer error before turn_end without a system prelude', () => {
   const { failCodexTurn } = require('../../src/agent/codex')._internal;
   const frames = [];
   const ws = {
@@ -244,8 +262,11 @@ test('failCodexTurn emits structured CODEX_THREAD_ACTIVE_WRITER code on error an
     error_code: 'CODEX_THREAD_ACTIVE_WRITER',
   });
 
+  const systemFrame = frames.find((frame) => frame.type === 'system');
   const errorFrame = frames.find((frame) => frame.type === 'error');
   const turnEnd = frames.find((frame) => frame.type === 'turn_end');
+  assert.equal(frames[0]?.type, 'error');
+  assert.equal(systemFrame, undefined);
   assert.equal(errorFrame?.text, message);
   assert.equal(errorFrame?.code, 'CODEX_THREAD_ACTIVE_WRITER');
   assert.equal(errorFrame?.error_code, 'CODEX_THREAD_ACTIVE_WRITER');

@@ -42,6 +42,9 @@ function mapTurnsToRounds(turns, options = {}) {
   for (let index = 0; index < list.length; index += 1) {
     const turn = list[index];
     const items = Array.isArray(turn?.items) ? turn.items : [];
+    const turnStartedTimestamp = timestampMs(turn?.startedAt) || null;
+    const turnCompletedTimestamp = timestampMs(turn?.completedAt)
+      || turnStartedTimestamp;
     let rawUser = '';
     let rawAssistant = '';
     let userTimestamp = null;
@@ -86,6 +89,11 @@ function mapTurnsToRounds(turns, options = {}) {
           });
         }
       }
+    }
+
+    if (rawUser && !userTimestamp) userTimestamp = turnStartedTimestamp;
+    if (rawAssistant && !assistantTimestamp) {
+      assistantTimestamp = turnCompletedTimestamp;
     }
 
     const enriched = enrichCodexRoundFromRawMessages({

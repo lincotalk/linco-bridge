@@ -19,6 +19,12 @@ const {
 const { handleApprove } = require('./approve');
 const { buildHelpPayload } = require('./help');
 const {
+  STOP_DESKTOP_CONFIRM_MESSAGE,
+  buildStopDesktopResultMessage,
+  parseStopDesktopArg,
+  stopDesktopCodex,
+} = require('../agent/codex/stopDesktop');
+const {
   collectClaudeProjectSessions,
   collectCodexProjectSessions,
   collectCodexProjectlessChats,
@@ -170,8 +176,29 @@ function handleSlashCommand(text, ws, session, config) {
       completeMaybeAsyncLocalCommand(handleProfile(rawArg, ws, session, config), ws, session);
       return true;
 
-    case '/stop':
-      agentRunner().stopAgentProcess(session, { clearAgentSession: false });
+    case '/stop': {
+      const stopDesktop = parseStopDesktopArg(rawArg);
+      if (stopDesktop.kind === 'prompt') {
+        sendSystem(ws, STOP_DESKTOP_CONFIRM_MESSAGE);
+        return completeLocalCommand(ws, session);
+      }
+      if (stopDesktop.kind === 'usage') {
+        sendSystem(
+          ws,
+          '用法：/stop desktop（先看确认）或 /stop desktop confirm（确认关闭桌面端）。普通 /stop 仍只停止当前桥接 Agent。',
+        );
+        return completeLocalCommand(ws, session);
+      }
+      if (stopDesktop.kind === 'confirm') {
+        const result = stopDesktopCodex({
+          threadId: session?.agentSessionId || '',
+          homeDir: config?.homeDir,
+          logger: session?._log || null,
+        });
+        sendSystem(ws, buildStopDesktopResultMessage(result));
+        return completeLocalCommand(ws, session);
+      }
+      agentRunner().stopAgentProcess(session, { clearAgentSession: false, forceKill: true });
       // 显式落盘，避免仅有内存 agentSessionId，闲置回收后无法 resume。
       try {
         saveSessionMetadata(session);
@@ -180,6 +207,7 @@ function handleSlashCommand(text, ws, session, config) {
       }
       sendSystem(ws, '⏹️ 已停止当前 Agent 进程，下次消息会尝试恢复当前会话。');
       return completeLocalCommand(ws, session);
+    }
 
     case '/reload':
       handleReload(ws, session, config);

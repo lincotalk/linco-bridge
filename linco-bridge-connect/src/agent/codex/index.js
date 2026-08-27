@@ -5,6 +5,7 @@ const { isDangerousCommand } = require('../../core/danger');
 const { buildCodexEnv } = require('../../runtime/agentEnv');
 const { send, sendAgentSession, sendError, sendSystem, sendTurnEnd } = require('../../core/protocol');
 const { persistAgentSessionId, stopAgentProcess: stopSessionProcess, updateAgentSessionHistory } = require('../../core/session');
+const { reclaimOrphanCodexWriters } = require('./threadWriterLock');
 const {
   appendProgressiveAnswerText,
   promotePendingProgress,
@@ -72,6 +73,9 @@ const CODEX_COMPACTION_STALE_MS = 90_000;
 const DEFAULT_CODEX_COMPACTION_TIMEOUT_MS = 300_000;
 const DEFAULT_CODEX_RPC_TIMEOUT_MS = 15_000;
 const CODEX_THREAD_RESUME_MAX_ATTEMPTS = 2;
+// /stop 或 history-reload 后写锁释放可能有短暂延迟，active writer 允许有限次重试。
+const CODEX_THREAD_ACTIVE_WRITER_RESUME_MAX_ATTEMPTS = 1;
+const CODEX_THREAD_ACTIVE_WRITER_RETRY_DELAY_MS = 350;
 
 class CodexRpcMethodError extends Error {
   constructor(method, error = {}) {
@@ -1389,7 +1393,14 @@ async function ensureThread(session) {
 async function ensureThreadOnce(session) {
   const expectedThreadId = String(session.agentSessionId || '').trim();
   if (expectedThreadId) {
-    return resumeBoundCodexThread(session, expectedThreadId);
+    // 同一 app-server 上已 resume 成功时不要再次 thread/resume，
+    // 否则会和自己持有的 filesystem writer lock 冲突。
+    if (hasLiveCodexThread(session, expectedThreadId)) {
+      return expectedThreadId;
+    }
+    const threadId = await resumeBoundCodexThread(session, expectedThreadId);
+    session.codexActiveThreadId = threadId;
+    return threadId;
   }
 
   const agentConfig = session._lastConfig?.agents?.codex || {};
@@ -1398,7 +1409,16 @@ async function ensureThreadOnce(session) {
     && session.codexDeveloperInstructionsApplied !== true
     ? resolvedDeveloperInstructions
     : '';
-  return startNewThread(session, agentConfig, developerInstructions);
+  const threadId = await startNewThread(session, agentConfig, developerInstructions);
+  session.codexActiveThreadId = threadId;
+  return threadId;
+}
+
+function hasLiveCodexThread(session, threadId) {
+  const activeId = String(session.codexActiveThreadId || '').trim();
+  if (!threadId || activeId !== threadId) return false;
+  const child = session.codexAppServer;
+  return Boolean(child && child.stdin && !child.stdin.destroyed);
 }
 
 async function resumeBoundCodexThread(session, expectedThreadId) {
@@ -1413,7 +1433,11 @@ async function resumeBoundCodexThread(session, expectedThreadId) {
       ? resolvedDeveloperInstructions
       : '';
     let lastError;
-    for (let attempt = 1; attempt <= CODEX_THREAD_RESUME_MAX_ATTEMPTS; attempt += 1) {
+    const maxAttempts = Math.max(
+      CODEX_THREAD_RESUME_MAX_ATTEMPTS,
+      CODEX_THREAD_ACTIVE_WRITER_RESUME_MAX_ATTEMPTS,
+    );
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         const result = await resumeCodexThread(session, developerInstructions);
         assertCodexResumedThreadIdentity(session, expectedThreadId, result);
@@ -1425,14 +1449,29 @@ async function resumeBoundCodexThread(session, expectedThreadId) {
         return expectedThreadId;
       } catch (err) {
         lastError = err;
-        if (attempt >= CODEX_THREAD_RESUME_MAX_ATTEMPTS || !isRetriableCodexThreadResumeError(err)) {
+        const activeWriter = isCodexActiveWriterError(err);
+        const attemptLimit = activeWriter
+          ? CODEX_THREAD_ACTIVE_WRITER_RESUME_MAX_ATTEMPTS
+          : CODEX_THREAD_RESUME_MAX_ATTEMPTS;
+        if (attempt >= attemptLimit || !isRetriableCodexThreadResumeError(err)) {
           break;
         }
         session._log?.warn('codex thread resume transient failure, retrying same thread', {
           threadId: expectedThreadId,
           attempt,
+          activeWriter,
           message: err.message,
         });
+        if (activeWriter) {
+          // 只清理 Linco/CLI 孤儿；占锁后不要再 ensureAppServer（Desktop 占锁时会卡住「正在思考」）。
+          // reclaim 一次后立刻失败结束回合，由 failCodexTurn 发占用提示并停掉思考态。
+          await recycleCodexAppServerForResumeRetry(session, {
+            reclaimOrphans: true,
+            threadId: expectedThreadId,
+            skipEnsureAppServer: true,
+          });
+          break;
+        }
       }
     }
 
@@ -1466,8 +1505,55 @@ function assertCodexResumedThreadIdentity(session, expectedThreadId, result) {
   }
 }
 
+async function recycleCodexAppServerForResumeRetry(session, options = {}) {
+  session.codexActiveThreadId = null;
+  session.codexThreadEnsurePromise = null;
+  session.codexAppServerReadyPromise = null;
+  const child = session.codexAppServer;
+  const hasRealPid = Number.isInteger(child?.pid) && child.pid > 0;
+  const reclaimOrphans = options.reclaimOrphans === true || options.reclaimWriter === true;
+  const skipEnsureAppServer = options.skipEnsureAppServer === true;
+  const threadId = String(options.threadId || session.agentSessionId || '').trim();
+
+  // 先停本会话 app-server；若需清理，只杀非 Desktop 孤儿，绝不碰 Codex Desktop。
+  if (hasRealPid) {
+    try {
+      stopSessionProcess(session, { clearAgentSession: false, forceKill: true });
+    } catch {
+      // ignore recycle failures; next ensureAppServer will spawn fresh
+    }
+    session.codexAppServer = null;
+    session.agentProcess = null;
+  }
+
+  if (reclaimOrphans && threadId) {
+    try {
+      const reclaimResult = reclaimOrphanCodexWriters({
+        threadId,
+        keepPids: [],
+        logger: session._log,
+      });
+      session.codexLastWriterReclaim = reclaimResult;
+    } catch (err) {
+      session._log?.warn?.('codex orphan writer cleanup failed', {
+        threadId,
+        message: err?.message || String(err),
+      });
+    }
+  }
+
+  // 单测 harness 只有 mock stdin、没有真实 pid，勿在此处 spawn 真 Codex。
+  // active-writer 重试可跳过 ensure，避免 Desktop 占锁时卡住「正在思考」。
+  if (!hasRealPid || skipEnsureAppServer) return;
+  const config = session._lastConfig;
+  if (config) {
+    await ensureAppServer(session, config);
+  }
+}
+
 function isRetriableCodexThreadResumeError(err) {
-  if (isCodexActiveWriterError(err)) return false;
+  // stop / history-reload 后旧进程退出瞬间常短暂报 active writer，允许重试。
+  if (isCodexActiveWriterError(err)) return true;
   if (isRetriableCodexAppServerError(err?.data || {}, err?.message || '')) return true;
   return /Codex RPC 超时|timeout|timed out/i.test(String(err?.message || ''));
 }
@@ -1484,9 +1570,17 @@ function buildCodexThreadResumeFailureMessage(session, err) {
     if (activeEntry?.forkedFromId) {
       return '该会话是通过 Codex 旧版“复制会话”功能创建的。新版 Codex 已调整这类会话的写入机制，Linco App 暂时无法继续在原会话中聊天。原会话内容不会丢失，可在 Codex 桌面端继续使用。';
     }
-    return '新版 Codex 已调整旧会话的跨端写入机制，Linco App 暂时无法继续在这个原会话中聊天。原会话内容不会丢失，可在 Codex 桌面端继续使用。';
+    const desktopHolders = session?.codexLastWriterReclaim?.desktopHolders;
+    if (Array.isArray(desktopHolders) && desktopHolders.length > 0) {
+      return '检测到会话写入权被占用，请执行 /stop desktop来释放进程';
+    }
+    return '检测到会话写入权被占用，请执行 /stop desktop来释放进程';
   }
   return `所选 Codex 会话暂时无法恢复，已保留原会话且未创建新会话。请稍后重试。${detail}`;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function resumeCodexThread(session, developerInstructions = '') {
@@ -3197,16 +3291,15 @@ function resolvePendingPermission(approved, ws, session, config, requestId) {
 
 function stop(session, options = {}) {
   failActiveCodexCompaction(session, 'turn_cancelled', 'Codex turn was stopped.');
-  if (session.codexAppServer) {
-    try {
-      session.codexAppServer.kill();
-    } catch {
-      // ignore
-    }
-    session.codexAppServer = null;
-  }
   session.codexAppServerReadyPromise = null;
-  stopSessionProcess(session, options);
+  session.codexActiveThreadId = null;
+  session.codexThreadEnsurePromise = null;
+  // 默认强制杀进程树，避免软杀宽限期内旧 app-server 仍占 active writer。
+  stopSessionProcess(session, {
+    ...options,
+    forceKill: options.forceKill !== false,
+  });
+  session.codexAppServer = null;
   clearTurnState(session);
   clearPendingPermissions(session, 'codex');
   if (session.codexPendingRequests) {

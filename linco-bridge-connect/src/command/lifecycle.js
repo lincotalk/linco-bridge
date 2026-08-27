@@ -33,23 +33,59 @@ function handleReload(ws, session, config) {
 function runReload(ws, session, config) {
   const agentType = session.agentType || 'claude';
   const resumeId = session.agentSessionId || '';
-  agentRunner().stopAgentProcess(session, { clearAgentSession: false });
+  // history-reload 会先拉历史再 reload；强制杀进程，避免旧 app-server 残留写锁。
+  agentRunner().stopAgentProcess(session, { clearAgentSession: false, forceKill: true });
   sendSystem(ws, [
     `🔄 已刷新当前 ${agentType} 会话。`,
     resumeId ? `保留的 Session ID: ${resumeId}` : '当前还没有可恢复的 Session ID。',
     '下次消息会重新加载本地 Agent 历史。'
   ].join('\n'));
-  return Promise.resolve(agentRunner().warmupAgentProcess(ws, session, config))
-    .then(result => {
+  return warmupAfterReload(ws, session, config, agentType);
+}
+
+function isSoftWarmupFailure(err) {
+  const code = String(err?.code || '').trim();
+  const message = String(err?.message || err || '');
+  return code === 'CODEX_THREAD_ACTIVE_WRITER'
+    || /active writer/i.test(message)
+    || /写入权仍被占用|跨端写入机制/.test(message);
+}
+
+async function warmupAfterReload(ws, session, config, agentType) {
+  const delaysMs = [0, 400, 900];
+  let lastError;
+  for (let index = 0; index < delaysMs.length; index += 1) {
+    const delayMs = delaysMs[index];
+    if (delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      agentRunner().stopAgentProcess(session, { clearAgentSession: false, forceKill: true });
+    }
+    try {
+      const result = await agentRunner().warmupAgentProcess(ws, session, config);
       if (result?.supported === false) {
         sendSystem(ws, `${agentType} 模式不支持空预启动，下次消息会按需启动。`);
         return;
       }
       sendSystem(ws, `${agentType} Agent 进程已预启动。`);
-    })
-    .catch(err => {
-      sendError(ws, `${agentType} Agent 预启动失败: ${err.message}`);
-    });
+      return;
+    } catch (err) {
+      lastError = err;
+      if (!isSoftWarmupFailure(err)) {
+        sendError(ws, `${agentType} Agent 预启动失败: ${err.message}`);
+        return;
+      }
+    }
+  }
+
+  // 预启动是 best-effort：active writer 瞬时冲突不应变成进房红条终态错误。
+  // 历史已在 history-reload 前半段返回；真正发消息时还会再 resume。
+  // 软失败后强制清掉可能半开着的 app-server，避免发消息时和自己抢写锁。
+  agentRunner().stopAgentProcess(session, { clearAgentSession: false, forceKill: true });
+  sendSystem(
+    ws,
+    `${agentType} 预启动暂未完成（会话写入权忙），历史已同步；发送消息时会再次尝试恢复会话。`,
+  );
+  return lastError;
 }
 
 function handleHistoryReload(rawArg, ws, session, config = {}) {
@@ -155,6 +191,8 @@ module.exports = {
   handleCompactCommand,
   handleReload,
   runReload,
+  warmupAfterReload,
+  isSoftWarmupFailure,
   handleHistoryReload,
   isSessionBusyForHistoryReload,
   trackHistoryResult,

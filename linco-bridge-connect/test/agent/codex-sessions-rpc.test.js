@@ -97,6 +97,37 @@ test('mapTurnsToRounds maps user/agent items and optional thinking', () => {
   assert.equal(rounds[1].thinkingItems.some(item => item.mode === 'progress' && item.text === 'draft'), true);
 });
 
+test('mapTurnsToRounds falls back to turn timestamps when items omit them', () => {
+  const rounds = mapTurnsToRounds([
+    {
+      id: 'turn_1',
+      startedAt: 1787730000,
+      completedAt: 1787730030,
+      items: [
+        { type: 'userMessage', text: 'older question' },
+        { type: 'agentMessage', phase: 'final_answer', text: 'older answer' },
+      ],
+    },
+    {
+      id: 'turn_2',
+      startedAt: 1787730100,
+      completedAt: 1787730120,
+      items: [
+        { type: 'userMessage', text: 'newer question' },
+        { type: 'agentMessage', phase: 'final_answer', text: 'newer answer' },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(
+    rounds.map(round => [round.userTimestamp, round.assistantTimestamp]),
+    [
+      [1787730000000, 1787730030000],
+      [1787730100000, 1787730120000],
+    ],
+  );
+});
+
 test('mapTurnsToRounds reuses local parsers for files-mentioned filter and assistant file links', () => {
   const tempDir = require('node:fs').mkdtempSync(require('node:path').join(require('node:os').tmpdir(), 'linco-rpc-history-'));
   const imagePath = require('node:path').join(tempDir, 'shot.png');

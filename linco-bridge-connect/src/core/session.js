@@ -340,7 +340,11 @@ function resetConversationState(session, { clearAgentSession = true, clearClaude
   clearStreamState(session);
 }
 
-function stopAgentProcess(session, { clearAgentSession = false, clearClaudeSession } = {}) {
+function stopAgentProcess(session, {
+  clearAgentSession = false,
+  clearClaudeSession,
+  forceKill = false,
+} = {}) {
   const shouldClearAgentSession = clearClaudeSession == null ? clearAgentSession : clearClaudeSession;
   const children = collectSessionChildren(session);
   session.agentProcess = null;
@@ -348,7 +352,8 @@ function stopAgentProcess(session, { clearAgentSession = false, clearClaudeSessi
   session.codexAppServer = null;
 
   for (const child of children) {
-    stopChildProcess(child);
+    // /stop 与 history-reload 预启动前必须立刻释放写锁，避免 3s 宽限期内 resume 撞上残留 active writer。
+    stopChildProcess(child, forceKill ? 0 : 3000);
   }
 
   resetConversationState(session, { clearAgentSession: shouldClearAgentSession });
@@ -370,11 +375,16 @@ function stopChildProcess(child, graceMs = 3000) {
     if (child.stdin && !child.stdin.destroyed) child.stdin.end();
   } catch {}
 
-  if (isChildRunning(child)) {
-    setTimeout(() => {
-      forceKillChildProcess(child);
-    }, graceMs).unref?.();
+  if (!isChildRunning(child)) return;
+
+  if (graceMs <= 0) {
+    forceKillChildProcess(child);
+    return;
   }
+
+  setTimeout(() => {
+    forceKillChildProcess(child);
+  }, graceMs).unref?.();
 }
 
 function isChildRunning(child) {

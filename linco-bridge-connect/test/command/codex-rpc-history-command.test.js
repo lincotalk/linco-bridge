@@ -53,7 +53,7 @@ function createFakeAppServer(tempDir) {
     '    return;',
     '  }',
     "  if (message.method === 'thread/turns/list') {",
-    "    reply(message.id, { data: [{ id: 'rpc-turn-1', items: [{ id: 'user-1', type: 'userMessage', text: 'RPC user' }, { id: 'assistant-1', type: 'agentMessage', phase: 'final_answer', text: 'RPC assistant' }] }], nextCursor: null });",
+    "    reply(message.id, { data: [{ id: 'rpc-turn-1', startedAt: 1786000100, completedAt: 1786000120, items: [{ id: 'user-1', type: 'userMessage', text: 'RPC user' }, { id: 'assistant-1', type: 'agentMessage', phase: 'final_answer', text: 'RPC assistant' }] }], nextCursor: null });",
     '    return;',
     '  }',
     "  if (message.method === 'thread/read') {",
@@ -115,7 +115,9 @@ test('Codex RPC sessions bind and history commands complete in protocol order', 
     assertResultBeforeSingleTurnEnd(historyWs, 'history');
     const historyResult = historyWs.sent.find(frame => frame.type === 'slash_command_result');
     assert.equal(historyResult.data.rounds[0].user.text, 'RPC user');
+    assert.equal(historyResult.data.rounds[0].user.timestampMs, 1786000100000);
     assert.equal(historyResult.data.rounds[0].assistant.text, 'RPC assistant');
+    assert.equal(historyResult.data.rounds[0].assistant.timestampMs, 1786000120000);
     assert.equal(historyResult.data.syncMeta.strategy, 'codex_app_server_turns_list');
   } finally {
     const child = session.codexAppServer;
