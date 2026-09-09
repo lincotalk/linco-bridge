@@ -430,8 +430,8 @@ function isHistoryConversationRecord(item, agentType) {
     return item?.type === 'user' || item?.type === 'assistant';
   }
   if (item?.type === 'event_msg') {
-    return item.payload?.type === 'user_message' ||
-      item.payload?.type === 'agent_message';
+    const payload = codexHistoryEventPayload(item);
+    return payload.type === 'user_message' || payload.type === 'agent_message';
   }
   return item?.type === 'response_item' &&
     item.payload?.type === 'message' &&
@@ -440,10 +440,11 @@ function isHistoryConversationRecord(item, agentType) {
 
 function isActualHistoryUserRecord(item, agentType) {
   if (agentType === 'claude') return isClaudeActualUserRecord(item);
-  if (item?.type !== 'event_msg' || item.payload?.type !== 'user_message') {
+  const payload = codexHistoryEventPayload(item);
+  if (item?.type !== 'event_msg' || payload.type !== 'user_message') {
     return false;
   }
-  const raw = stringOrEmpty(item.payload.message);
+  const raw = stringOrEmpty(payload.message);
   return normalizeCodexUserText(raw).length > 0 ||
     raw.includes('# Files mentioned by the user:');
 }
@@ -656,8 +657,24 @@ function extractCodexUserText(item) {
 }
 
 function extractCodexEventUserText(item) {
-  if (item?.type !== 'event_msg' || item.payload?.type !== 'user_message') return '';
-  return normalizeCodexUserText(item.payload.message);
+  const payload = codexHistoryEventPayload(item);
+  if (item?.type !== 'event_msg' || payload.type !== 'user_message') return '';
+  return normalizeCodexUserText(payload.message);
+}
+
+// New Codex transcripts wrap completed messages instead of emitting legacy events.
+// Normalize only the payload so pagination keeps the original record's byte offsets.
+function codexHistoryEventPayload(record) {
+  const payload = record?.payload || {};
+  if (record?.type !== 'event_msg' || payload.type !== 'item_completed') return payload;
+  const item = payload.item;
+  const type = stringOrEmpty(item?.type).toLowerCase();
+  if (type !== 'usermessage' && type !== 'agentmessage') return payload;
+  return {
+    type: type === 'usermessage' ? 'user_message' : 'agent_message',
+    message: extractTextFromMessageContent(item.content),
+    phase: item.phase,
+  };
 }
 
 function normalizeCodexUserText(text) {
@@ -968,7 +985,7 @@ function parseCodexHistoryRecords(records, options = {}) {
   const includeThinking = options.includeThinking === true;
 
   for (const item of records) {
-    const payload = item?.payload || {};
+    const payload = codexHistoryEventPayload(item);
 
     if (includeThinking && current) {
       collectCodexHistoryThinking(current, item, extractHistoryTimestamp(item));
@@ -1019,7 +1036,7 @@ function parseCodexHistoryRecords(records, options = {}) {
 
 function collectCodexHistoryThinking(round, item, timestamp) {
   if (!round || !item || typeof item !== 'object') return;
-  const payload = item.payload || {};
+  const payload = codexHistoryEventPayload(item);
 
   if (item.type === 'event_msg') {
     if (payload.type === 'agent_message') {
